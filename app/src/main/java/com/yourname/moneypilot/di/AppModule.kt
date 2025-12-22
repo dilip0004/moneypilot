@@ -40,4 +40,7 @@ object AppModule {
 
     @Provides
     fun provideInvestmentDao(database: MoneyPilotDatabase): InvestmentDao = database.investmentDao()
+
+    @Provides
+    fun provideDistributionRuleDao(database: MoneyPilotDatabase): DistributionRuleDao = database.distributionRuleDao()
 }

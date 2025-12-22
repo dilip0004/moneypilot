@@ -37,7 +37,7 @@ fun AddEditAccountScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Add Account") },
+                title = { Text("Manage Account") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -61,7 +61,7 @@ fun AddEditAccountScreen(
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddEditAccountEvent.EnteredName(it)) },
-                label = { Text("Account Name") },
+                label = { Text("Account Name (e.g. HDFC Bank)") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -70,12 +70,31 @@ fun AddEditAccountScreen(
                 onValueChange = { viewModel.onEvent(AddEditAccountEvent.EnteredBalance(it)) },
                 label = { Text("Initial Balance") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                prefix = { Text("₹ ") }
             )
 
-            Text("Type: ${state.type}", style = MaterialTheme.typography.bodyLarge)
+            OutlinedTextField(
+                value = state.minBalance,
+                onValueChange = { viewModel.onEvent(AddEditAccountEvent.EnteredMinBalance(it)) },
+                label = { Text("Minimum Balance (Buffer)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                prefix = { Text("₹ ") }
+            )
+
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Set as Primary Wallet")
+                Spacer(modifier = Modifier.weight(1f))
+                Switch(
+                    checked = state.isPrimary,
+                    onCheckedChange = { viewModel.onEvent(AddEditAccountEvent.TogglePrimary) }
+                )
+            }
+
+            Text("Account Type", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("BANK", "CASH", "CREDIT", "INVESTMENT").forEach { type ->
+                listOf("BANK", "CASH", "CREDIT", "UPI").forEach { type ->
                     FilterChip(
                         selected = state.type == type,
                         onClick = { viewModel.onEvent(AddEditAccountEvent.TypeChanged(type)) },

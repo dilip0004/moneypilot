@@ -16,6 +16,8 @@ data class AddEditAccountState(
     val name: String = "",
     val type: String = "BANK",
     val initialBalance: String = "",
+    val minBalance: String = "0",
+    val isPrimary: Boolean = false,
     val currency: String = "INR",
     val color: Int = 0xFF0067FF.toInt(),
     val icon: String = "account_balance"
@@ -42,6 +44,8 @@ class AddEditAccountViewModel @Inject constructor(
             is AddEditAccountEvent.EnteredName -> _state.value = _state.value.copy(name = event.value)
             is AddEditAccountEvent.TypeChanged -> _state.value = _state.value.copy(type = event.value)
             is AddEditAccountEvent.EnteredBalance -> _state.value = _state.value.copy(initialBalance = event.value)
+            is AddEditAccountEvent.EnteredMinBalance -> _state.value = _state.value.copy(minBalance = event.value)
+            is AddEditAccountEvent.TogglePrimary -> _state.value = _state.value.copy(isPrimary = !state.value.isPrimary)
             is AddEditAccountEvent.SaveAccount -> saveAccount()
         }
     }
@@ -54,6 +58,10 @@ class AddEditAccountViewModel @Inject constructor(
                     return@launch
                 }
                 val balance = _state.value.initialBalance.toDoubleOrNull() ?: 0.0
+                val minBal = _state.value.minBalance.toDoubleOrNull() ?: 0.0
+                
+                // If this is set as primary, we might need to unset others, 
+                // but for V1 we'll handle it simply at repository or just store it.
                 
                 accountRepository.insertAccount(
                     AccountEntity(
@@ -61,6 +69,8 @@ class AddEditAccountViewModel @Inject constructor(
                         type = _state.value.type,
                         initialBalance = balance,
                         currentBalance = balance,
+                        minBalance = minBal,
+                        isPrimary = _state.value.isPrimary,
                         currency = _state.value.currency,
                         color = _state.value.color,
                         icon = _state.value.icon
@@ -78,5 +88,7 @@ sealed class AddEditAccountEvent {
     data class EnteredName(val value: String) : AddEditAccountEvent()
     data class TypeChanged(val value: String) : AddEditAccountEvent()
     data class EnteredBalance(val value: String) : AddEditAccountEvent()
+    data class EnteredMinBalance(val value: String) : AddEditAccountEvent()
+    object TogglePrimary : AddEditAccountEvent()
     object SaveAccount : AddEditAccountEvent()
 }

@@ -25,6 +25,12 @@ data class AccountEntity(
     @ColumnInfo(name = "currency")
     val currency: String = "INR",
 
+    @ColumnInfo(name = "min_balance")
+    val minBalance: Double = 0.0,
+
+    @ColumnInfo(name = "is_primary")
+    val isPrimary: Boolean = false,
+
     @ColumnInfo(name = "color")
     val color: Int,
 

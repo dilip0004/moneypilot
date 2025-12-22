@@ -1,21 +1,26 @@
 package com.yourname.moneypilot.ui.features.transactions
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
 import kotlinx.coroutines.flow.collectLatest
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,6 +33,13 @@ fun AddEditTransactionScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
     var showCalculator by remember { mutableStateOf(false) }
+    
+    var showAccountDropdown by remember { mutableStateOf(false) }
+    var showCategoryDropdown by remember { mutableStateOf(false) }
+    
+    // Date Picker State
+    val datePickerState = rememberDatePickerState()
+    var showDatePicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -42,6 +54,21 @@ fun AddEditTransactionScreen(
         }
     }
 
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Update state.date logic should be in ViewModel, 
+                    // for now just closing the dialog.
+                    showDatePicker = false
+                }) { Text("OK") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -53,7 +80,10 @@ fun AddEditTransactionScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToTransfer) {
+                    IconButton(onClick = {
+                        showCalculator = false
+                        onNavigateToTransfer()
+                    }) {
                         Icon(imageVector = Icons.Default.CompareArrows, contentDescription = "Transfer")
                     }
                 }
@@ -76,11 +106,115 @@ fun AddEditTransactionScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Date Selection Row
+                Surface(
+                    onClick = { 
+                        focusManager.clearFocus()
+                        showCalculator = false
+                        showDatePicker = true 
+                    },
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Transaction Date", style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                text = state.date.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy - HH:mm")),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // Account Selection
+                ExposedDropdownMenuBox(
+                    expanded = showAccountDropdown,
+                    onExpandedChange = { 
+                        showAccountDropdown = !showAccountDropdown 
+                        if (showAccountDropdown) {
+                            focusManager.clearFocus()
+                            showCalculator = false
+                        }
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = state.accounts.find { it.id == state.accountId }?.name ?: "Select Account",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Wallet / Account") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showAccountDropdown) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = showAccountDropdown,
+                        onDismissRequest = { showAccountDropdown = false }
+                    ) {
+                        state.accounts.forEach { account ->
+                            DropdownMenuItem(
+                                text = { Text(account.name) },
+                                onClick = {
+                                    viewModel.onEvent(AddEditTransactionEvent.AccountChanged(account.id))
+                                    showAccountDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Category Selection
+                ExposedDropdownMenuBox(
+                    expanded = showCategoryDropdown,
+                    onExpandedChange = { 
+                        showCategoryDropdown = !showCategoryDropdown 
+                        if (showCategoryDropdown) {
+                            focusManager.clearFocus()
+                            showCalculator = false
+                        }
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = state.categories.find { it.id == state.categoryId }?.name ?: "Uncategorized",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = showCategoryDropdown,
+                        onDismissRequest = { showCategoryDropdown = false }
+                    ) {
+                        state.categories.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.name) },
+                                onClick = {
+                                    viewModel.onEvent(AddEditTransactionEvent.CategoryChanged(category.id))
+                                    showCategoryDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = state.description,
                     onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredDescription(it)) },
                     label = { Text("Description") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { 
+                            if (it.isFocused) {
+                                showCalculator = false
+                            }
+                        }
                 )
 
                 OutlinedTextField(
@@ -91,11 +225,11 @@ fun AddEditTransactionScreen(
                         .fillMaxWidth()
                         .onFocusChanged { 
                             if (it.isFocused) {
+                                focusManager.clearFocus()
                                 showCalculator = true
-                                focusManager.clearFocus() // Hide system keyboard
                             }
                         },
-                    readOnly = true, // Force use of calculator
+                    readOnly = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
 
@@ -103,29 +237,35 @@ fun AddEditTransactionScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = state.type == "EXPENSE",
-                        onClick = { viewModel.onEvent(AddEditTransactionEvent.TypeChanged("EXPENSE")) },
+                        onClick = { 
+                            showCalculator = false
+                            viewModel.onEvent(AddEditTransactionEvent.TypeChanged("EXPENSE")) 
+                        },
                         label = { Text("Expense") }
                     )
                     FilterChip(
                         selected = state.type == "INCOME",
-                        onClick = { viewModel.onEvent(AddEditTransactionEvent.TypeChanged("INCOME")) },
+                        onClick = { 
+                            showCalculator = false
+                            viewModel.onEvent(AddEditTransactionEvent.TypeChanged("INCOME")) 
+                        },
                         label = { Text("Income") }
                     )
                 }
-                
-                Text("Account Selection (First available used)", style = MaterialTheme.typography.bodySmall)
-                Text("Category Selection (Optional)", style = MaterialTheme.typography.bodySmall)
             }
 
             if (showCalculator) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = androidx.compose.ui.Alignment.BottomCenter
+                    contentAlignment = Alignment.BottomCenter
                 ) {
                     CalculatorKeyboard(
                         initialValue = state.amount,
                         onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredAmount(it)) },
-                        onDone = { showCalculator = false }
+                        onDone = { 
+                            showCalculator = false 
+                            focusManager.clearFocus()
+                        }
                     )
                 }
             }

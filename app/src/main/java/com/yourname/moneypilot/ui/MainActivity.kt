@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,7 +23,9 @@ import com.yourname.moneypilot.ui.features.accounts.AccountsScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
-import com.yourname.moneypilot.ui.features.dashboard.DashboardScreen
+import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
+import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
+import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
 import com.yourname.moneypilot.ui.features.goals.GoalsScreen
 import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
@@ -56,22 +60,34 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
     val screens = listOf(
-        Screen.Transactions,
-        Screen.Stats,
-        Screen.Accounts,
-        Screen.Planning,
-        Screen.Settings
+        Screen.Calendar,
+        Screen.Analytics,
+        Screen.Records
     )
 
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+
     Scaffold(
+        topBar = {
+            val showTopBar = screens.any { it.route == currentDestination?.route }
+            if (showTopBar) {
+                TopAppBar(
+                    title = { Text("MoneyPilot") },
+                    actions = {
+                        IconButton(onClick = { navController.navigate("settings") }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        }
+                    }
+                )
+            }
+        },
         bottomBar = {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentDestination = navBackStackEntry?.destination
-            
             val showBottomBar = screens.any { it.route == currentDestination?.route }
             
             if (showBottomBar) {
@@ -98,47 +114,45 @@ fun MainScreen() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Transactions.route,
+            startDestination = Screen.Calendar.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Transactions.route) { 
-                TransactionsScreen(
-                    onAddTransaction = { navController.navigate("add_transaction") }
-                )
+            composable(Screen.Calendar.route) { 
+                CalendarScreen(onAddTransaction = {
+                    navController.navigate("add_transaction")
+                })
             }
             
-            composable(Screen.Stats.route) { 
-                StatsHubScreen(
-                    onNavigateToReports = { navController.navigate("reports") }
-                )
+            composable(Screen.Analytics.route) { 
+                ReportsScreen(onPopBackStack = { navController.popBackStack() })
             }
             
-            composable(Screen.Accounts.route) { 
-                AccountsHubScreen(
-                    onNavigateToAccounts = { navController.navigate("accounts_list") },
-                    onNavigateToInvestments = { navController.navigate("investments") }
-                )
+            composable(Screen.Records.route) { 
+                TransactionsScreen(onAddTransaction = {
+                    navController.navigate("add_transaction")
+                })
             }
             
-            composable(Screen.Planning.route) { 
-                PlanningHubScreen(
-                    onNavigateToBudgets = { navController.navigate("budgets") },
-                    onNavigateToGoals = { navController.navigate("goals") }
-                )
-            }
-            
-            composable(Screen.Settings.route) { 
+            composable("settings") { 
                 SettingsScreen(
                     onNavigateToAccounts = { navController.navigate("accounts_list") },
+                    onNavigateToCategories = { navController.navigate("categories") },
+                    onNavigateToBudgets = { navController.navigate("budgets") },
+                    onNavigateToDistribution = { navController.navigate("distribution") },
                     onNavigateToAppearance = { navController.navigate("appearance") },
                     onNavigateToSecurity = { navController.navigate("security") },
-                    onNavigateToNotifications = { navController.navigate("notifications") }
+                    onNavigateToNotifications = { navController.navigate("notifications") },
+                    onNavigateToBackup = { /* navController.navigate("backup") */ }
                 ) 
             }
 
             // Sub-screens
-            composable("reports") {
-                ReportsScreen(onPopBackStack = { navController.popBackStack() })
+            composable("categories") {
+                CategoryManagerScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable("distribution") {
+                DistributionScreen(onPopBackStack = { navController.popBackStack() })
             }
 
             composable("accounts_list") {
@@ -180,13 +194,19 @@ fun MainScreen() {
                 )
             }
             composable("transfer") {
-                TransferScreen(onPopBackStack = { navController.popBackStack() })
+                TransferScreen(onPopBackStack = {
+                    navController.popBackStack()
+                })
             }
             composable("add_goal") {
-                AddEditGoalScreen(onPopBackStack = { navController.popBackStack() })
+                AddEditGoalScreen(onPopBackStack = {
+                    navController.popBackStack()
+                })
             }
             composable("add_budget") {
-                AddEditBudgetScreen(onPopBackStack = { navController.popBackStack() })
+                AddEditBudgetScreen(onPopBackStack = {
+                    navController.popBackStack()
+                })
             }
         }
     }
