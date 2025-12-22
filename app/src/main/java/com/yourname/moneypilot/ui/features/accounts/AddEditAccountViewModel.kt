@@ -16,7 +16,7 @@ data class AddEditAccountState(
     val name: String = "",
     val type: String = "BANK",
     val initialBalance: String = "",
-    val currency: String = "USD",
+    val currency: String = "INR",
     val color: Int = 0xFF0067FF.toInt(),
     val icon: String = "account_balance"
 )

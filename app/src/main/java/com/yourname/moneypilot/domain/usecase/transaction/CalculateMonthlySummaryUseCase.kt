@@ -9,7 +9,8 @@ import javax.inject.Inject
 data class MonthlySummary(
     val totalIncome: Double,
     val totalExpense: Double,
-    val dailySpending: Map<Int, Double> // Day of month to amount
+    val dailySpending: Map<Int, Double>, // Day of month to amount
+    val categorySpending: Map<Long?, Double> // CategoryID to amount
 )
 
 class CalculateMonthlySummaryUseCase @Inject constructor(
@@ -27,8 +28,13 @@ class CalculateMonthlySummaryUseCase @Inject constructor(
                 .filter { it.type == "EXPENSE" }
                 .groupBy { it.date.dayOfMonth }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
+
+            val categoryMap = transactions
+                .filter { it.type == "EXPENSE" }
+                .groupBy { it.categoryId }
+                .mapValues { entry -> entry.value.sumOf { it.amount } }
                 
-            MonthlySummary(income, expense, dailyMap)
+            MonthlySummary(income, expense, dailyMap, categoryMap)
         }
     }
 }

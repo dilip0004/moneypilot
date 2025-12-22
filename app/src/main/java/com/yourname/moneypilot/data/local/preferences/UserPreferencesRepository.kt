@@ -44,7 +44,7 @@ class UserPreferencesRepository @Inject constructor(
                 throw exception
             }
         }.map { preferences ->
-            val currency = preferences[PreferencesKeys.CURRENCY] ?: "USD"
+            val currency = preferences[PreferencesKeys.CURRENCY] ?: "INR"
             val darkModeStr = preferences[PreferencesKeys.DARK_MODE] ?: "SYSTEM"
             val isDarkMode = when (darkModeStr) {
                 "LIGHT" -> false

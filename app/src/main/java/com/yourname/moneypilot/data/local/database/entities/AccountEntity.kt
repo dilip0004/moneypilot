@@ -23,7 +23,7 @@ data class AccountEntity(
     val currentBalance: Double,
 
     @ColumnInfo(name = "currency")
-    val currency: String = "USD",
+    val currency: String = "INR",
 
     @ColumnInfo(name = "color")
     val color: Int,

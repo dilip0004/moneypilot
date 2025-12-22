@@ -3,12 +3,13 @@ package com.yourname.moneypilot.ui
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -23,6 +24,11 @@ import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
 import com.yourname.moneypilot.ui.features.dashboard.DashboardScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
 import com.yourname.moneypilot.ui.features.goals.GoalsScreen
+import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
+import com.yourname.moneypilot.ui.features.reports.ReportsScreen
+import com.yourname.moneypilot.ui.features.settings.AppearanceScreen
+import com.yourname.moneypilot.ui.features.settings.NotificationsScreen
+import com.yourname.moneypilot.ui.features.settings.SecurityScreen
 import com.yourname.moneypilot.ui.features.settings.SettingsScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
@@ -54,10 +60,10 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val navController = rememberNavController()
     val screens = listOf(
-        Screen.Dashboard,
         Screen.Transactions,
-        Screen.Goals,
-        Screen.Budgets,
+        Screen.Stats,
+        Screen.Accounts,
+        Screen.Planning,
         Screen.Settings
     )
 
@@ -92,41 +98,79 @@ fun MainScreen() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Dashboard.route,
+            startDestination = Screen.Transactions.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Dashboard.route) { 
-                DashboardScreen(onAddTransaction = {
-                    navController.navigate("add_transaction")
-                }) 
+            composable(Screen.Transactions.route) { 
+                TransactionsScreen(
+                    onAddTransaction = { navController.navigate("add_transaction") }
+                )
             }
-            composable(Screen.Transactions.route) { TransactionsScreen() }
-            composable(Screen.Goals.route) { 
-                GoalsScreen(onAddGoal = {
-                    navController.navigate("add_goal")
-                }) 
+            
+            composable(Screen.Stats.route) { 
+                StatsHubScreen(
+                    onNavigateToReports = { navController.navigate("reports") }
+                )
             }
-            composable(Screen.Budgets.route) { 
-                BudgetsScreen(onAddBudget = {
-                    navController.navigate("add_budget")
-                }) 
+            
+            composable(Screen.Accounts.route) { 
+                AccountsHubScreen(
+                    onNavigateToAccounts = { navController.navigate("accounts_list") },
+                    onNavigateToInvestments = { navController.navigate("investments") }
+                )
             }
+            
+            composable(Screen.Planning.route) { 
+                PlanningHubScreen(
+                    onNavigateToBudgets = { navController.navigate("budgets") },
+                    onNavigateToGoals = { navController.navigate("goals") }
+                )
+            }
+            
             composable(Screen.Settings.route) { 
-                SettingsScreen(onNavigateToAccounts = {
-                    navController.navigate("accounts")
-                }) 
+                SettingsScreen(
+                    onNavigateToAccounts = { navController.navigate("accounts_list") },
+                    onNavigateToAppearance = { navController.navigate("appearance") },
+                    onNavigateToSecurity = { navController.navigate("security") },
+                    onNavigateToNotifications = { navController.navigate("notifications") }
+                ) 
+            }
+
+            // Sub-screens
+            composable("reports") {
+                ReportsScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable("accounts_list") {
+                AccountsScreen(onAddAccount = { navController.navigate("add_account") })
             }
             
-            composable("accounts") {
-                AccountsScreen(onAddAccount = {
-                    navController.navigate("add_account")
-                })
+            composable("investments") {
+                InvestmentsScreen()
             }
             
+            composable("budgets") {
+                BudgetsScreen(onAddBudget = { navController.navigate("add_budget") })
+            }
+            
+            composable("goals") {
+                GoalsScreen(onAddGoal = { navController.navigate("add_goal") })
+            }
+            
+            composable("appearance") {
+                AppearanceScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable("security") {
+                SecurityScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable("notifications") {
+                NotificationsScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
             composable("add_account") {
-                AddEditAccountScreen(onPopBackStack = {
-                    navController.popBackStack()
-                })
+                AddEditAccountScreen(onPopBackStack = { navController.popBackStack() })
             }
             
             composable("add_transaction") {
@@ -136,20 +180,61 @@ fun MainScreen() {
                 )
             }
             composable("transfer") {
-                TransferScreen(onPopBackStack = {
-                    navController.popBackStack()
-                })
+                TransferScreen(onPopBackStack = { navController.popBackStack() })
             }
             composable("add_goal") {
-                AddEditGoalScreen(onPopBackStack = {
-                    navController.popBackStack()
-                })
+                AddEditGoalScreen(onPopBackStack = { navController.popBackStack() })
             }
             composable("add_budget") {
-                AddEditBudgetScreen(onPopBackStack = {
-                    navController.popBackStack()
-                })
+                AddEditBudgetScreen(onPopBackStack = { navController.popBackStack() })
             }
         }
+    }
+}
+
+@Composable
+fun AccountsHubScreen(onNavigateToAccounts: () -> Unit, onNavigateToInvestments: () -> Unit) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Accounts Hub", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.padding(16.dp))
+        Button(onClick = onNavigateToAccounts, modifier = Modifier.fillMaxWidth()) {
+            Text("Manage Accounts (Bank, Cash)")
+        }
+        Spacer(modifier = Modifier.padding(8.dp))
+        Button(onClick = onNavigateToInvestments, modifier = Modifier.fillMaxWidth()) {
+            Text("Investments (Stocks, Crypto)")
+        }
+    }
+}
+
+@Composable
+fun PlanningHubScreen(onNavigateToBudgets: () -> Unit, onNavigateToGoals: () -> Unit) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Planning Hub", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.padding(16.dp))
+        Button(onClick = onNavigateToBudgets, modifier = Modifier.fillMaxWidth()) {
+            Text("Budgets")
+        }
+        Spacer(modifier = Modifier.padding(8.dp))
+        Button(onClick = onNavigateToGoals, modifier = Modifier.fillMaxWidth()) {
+            Text("Savings Goals")
+        }
+    }
+}
+
+@Composable
+fun StatsHubScreen(onNavigateToReports: () -> Unit) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Statistics", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.padding(16.dp))
+        Button(onClick = onNavigateToReports, modifier = Modifier.fillMaxWidth()) {
+            Text("View Visual Reports")
+        }
+        Spacer(modifier = Modifier.padding(8.dp))
+        Text(
+            "Track your spending patterns and cash flow distribution.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

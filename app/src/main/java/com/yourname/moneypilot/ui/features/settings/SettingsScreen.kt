@@ -17,7 +17,10 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateToAccounts: () -> Unit
+    onNavigateToAccounts: () -> Unit,
+    onNavigateToAppearance: () -> Unit,
+    onNavigateToSecurity: () -> Unit,
+    onNavigateToNotifications: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -39,19 +42,19 @@ fun SettingsScreen(
                 title = "Appearance",
                 subtitle = "Theme, colors, and layout",
                 icon = Icons.Default.Palette,
-                onClick = {}
+                onClick = onNavigateToAppearance
             )
             SettingsItem(
                 title = "Security",
                 subtitle = "PIN, biometrics, and privacy",
                 icon = Icons.Default.Security,
-                onClick = {}
+                onClick = onNavigateToSecurity
             )
             SettingsItem(
                 title = "Notifications",
                 subtitle = "Alerts and reminders",
                 icon = Icons.Default.Notifications,
-                onClick = {}
+                onClick = onNavigateToNotifications
             )
         }
     }

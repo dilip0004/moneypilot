@@ -2,21 +2,21 @@ package com.yourname.moneypilot.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.glance.*
 import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.*
 import androidx.glance.layout.*
 import androidx.glance.text.*
-import androidx.glance.unit.ColorProvider
 import com.yourname.moneypilot.ui.MainActivity
 
 class QuickAddWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            MoneyPilotWidgetContent()
+            GlanceTheme {
+                MoneyPilotWidgetContent()
+            }
         }
     }
 
@@ -25,7 +25,7 @@ class QuickAddWidget : GlanceAppWidget() {
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color(0xFF1C1B1F)))
+                .background(GlanceTheme.colors.surface)
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically
@@ -34,18 +34,18 @@ class QuickAddWidget : GlanceAppWidget() {
                 text = "MoneyPilot",
                 style = TextStyle(
                     fontWeight = FontWeight.Bold,
-                    color = ColorProvider(Color.White)
+                    color = GlanceTheme.colors.onSurface
                 )
             )
-            
+
             Spacer(GlanceModifier.height(8.dp))
-            
+
             Button(
                 text = "+ Add Expense",
                 onClick = actionStartActivity<MainActivity>(),
                 colors = ButtonDefaults.buttonColors(
-                    backgroundColor = ColorProvider(Color(0xFF0067FF)),
-                    contentColor = ColorProvider(Color.White)
+                    backgroundColor = GlanceTheme.colors.primary,
+                    contentColor = GlanceTheme.colors.onPrimary
                 )
             )
         }
