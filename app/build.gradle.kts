@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.moneypilot"
+    namespace = "com.yourname.moneypilot"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.moneypilot"
+        applicationId = "com.yourname.moneypilot"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -112,9 +112,6 @@ dependencies {
 
     // Logging
     implementation(libs.timber)
-
-    // Charts
-    implementation(libs.compose.charts)
 
     // Testing
     testImplementation(libs.junit)
