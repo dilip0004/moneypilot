@@ -14,6 +14,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.yourname.moneypilot.ui.features.accounts.AccountsScreen
+import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
 import com.yourname.moneypilot.ui.features.dashboard.DashboardScreen
@@ -99,7 +101,23 @@ fun MainScreen() {
                     navController.navigate("add_budget")
                 }) 
             }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(Screen.Settings.route) { 
+                SettingsScreen(onNavigateToAccounts = {
+                    navController.navigate("accounts")
+                }) 
+            }
+            
+            composable("accounts") {
+                AccountsScreen(onAddAccount = {
+                    navController.navigate("add_account")
+                })
+            }
+            
+            composable("add_account") {
+                AddEditAccountScreen(onPopBackStack = {
+                    navController.popBackStack()
+                })
+            }
             
             composable("add_transaction") {
                 AddEditTransactionScreen(onPopBackStack = {

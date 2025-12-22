@@ -40,4 +40,10 @@ abstract class RepositoryModule {
     abstract fun bindGoalRepository(
         goalRepositoryImpl: GoalRepositoryImpl
     ): GoalRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindInvestmentRepository(
+        investmentRepositoryImpl: InvestmentRepositoryImpl
+    ): InvestmentRepository
 }

@@ -23,9 +23,8 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
 
-        if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
-        }
+        // Initialize logging
+        Timber.plant(Timber.DebugTree())
 
         scheduleBackgroundTasks()
         Timber.d("MoneyPilot Application Started and Tasks Scheduled")

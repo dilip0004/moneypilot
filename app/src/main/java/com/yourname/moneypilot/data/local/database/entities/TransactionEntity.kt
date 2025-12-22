@@ -38,7 +38,7 @@ data class TransactionEntity(
     val accountId: Long,
 
     @ColumnInfo(name = "category_id")
-    val categoryId: Long?,
+    val categoryId: Long? = null,
 
     @ColumnInfo(name = "type")
     val type: String, // "INCOME", "EXPENSE", "TRANSFER"
@@ -56,16 +56,16 @@ data class TransactionEntity(
     val isRecurring: Boolean = false,
 
     @ColumnInfo(name = "recurring_pattern")
-    val recurringPattern: String?, // "DAILY", "WEEKLY", "MONTHLY", "YEARLY"
+    val recurringPattern: String? = null, // "DAILY", "WEEKLY", "MONTHLY", "YEARLY"
 
     @ColumnInfo(name = "transfer_to_account_id")
-    val transferToAccountId: Long?,
+    val transferToAccountId: Long? = null,
 
     @ColumnInfo(name = "attachment_path")
-    val attachmentPath: String?,
+    val attachmentPath: String? = null,
 
     @ColumnInfo(name = "note")
-    val note: String?,
+    val note: String? = null,
 
     @ColumnInfo(name = "created_at")
     val createdAt: LocalDateTime = LocalDateTime.now(),

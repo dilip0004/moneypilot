@@ -1,8 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.hilt.android)
     alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -88,8 +88,8 @@ dependencies {
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
-    implementation("androidx.hilt:hilt-work:1.2.0")
-    kapt("androidx.hilt:hilt-compiler:1.2.0")
+    implementation(libs.hilt.work)
+    kapt(libs.hilt.ext.compiler)
 
     // Room
     implementation(libs.room.runtime)
@@ -104,7 +104,7 @@ dependencies {
     implementation(libs.datastore.preferences)
 
     // WorkManager
-    implementation(libs.work.runtime-ktx)
+    implementation(libs.work.runtime.ktx)
 
     // Logging
     implementation(libs.timber)

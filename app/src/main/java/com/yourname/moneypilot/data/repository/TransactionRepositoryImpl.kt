@@ -15,9 +15,9 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun getTransactionsByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<TransactionEntity>> =
         transactionDao.getTransactionsByDateRange(startDate, endDate)
 
-    override fun insertTransaction(transaction: TransactionEntity): Long = 
+    override suspend fun insertTransaction(transaction: TransactionEntity): Long = 
         transactionDao.insert(transaction)
 
-    override fun deleteTransaction(transaction: TransactionEntity) = 
+    override suspend fun deleteTransaction(transaction: TransactionEntity) = 
         transactionDao.delete(transaction)
 }

@@ -5,11 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.yourname.moneypilot.data.local.database.dao.AccountDao
-import com.yourname.moneypilot.data.local.database.dao.BudgetDao
-import com.yourname.moneypilot.data.local.database.dao.CategoryDao
-import com.yourname.moneypilot.data.local.database.dao.GoalDao
-import com.yourname.moneypilot.data.local.database.dao.TransactionDao
+import com.yourname.moneypilot.data.local.database.dao.*
 import com.yourname.moneypilot.data.local.database.entities.*
 import com.yourname.moneypilot.data.local.database.converters.LocalDateConverter
 import com.yourname.moneypilot.data.local.database.converters.LocalDateTimeConverter
@@ -22,9 +18,10 @@ import com.yourname.moneypilot.data.local.database.converters.LocalDateTimeConve
         BudgetEntity::class,
         GoalEntity::class,
         TagEntity::class,
-        TransactionTagCrossRef::class
+        TransactionTagCrossRef::class,
+        InvestmentEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class)
@@ -35,6 +32,8 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun budgetDao(): BudgetDao
     abstract fun goalDao(): GoalDao
+    abstract fun tagDao(): TagDao
+    abstract fun investmentDao(): InvestmentDao
 
     companion object {
         @Volatile

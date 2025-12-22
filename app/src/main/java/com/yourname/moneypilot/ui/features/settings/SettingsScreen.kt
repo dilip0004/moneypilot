@@ -2,6 +2,7 @@ package com.yourname.moneypilot.ui.features.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
@@ -15,7 +16,9 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    onNavigateToAccounts: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Settings") })
@@ -26,6 +29,12 @@ fun SettingsScreen() {
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            SettingsItem(
+                title = "Accounts",
+                subtitle = "Manage your bank accounts and wallets",
+                icon = Icons.Default.AccountBalance,
+                onClick = onNavigateToAccounts
+            )
             SettingsItem(
                 title = "Appearance",
                 subtitle = "Theme, colors, and layout",
