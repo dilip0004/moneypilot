@@ -106,6 +106,10 @@ dependencies {
     // WorkManager
     implementation(libs.work.runtime.ktx)
 
+    // Widgets (Glance)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
+
     // Logging
     implementation(libs.timber)
 

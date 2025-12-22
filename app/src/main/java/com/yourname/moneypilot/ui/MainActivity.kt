@@ -6,8 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -24,6 +26,7 @@ import com.yourname.moneypilot.ui.features.goals.GoalsScreen
 import com.yourname.moneypilot.ui.features.settings.SettingsScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
+import com.yourname.moneypilot.ui.features.transactions.TransferScreen
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -33,7 +36,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MoneyPilotTheme {
+            val mainViewModel: MainViewModel = hiltViewModel()
+            val preferences by mainViewModel.userPreferences.collectAsState()
+
+            MoneyPilotTheme(
+                darkTheme = preferences?.isDarkMode ?: androidx.compose.foundation.isSystemInDarkTheme(),
+                dynamicColor = preferences?.useDynamicColor ?: true,
+                trueBlack = preferences?.useTrueBlack ?: false
+            ) {
                 MainScreen()
             }
         }
@@ -120,7 +130,13 @@ fun MainScreen() {
             }
             
             composable("add_transaction") {
-                AddEditTransactionScreen(onPopBackStack = {
+                AddEditTransactionScreen(
+                    onPopBackStack = { navController.popBackStack() },
+                    onNavigateToTransfer = { navController.navigate("transfer") }
+                )
+            }
+            composable("transfer") {
+                TransferScreen(onPopBackStack = {
                     navController.popBackStack()
                 })
             }

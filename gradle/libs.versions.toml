@@ -10,6 +10,7 @@ lifecycle = "2.7.0"
 navigation = "2.7.7"
 datastore = "1.1.0"
 work = "2.9.0"
+glance = "1.0.0"
 hilt-work = "1.2.0"
 
 [libraries]
@@ -46,6 +47,10 @@ hilt-ext-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hil
 
 # Navigation
 navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+
+# Widgets
+glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+glance-material3 = { module = "androidx.glance:glance-material3", version.ref = "glance" }
 
 # Others
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
