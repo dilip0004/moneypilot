@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
+import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -30,8 +31,8 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE type = :type ORDER BY name ASC")
     fun getCategoriesByType(type: String): Flow<List<CategoryEntity>>
 
-    @Query("SELECT * FROM categories WHERE parent_id = :parentId ORDER BY name ASC")
-    fun getSubcategories(parentId: Long): Flow<List<CategoryEntity>>
+    @Query("SELECT * FROM subcategories WHERE categoryId = :parentId ORDER BY name ASC")
+    fun getSubcategories(parentId: Long): Flow<List<SubcategoryEntity>>
 
     @Query("SELECT COUNT(*) FROM categories")
     suspend fun getCategoryCount(): Int

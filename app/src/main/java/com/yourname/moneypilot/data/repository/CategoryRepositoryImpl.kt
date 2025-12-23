@@ -2,6 +2,7 @@ package com.yourname.moneypilot.data.repository
 
 import com.yourname.moneypilot.data.local.database.dao.CategoryDao
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
+import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -19,4 +20,6 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun updateCategory(category: CategoryEntity) = categoryDao.update(category)
 
     override suspend fun deleteCategory(category: CategoryEntity) = categoryDao.delete(category)
+
+    override fun getSubcategories(parentId: Long): Flow<List<SubcategoryEntity>> = categoryDao.getSubcategories(parentId)
 }

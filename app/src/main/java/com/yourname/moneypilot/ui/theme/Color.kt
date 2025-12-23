@@ -42,6 +42,17 @@ val md_theme_dark_onSurface = Color(0xFFE3E2E6)
 val md_theme_dark_surfaceVariant = Color(0xFF44474F)
 val md_theme_dark_onSurfaceVariant = Color(0xFFC4C6D0)
 
+// Purple Theme Colors (Inspired by Image)
+val md_theme_purple_primary = Color(0xFF7F3DFF)
+val md_theme_purple_onPrimary = Color(0xFFFFFFFF)
+val md_theme_purple_primaryContainer = Color(0xFFEEE5FF)
+val md_theme_purple_onPrimaryContainer = Color(0xFF21005D)
+val md_theme_purple_secondary = Color(0xFF625B71)
+val md_theme_purple_onSecondary = Color(0xFFFFFFFF)
+val md_theme_purple_background = Color(0xFFFBF8FF)
+val md_theme_purple_surface = Color(0xFFFBF8FF)
+val md_theme_purple_onSurface = Color(0xFF1B1B1F)
+
 // Finance Specific Colors
 val IncomeGreen = Color(0xFF2E7D32)
 val ExpenseRed = Color(0xFFC62828)

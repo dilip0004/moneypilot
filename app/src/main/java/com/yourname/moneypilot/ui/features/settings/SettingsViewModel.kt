@@ -2,6 +2,7 @@ package com.yourname.moneypilot.ui.features.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yourname.moneypilot.data.local.preferences.AppTheme
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,8 +23,25 @@ class SettingsViewModel @Inject constructor(
         )
 
     fun updateDarkMode(mode: String) {
+        // This is a legacy function, keeping it for compatibility or redirecting
+        val theme = when(mode) {
+            "LIGHT" -> AppTheme.LIGHT
+            "DARK" -> AppTheme.DARK
+            "OLED" -> AppTheme.OLED
+            else -> AppTheme.SYSTEM
+        }
+        updateTheme(theme)
+    }
+
+    fun updateTheme(theme: AppTheme) {
         viewModelScope.launch {
-            preferencesRepository.updateDarkMode(mode)
+            preferencesRepository.updateTheme(theme)
+        }
+    }
+
+    fun updatePrimaryColor(color: Int) {
+        viewModelScope.launch {
+            preferencesRepository.updatePrimaryColor(color)
         }
     }
 
@@ -34,8 +52,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun updateTrueBlack(enabled: Boolean) {
-        viewModelScope.launch {
-            preferencesRepository.updateUseTrueBlack(enabled)
-        }
+        if (enabled) updateTheme(AppTheme.OLED)
+        else updateTheme(AppTheme.DARK)
     }
 }

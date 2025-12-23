@@ -18,6 +18,7 @@ import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.components.DashboardCard
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun DashboardScreen(
@@ -78,7 +79,7 @@ fun DashboardContent(state: DashboardState) {
         item {
             DashboardCard(
                 title = "Total Balance",
-                amount = "$${state.totalBalance}"
+                amount = "INR ${state.totalBalance}"
             )
         }
 
@@ -90,14 +91,14 @@ fun DashboardContent(state: DashboardState) {
                 ) {
                     DashboardCard(
                         title = "Income",
-                        amount = "+$${summary.totalIncome}",
+                        amount = "+₹${summary.totalIncome}",
                         modifier = Modifier.weight(1f),
                         containerColor = IncomeGreen.copy(alpha = 0.1f),
                         contentColor = IncomeGreen
                     )
                     DashboardCard(
                         title = "Expenses",
-                        amount = "-$${summary.totalExpense}",
+                        amount = "-₹${summary.totalExpense}",
                         modifier = Modifier.weight(1f),
                         containerColor = ExpenseRed.copy(alpha = 0.1f),
                         contentColor = ExpenseRed
@@ -134,11 +135,15 @@ fun TransactionItem(transaction: com.yourname.moneypilot.data.local.database.ent
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(text = transaction.description, style = MaterialTheme.typography.bodyLarge)
-                Text(text = transaction.type, style = MaterialTheme.typography.bodySmall)
+                Text(text = transaction.description, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = transaction.date.format(DateTimeFormatter.ofPattern("dd MMM, hh:mm a")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Text(
-                text = "${if (transaction.type == "EXPENSE") "-" else "+"}$${transaction.amount}",
+                text = "${if (transaction.type == "EXPENSE") "-" else "+"}₹${transaction.amount}",
                 style = MaterialTheme.typography.titleMedium,
                 color = if (transaction.type == "EXPENSE") ExpenseRed else IncomeGreen,
                 fontWeight = FontWeight.Bold

@@ -9,12 +9,19 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalDateTime
 import javax.inject.Inject
 
+data class GroupedTransactions(
+    val date: LocalDate,
+    val transactions: List<TransactionEntity>,
+    val dailyTotal: Double
+)
+
 data class TransactionsState(
-    val transactions: List<TransactionEntity> = emptyList(),
-    val searchQuery: String = "",
-    val isCalendarView: Boolean = false
+    val groupedTransactions: List<GroupedTransactions> = emptyList(),
+    val searchQuery: String = ""
 )
 
 @HiltViewModel
@@ -23,7 +30,6 @@ class TransactionsViewModel @Inject constructor(
 ) : BaseViewModel<TransactionsState>() {
 
     private val _searchQuery = MutableStateFlow("")
-    private val _isCalendarView = MutableStateFlow(false)
 
     init {
         loadTransactions()
@@ -35,20 +41,28 @@ class TransactionsViewModel @Inject constructor(
             
             combine(
                 transactionRepository.getAllTransactions(),
-                _searchQuery,
-                _isCalendarView
-            ) { transactions, query, isCalendar ->
+                _searchQuery
+            ) { transactions, query ->
                 val filtered = if (query.isBlank()) {
                     transactions
                 } else {
                     transactions.filter { 
-                        it.description.contains(query, ignoreCase = true) || 
-                        it.type.contains(query, ignoreCase = true)
+                        it.description.contains(query, ignoreCase = true)
                     }
                 }
-                TransactionsState(filtered, query, isCalendar)
+
+                val grouped = filtered.groupBy { it.date.toLocalDate() }
+                    .map { (date, items) ->
+                        val total = items.sumOf { 
+                            if (it.type == "EXPENSE") -it.amount else it.amount 
+                        }
+                        GroupedTransactions(date, items, total)
+                    }
+                    .sortedByDescending { it.date }
+
+                TransactionsState(grouped, query)
             }.collect { state ->
-                if (state.transactions.isEmpty() && state.searchQuery.isBlank()) {
+                if (state.groupedTransactions.isEmpty() && state.searchQuery.isBlank()) {
                     _uiState.value = ScreenState.Empty
                 } else {
                     _uiState.value = ScreenState.Success(state)
@@ -61,7 +75,21 @@ class TransactionsViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
-    fun toggleViewMode() {
-        _isCalendarView.value = !_isCalendarView.value
+    fun deleteTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch {
+            transactionRepository.deleteTransaction(transaction)
+        }
+    }
+
+    fun duplicateTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch {
+            val duplicated = transaction.copy(
+                id = 0,
+                date = LocalDateTime.now(),
+                createdAt = LocalDateTime.now(),
+                updatedAt = LocalDateTime.now()
+            )
+            transactionRepository.insertTransaction(duplicated)
+        }
     }
 }

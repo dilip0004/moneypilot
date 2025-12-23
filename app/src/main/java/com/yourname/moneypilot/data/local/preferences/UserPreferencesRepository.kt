@@ -14,13 +14,19 @@ import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_preferences")
 
+enum class AppTheme {
+    LIGHT, DARK, SYSTEM, OLED
+}
+
 data class UserPreferences(
     val currency: String,
-    val isDarkMode: Boolean?, // null means follow system
+    val theme: AppTheme,
+    val primaryColor: Int,
     val useDynamicColor: Boolean,
-    val useTrueBlack: Boolean,
     val useBiometrics: Boolean,
-    val budgetAlertThreshold: Int
+    val budgetAlertThreshold: Int,
+    val dailySummaryEnabled: Boolean,
+    val dailySummaryTime: String
 )
 
 @Singleton
@@ -29,11 +35,13 @@ class UserPreferencesRepository @Inject constructor(
 ) {
     private object PreferencesKeys {
         val CURRENCY = stringPreferencesKey("currency")
-        val DARK_MODE = stringPreferencesKey("dark_mode") // "LIGHT", "DARK", "SYSTEM"
+        val THEME = stringPreferencesKey("app_theme")
+        val PRIMARY_COLOR = intPreferencesKey("primary_color")
         val USE_DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
-        val USE_TRUE_BLACK = booleanPreferencesKey("use_true_black")
         val USE_BIOMETRICS = booleanPreferencesKey("use_biometrics")
         val BUDGET_ALERT_THRESHOLD = stringPreferencesKey("budget_alert_threshold")
+        val DAILY_SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
+        val DAILY_SUMMARY_TIME = stringPreferencesKey("daily_summary_time")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -45,18 +53,17 @@ class UserPreferencesRepository @Inject constructor(
             }
         }.map { preferences ->
             val currency = preferences[PreferencesKeys.CURRENCY] ?: "INR"
-            val darkModeStr = preferences[PreferencesKeys.DARK_MODE] ?: "SYSTEM"
-            val isDarkMode = when (darkModeStr) {
-                "LIGHT" -> false
-                "DARK" -> true
-                else -> null
-            }
+            val themeStr = preferences[PreferencesKeys.THEME] ?: AppTheme.SYSTEM.name
+            val theme = try { AppTheme.valueOf(themeStr) } catch(e: Exception) { AppTheme.SYSTEM }
+            
+            val primaryColor = preferences[PreferencesKeys.PRIMARY_COLOR] ?: 0xFF7F3DFF.toInt() // Default Purple
             val useDynamicColor = preferences[PreferencesKeys.USE_DYNAMIC_COLOR] ?: true
-            val useTrueBlack = preferences[PreferencesKeys.USE_TRUE_BLACK] ?: false
             val useBiometrics = preferences[PreferencesKeys.USE_BIOMETRICS] ?: false
             val threshold = preferences[PreferencesKeys.BUDGET_ALERT_THRESHOLD]?.toIntOrNull() ?: 90
+            val summaryEnabled = preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] ?: true
+            val summaryTime = preferences[PreferencesKeys.DAILY_SUMMARY_TIME] ?: "22:00"
             
-            UserPreferences(currency, isDarkMode, useDynamicColor, useTrueBlack, useBiometrics, threshold)
+            UserPreferences(currency, theme, primaryColor, useDynamicColor, useBiometrics, threshold, summaryEnabled, summaryTime)
         }
 
     suspend fun updateCurrency(currency: String) {
@@ -65,9 +72,15 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
-    suspend fun updateDarkMode(mode: String) {
+    suspend fun updateTheme(theme: AppTheme) {
         context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.DARK_MODE] = mode
+            preferences[PreferencesKeys.THEME] = theme.name
+        }
+    }
+
+    suspend fun updatePrimaryColor(color: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PRIMARY_COLOR] = color
         }
     }
 
@@ -77,15 +90,21 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
-    suspend fun updateUseTrueBlack(use: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.USE_TRUE_BLACK] = use
-        }
-    }
-
     suspend fun updateUseBiometrics(use: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.USE_BIOMETRICS] = use
+        }
+    }
+
+    suspend fun updateDailySummaryEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] = enabled
+        }
+    }
+
+    suspend fun updateDailySummaryTime(time: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.DAILY_SUMMARY_TIME] = time
         }
     }
 }

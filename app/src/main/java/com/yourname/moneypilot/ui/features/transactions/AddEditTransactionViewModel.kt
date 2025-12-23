@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.AccountEntity
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
+import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.data.repository.AccountRepository
 import com.yourname.moneypilot.data.repository.CategoryRepository
@@ -25,9 +26,11 @@ data class AddEditTransactionState(
     val type: String = "EXPENSE",
     val accountId: Long? = null,
     val categoryId: Long? = null,
+    val subcategoryId: Long? = null,
     val date: LocalDateTime = LocalDateTime.now(),
     val accounts: List<AccountEntity> = emptyList(),
-    val categories: List<CategoryEntity> = emptyList()
+    val categories: List<CategoryEntity> = emptyList(),
+    val subcategories: List<SubcategoryEntity> = emptyList()
 )
 
 @HiltViewModel
@@ -49,21 +52,20 @@ class AddEditTransactionViewModel @Inject constructor(
     }
 
     init {
-        loadAccountsAndCategories()
+        loadData()
     }
 
-    private fun loadAccountsAndCategories() {
+    private fun loadData() {
         accountRepository.getAllAccounts().onEach { accounts ->
             _state.value = _state.value.copy(
                 accounts = accounts,
-                accountId = _state.value.accountId ?: accounts.firstOrNull()?.id
+                accountId = _state.value.accountId ?: accounts.find { it.isPrimary }?.id ?: accounts.firstOrNull()?.id
             )
         }.launchIn(viewModelScope)
 
         categoryRepository.getAllCategories().onEach { categories ->
             _state.value = _state.value.copy(
-                categories = categories,
-                categoryId = _state.value.categoryId ?: categories.firstOrNull()?.id
+                categories = categories
             )
         }.launchIn(viewModelScope)
     }
@@ -83,10 +85,28 @@ class AddEditTransactionViewModel @Inject constructor(
                 _state.value = _state.value.copy(accountId = event.value)
             }
             is AddEditTransactionEvent.CategoryChanged -> {
-                _state.value = _state.value.copy(categoryId = event.value)
+                _state.value = _state.value.copy(
+                    categoryId = event.value,
+                    subcategoryId = null
+                )
+                loadSubcategories(event.value)
+            }
+            is AddEditTransactionEvent.SubcategoryChanged -> {
+                _state.value = _state.value.copy(subcategoryId = event.value)
+            }
+            is AddEditTransactionEvent.DateChanged -> {
+                _state.value = _state.value.copy(date = event.value)
             }
             is AddEditTransactionEvent.SaveTransaction -> {
                 saveTransaction()
+            }
+        }
+    }
+
+    private fun loadSubcategories(categoryId: Long) {
+        viewModelScope.launch {
+            categoryRepository.getSubcategories(categoryId).collect { subcategories ->
+                _state.value = _state.value.copy(subcategories = subcategories)
             }
         }
     }
@@ -124,5 +144,7 @@ sealed class AddEditTransactionEvent {
     data class TypeChanged(val value: String) : AddEditTransactionEvent()
     data class AccountChanged(val value: Long) : AddEditTransactionEvent()
     data class CategoryChanged(val value: Long) : AddEditTransactionEvent()
+    data class SubcategoryChanged(val value: Long?) : AddEditTransactionEvent()
+    data class DateChanged(val value: LocalDateTime) : AddEditTransactionEvent()
     object SaveTransaction : AddEditTransactionEvent()
 }

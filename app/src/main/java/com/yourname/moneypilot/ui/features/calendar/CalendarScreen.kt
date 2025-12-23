@@ -23,20 +23,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
-import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.features.dashboard.TransactionItem
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
-    onAddTransaction: () -> Unit,
+    onAddTransaction: (LocalDate) -> Unit,
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val calendarState by viewModel.state.collectAsState()
@@ -66,7 +65,7 @@ fun CalendarScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTransaction) {
+            FloatingActionButton(onClick = { onAddTransaction(calendarState.selectedDate) }) {
                 Icon(Icons.Default.Add, contentDescription = "Add Transaction")
             }
         }
@@ -81,7 +80,6 @@ fun CalendarScreen(
             
             HorizontalDivider()
             
-            // Detailed transactions for selected date
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
@@ -89,7 +87,7 @@ fun CalendarScreen(
             ) {
                 item {
                     Text(
-                        text = "Transactions for ${calendarState.selectedDate}",
+                        text = "Transactions for ${calendarState.selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -152,7 +150,7 @@ fun CalendarGrid(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
-            modifier = Modifier.height(320.dp),
+            modifier = Modifier.heightIn(max = 350.dp), // Height based on content
             userScrollEnabled = false
         ) {
             items(gridItems) { date ->
