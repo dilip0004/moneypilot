@@ -3,17 +3,10 @@ package com.yourname.moneypilot.ui.features.calendar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,103 +16,27 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.ui.common.ScreenState
-import com.yourname.moneypilot.ui.features.dashboard.TransactionItem
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
     onAddTransaction: (LocalDate) -> Unit,
-    onOpenDrawer: () -> Unit,
-    onOpenSettings: () -> Unit,
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val calendarState by viewModel.state.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(end = 48.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        IconButton(onClick = { viewModel.onMonthChange(calendarState.currentMonth.minusMonths(1)) }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
-                        }
-                        Text(
-                            text = "${calendarState.currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${calendarState.currentMonth.year}",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        IconButton(onClick = { viewModel.onMonthChange(calendarState.currentMonth.plusMonths(1)) }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
-                        }
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { onAddTransaction(calendarState.selectedDate) }) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
-            }
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        CalendarGrid(
-                            currentMonth = calendarState.currentMonth,
-                            dailySummaries = calendarState.dailySummaries,
-                            selectedDate = calendarState.selectedDate,
-                            onDateSelected = { viewModel.onDateSelected(it) }
-                        )
-                    }
-                }
-            }
-
-            item {
-                Text(
-                    text = "Transactions for ${calendarState.selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            if (calendarState.selectedDateTransactions.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        Text("No records for this day", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            } else {
-                items(calendarState.selectedDateTransactions) { transaction ->
-                    TransactionItem(transaction)
-                }
-            }
-            
-            item { Spacer(modifier = Modifier.height(80.dp)) }
-        }
+    Column(modifier = Modifier.fillMaxWidth().padding(paddingValues = PaddingValues(top = 8.dp))) {
+        CalendarGrid(
+            currentMonth = calendarState.currentMonth,
+            dailySummaries = calendarState.dailySummaries,
+            selectedDate = calendarState.selectedDate,
+            onDateSelected = { viewModel.onDateSelected(it) }
+        )
     }
 }
 

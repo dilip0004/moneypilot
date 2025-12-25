@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,6 +25,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
+    showSearchBar: Boolean = true,
     onAddTransaction: () -> Unit,
     onEditTransaction: (Long) -> Unit,
     viewModel: TransactionsViewModel = hiltViewModel()
@@ -34,23 +34,27 @@ fun TransactionsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTransaction) {
-                Icon(Icons.Default.Add, contentDescription = "Add Transaction")
+            if (showSearchBar) { // Only show FAB in the main Records hub
+                FloatingActionButton(onClick = onAddTransaction) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Transaction")
+                }
             }
         }
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding)) {
-            val state = (uiState as? ScreenState.Success)?.data
-            OutlinedTextField(
-                value = state?.searchQuery ?: "",
-                onValueChange = { viewModel.onSearchQueryChange(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("Search transactions...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                shape = MaterialTheme.shapes.medium
-            )
+            if (showSearchBar) {
+                val state = (uiState as? ScreenState.Success)?.data
+                OutlinedTextField(
+                    value = state?.searchQuery ?: "",
+                    onValueChange = { viewModel.onSearchQueryChange(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    placeholder = { Text("Search transactions...") },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null) },
+                    shape = MaterialTheme.shapes.medium
+                )
+            }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 when (val currentUiState = uiState) {

@@ -28,7 +28,7 @@ import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
-import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
+import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
@@ -89,7 +89,7 @@ fun MainScreen() {
     val scope = rememberCoroutineScope()
     
     val screens = listOf(
-        Screen.Calendar,
+        Screen.Dashboard,
         Screen.Analytics,
         Screen.Records
     )
@@ -140,24 +140,6 @@ fun MainScreen() {
         }
     ) {
         Scaffold(
-            topBar = {
-                val showTopBar = screens.any { it.route == currentDestination?.route }
-                if (showTopBar) {
-                    TopAppBar(
-                        title = { Text("MoneyPilot") },
-                        navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Default.Menu, contentDescription = "Menu")
-                            }
-                        },
-                        actions = {
-                            IconButton(onClick = { navController.navigate("settings") }) {
-                                Icon(Icons.Default.Settings, contentDescription = "Settings")
-                            }
-                        }
-                    )
-                }
-            },
             bottomBar = {
                 val showBottomBar = screens.any { it.route == currentDestination?.route }
                 
@@ -185,13 +167,16 @@ fun MainScreen() {
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = Screen.Calendar.route,
+                startDestination = Screen.Dashboard.route,
                 modifier = Modifier.padding(innerPadding).fillMaxSize()
             ) {
-                composable(Screen.Calendar.route) { 
-                    CalendarScreen(
+                composable(Screen.Dashboard.route) { 
+                    DashboardHubScreen(
                         onAddTransaction = { date ->
                             navController.navigate("add_transaction?date=${date}")
+                        },
+                        onEditTransaction = { transactionId ->
+                            navController.navigate("add_transaction?transactionId=$transactionId")
                         },
                         onOpenDrawer = { scope.launch { drawerState.open() } },
                         onOpenSettings = { navController.navigate("settings") }
