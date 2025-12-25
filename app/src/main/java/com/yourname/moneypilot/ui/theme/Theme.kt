@@ -11,53 +11,48 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = md_theme_light_primary,
-    onPrimary = md_theme_light_onPrimary,
-    primaryContainer = md_theme_light_primaryContainer,
-    onPrimaryContainer = md_theme_light_onPrimaryContainer,
-    secondary = md_theme_light_secondary,
-    onSecondary = md_theme_light_onSecondary,
-    secondaryContainer = md_theme_light_secondaryContainer,
-    onSecondaryContainer = md_theme_light_onSecondaryContainer,
-    background = md_theme_light_background,
-    surface = md_theme_light_surface,
-    onSurface = md_theme_light_onSurface,
-    onSurfaceVariant = md_theme_light_onSurfaceVariant,
+    primary = Color(0xFF0067FF),
+    onPrimary = Color.White,
+    background = Color.White,
+    surface = Color.White,
+    onBackground = Color.Black,
+    onSurface = Color.Black,
+    surfaceVariant = Color(0xFFF2F2F7)
 )
 
-private val DarkColorScheme = darkColorScheme(
-    primary = md_theme_dark_primary,
-    onPrimary = md_theme_dark_onPrimary,
-    background = md_theme_dark_background,
-    surface = md_theme_dark_surface,
-    onBackground = md_theme_dark_onBackground,
-    onSurface = md_theme_dark_onSurface,
+private val OLEDColorScheme = darkColorScheme(
+    primary = Color.White,
+    onPrimary = Color.Black,
+    background = Color.Black,
+    surface = Color.Black,
+    onBackground = Color.White,
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF1C1C1E)
 )
 
 @Composable
 fun MoneyPilotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    primaryColor: Color? = null,
     trueBlack: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) {
-        DarkColorScheme.copy(
-            primary = primaryColor ?: md_theme_dark_primary,
-            background = if (trueBlack) Color.Black else md_theme_dark_background,
-            surface = if (trueBlack) Color.Black else md_theme_dark_surface
+    val colorScheme = if (darkTheme && trueBlack) {
+        OLEDColorScheme
+    } else if (darkTheme) {
+        darkColorScheme(
+            primary = Color(0xFF4791FF),
+            background = Color(0xFF1C1C1E),
+            surface = Color(0xFF1C1C1E)
         )
     } else {
-        LightColorScheme.copy(
-            primary = primaryColor ?: md_theme_light_primary
-        )
+        LightColorScheme
     }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = Color.Transparent.toArgb()
+            window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

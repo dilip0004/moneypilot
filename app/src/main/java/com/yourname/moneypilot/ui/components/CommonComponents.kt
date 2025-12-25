@@ -95,18 +95,18 @@ fun ContentCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    // Detect OLED mode by checking if surface color is pure black
-    val isOledMode = MaterialTheme.colorScheme.surface == Color.Black
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val isOled = surfaceColor == Color.Black
     
-    val cardBackgroundBrush = if (isOledMode) {
-        Brush.linearGradient(listOf(Color.Black, Color.Black))
+    // Gradient logic for the card to blend with background
+    val cardBackgroundBrush = if (isOled) {
+        Brush.verticalGradient(listOf(Color.Black, Color.Black))
     } else {
-        // Soft gradient inside the card as well, transitioning from light lavender to white
+        // Semi-transparent gradient to blend with the root gradient
         Brush.verticalGradient(
             colors = listOf(
-                Color.White,
-                GradientLavender.copy(alpha = 0.1f),
-                GradientWhite
+                surfaceColor.copy(alpha = 0.7f),
+                surfaceColor.copy(alpha = 0.95f)
             )
         )
     }
@@ -115,7 +115,7 @@ fun ContentCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier

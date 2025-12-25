@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -24,8 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.ui.components.ContentCard
-import com.yourname.moneypilot.ui.components.GradientBackground
+import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.features.dashboard.TransactionItem
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
@@ -39,101 +39,86 @@ import java.util.*
 @Composable
 fun CalendarScreen(
     onAddTransaction: (LocalDate) -> Unit,
+    onOpenDrawer: () -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val calendarState by viewModel.state.collectAsState()
 
-    GradientBackground {
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                CenterAlignedTopAppBar(
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    title = {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(end = 48.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        IconButton(onClick = { viewModel.onMonthChange(calendarState.currentMonth.minusMonths(1)) }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
+                        }
                         Text(
                             text = "${calendarState.currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${calendarState.currentMonth.year}",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { viewModel.onMonthChange(calendarState.currentMonth.minusMonths(1)) }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous Month")
-                        }
-                    },
-                    actions = {
                         IconButton(onClick = { viewModel.onMonthChange(calendarState.currentMonth.plusMonths(1)) }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next Month")
-                        }
-                    }
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = { onAddTransaction(calendarState.selectedDate) },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = CircleShape
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Transaction")
-                }
-            }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = padding.calculateTopPadding())
-            ) {
-                // Calendar Grid area - partially showing gradient
-                CalendarGrid(
-                    currentMonth = calendarState.currentMonth,
-                    dailySummaries = calendarState.dailySummaries,
-                    selectedDate = calendarState.selectedDate,
-                    onDateSelected = { viewModel.onDateSelected(it) }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Layer 2 - Floating Content Card
-                ContentCard(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "Transactions for ${calendarState.selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    if (calendarState.selectedDateTransactions.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "No records for this day",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(bottom = 80.dp)
-                        ) {
-                            items(calendarState.selectedDateTransactions) { transaction ->
-                                TransactionItem(transaction)
-                            }
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
                         }
                     }
                 }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { onAddTransaction(calendarState.selectedDate) }) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
             }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        CalendarGrid(
+                            currentMonth = calendarState.currentMonth,
+                            dailySummaries = calendarState.dailySummaries,
+                            selectedDate = calendarState.selectedDate,
+                            onDateSelected = { viewModel.onDateSelected(it) }
+                        )
+                    }
+                }
+            }
+
+            item {
+                Text(
+                    text = "Transactions for ${calendarState.selectedDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            if (calendarState.selectedDateTransactions.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                        Text("No records for this day", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
+                items(calendarState.selectedDateTransactions) { transaction ->
+                    TransactionItem(transaction)
+                }
+            }
+            
+            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
     }
 }
@@ -147,19 +132,18 @@ fun CalendarGrid(
 ) {
     val daysInMonth = currentMonth.lengthOfMonth()
     val firstDayOfMonth = currentMonth.atDay(1).dayOfWeek.value % 7
-    
-    val weekDays = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+    val weekDays = listOf("S", "M", "T", "W", "T", "F", "S")
 
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Column {
         Row(modifier = Modifier.fillMaxWidth()) {
             weekDays.forEach { day ->
                 Text(
                     text = day,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (day == "Sun" || day == "Sat") ExpenseRed.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
             }
         }
@@ -169,11 +153,7 @@ fun CalendarGrid(
         val totalGridCells = (daysInMonth + firstDayOfMonth + 6) / 7 * 7
         val gridItems = List(totalGridCells) { index ->
             val dayNumber = index - firstDayOfMonth + 1
-            if (dayNumber in 1..daysInMonth) {
-                currentMonth.atDay(dayNumber)
-            } else {
-                null
-            }
+            if (dayNumber in 1..daysInMonth) currentMonth.atDay(dayNumber) else null
         }
 
         LazyVerticalGrid(
@@ -208,14 +188,11 @@ fun CalendarCell(
 ) {
     val backgroundColor = when {
         isSelected -> MaterialTheme.colorScheme.primary
-        isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+        isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         else -> Color.Transparent
     }
     
-    val contentColor = when {
-        isSelected -> MaterialTheme.colorScheme.onPrimary
-        else -> MaterialTheme.colorScheme.onSurface
-    }
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
     Box(
         modifier = Modifier
@@ -234,14 +211,9 @@ fun CalendarCell(
                 color = contentColor
             )
             if (summary != null && !isSelected) {
-                Row(horizontalArrangement = Arrangement.Center) {
-                    if (summary.totalIncome > 0) {
-                        Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(IncomeGreen))
-                    }
-                    if (summary.totalExpense > 0) {
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(ExpenseRed))
-                    }
+                Row {
+                    if (summary.totalIncome > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(IncomeGreen))
+                    if (summary.totalExpense > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(ExpenseRed))
                 }
             }
         }

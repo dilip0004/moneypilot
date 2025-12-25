@@ -23,7 +23,6 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
-import com.yourname.moneypilot.ui.components.GradientBackground
 import com.yourname.moneypilot.ui.features.accounts.AccountsScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
@@ -47,6 +46,7 @@ import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -64,12 +64,16 @@ class MainActivity : ComponentActivity() {
                 null -> isSystemInDarkTheme()
             }
 
+            val isOled = preferences?.theme == AppTheme.OLED
+
             MoneyPilotTheme(
                 darkTheme = darkTheme,
-                primaryColor = Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt()),
-                trueBlack = preferences?.theme == AppTheme.OLED
+                trueBlack = isOled
             ) {
-                GradientBackground(isOledMode = preferences?.theme == AppTheme.OLED) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     MainScreen()
                 }
             }
@@ -136,12 +140,10 @@ fun MainScreen() {
         }
     ) {
         Scaffold(
-            containerColor = Color.Transparent,
             topBar = {
                 val showTopBar = screens.any { it.route == currentDestination?.route }
                 if (showTopBar) {
                     TopAppBar(
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                         title = { Text("MoneyPilot") },
                         navigationIcon = {
                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
@@ -160,7 +162,7 @@ fun MainScreen() {
                 val showBottomBar = screens.any { it.route == currentDestination?.route }
                 
                 if (showBottomBar) {
-                    NavigationBar(containerColor = Color.Transparent) {
+                    NavigationBar {
                         screens.forEach { screen ->
                             NavigationBarItem(
                                 icon = { Icon(screen.icon, contentDescription = null) },
@@ -187,9 +189,13 @@ fun MainScreen() {
                 modifier = Modifier.padding(innerPadding).fillMaxSize()
             ) {
                 composable(Screen.Calendar.route) { 
-                    CalendarScreen(onAddTransaction = { date ->
-                        navController.navigate("add_transaction?date=${date}")
-                    })
+                    CalendarScreen(
+                        onAddTransaction = { date ->
+                            navController.navigate("add_transaction?date=${date}")
+                        },
+                        onOpenDrawer = { scope.launch { drawerState.open() } },
+                        onOpenSettings = { navController.navigate("settings") }
+                    )
                 }
                 
                 composable(Screen.Analytics.route) { 
