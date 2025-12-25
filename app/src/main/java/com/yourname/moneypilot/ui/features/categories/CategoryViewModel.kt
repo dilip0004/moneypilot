@@ -7,7 +7,13 @@ import com.yourname.moneypilot.data.repository.CategoryRepository
 import com.yourname.moneypilot.ui.common.BaseViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,14 +28,28 @@ class CategoryViewModel @Inject constructor(
 ) : BaseViewModel<CategoriesState>() {
 
     init {
-        loadCategories()
+        seedAndLoad()
     }
 
-    private fun loadCategories() {
+    private fun seedAndLoad() {
         viewModelScope.launch {
             _uiState.value = ScreenState.Loading
-            categoryRepository.getAllCategories().collectLatest { list ->
-                _uiState.value = ScreenState.Success(CategoriesState(categories = list))
+            categoryRepository.seedDefaults()
+            
+            categoryRepository.getAllCategories().collect { categories ->
+                if (categories.isEmpty()) {
+                    _uiState.value = ScreenState.Empty
+                } else {
+                    val subMap = mutableMapOf<Long, List<SubcategoryEntity>>()
+                    categories.forEach { category ->
+                        viewModelScope.launch {
+                            categoryRepository.getSubcategories(category.id).collect { subList ->
+                                subMap[category.id] = subList
+                                _uiState.value = ScreenState.Success(CategoriesState(categories, subMap.toMap()))
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -49,10 +69,32 @@ class CategoryViewModel @Inject constructor(
         }
     }
 
+    fun addSubcategory(categoryId: Long, name: String) {
+        viewModelScope.launch {
+            categoryRepository.insertSubcategory(
+                SubcategoryEntity(
+                    categoryId = categoryId,
+                    name = name
+                )
+            )
+        }
+    }
+
+    fun updateCategory(category: CategoryEntity) {
+        viewModelScope.launch {
+            categoryRepository.updateCategory(category)
+        }
+    }
+
     fun deleteCategory(category: CategoryEntity) {
         viewModelScope.launch {
-            // Principle 14: Requires reassignment logic here in a real implementation
             categoryRepository.deleteCategory(category)
+        }
+    }
+
+    fun deleteSubcategory(subcategory: SubcategoryEntity) {
+        viewModelScope.launch {
+            categoryRepository.deleteSubcategory(subcategory)
         }
     }
 }

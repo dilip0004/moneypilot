@@ -1,19 +1,18 @@
 package com.yourname.moneypilot.ui.features.budgets
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.components.ContentCard
+import com.yourname.moneypilot.ui.components.GradientBackground
+import com.yourname.moneypilot.ui.components.PrimaryButton
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,74 +23,96 @@ fun AddEditBudgetScreen(
 ) {
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
+    var expandedCategory by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
-                is AddEditBudgetViewModel.UiEvent.SaveBudget -> {
-                    onPopBackStack()
-                }
-                is AddEditBudgetViewModel.UiEvent.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(message = event.message)
-                }
+                is AddEditBudgetViewModel.UiEvent.SaveBudget -> onPopBackStack()
+                is AddEditBudgetViewModel.UiEvent.ShowSnackbar -> snackbarHostState.showSnackbar(event.message)
             }
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(text = "Add Budget") },
-                navigationIcon = {
-                    IconButton(onClick = onPopBackStack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+    GradientBackground {
+        Scaffold(
+            containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                CenterAlignedTopAppBar(
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
+                    title = { Text("Set Category Budget", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onPopBackStack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = {
-                viewModel.onEvent(AddEditBudgetEvent.SaveBudget)
-            }) {
-                Icon(imageVector = Icons.Default.Save, contentDescription = "Save")
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            OutlinedTextField(
-                value = state.amount,
-                onValueChange = { viewModel.onEvent(AddEditBudgetEvent.EnteredAmount(it)) },
-                label = { Text("Budget Amount") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Rollover Enabled")
-                Spacer(modifier = Modifier.weight(1f))
-                Switch(
-                    checked = state.rolloverEnabled,
-                    onCheckedChange = { viewModel.onEvent(AddEditBudgetEvent.ToggleRollover) }
                 )
             }
+        ) { padding ->
+            Column(modifier = Modifier.padding(padding)) {
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                ContentCard {
+                    Text("Budget Details", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Alert Threshold: ${state.alertThreshold}%", style = MaterialTheme.typography.bodyLarge)
-            Slider(
-                value = state.alertThreshold.toFloat(),
-                onValueChange = { viewModel.onEvent(AddEditBudgetEvent.AlertThresholdChanged(it.toInt())) },
-                valueRange = 50f..100f,
-                steps = 9
-            )
+                    // Category Selector - CRITICAL FIX
+                    ExposedDropdownMenuBox(
+                        expanded = expandedCategory,
+                        onExpandedChange = { expandedCategory = !expandedCategory }
+                    ) {
+                        OutlinedTextField(
+                            value = state.categories.find { it.id == state.categoryId }?.name ?: "Select Category",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Target Category") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedCategory,
+                            onDismissRequest = { expandedCategory = false }
+                        ) {
+                            state.categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text("${category.icon} ${category.name}") },
+                                    onClick = {
+                                        viewModel.onEvent(AddEditBudgetEvent.CategoryChanged(category.id))
+                                        expandedCategory = false
+                                    }
+                                )
+                            }
+                        }
+                    }
 
-            Text("Category Selection (First available used)", style = MaterialTheme.typography.bodySmall)
-            Text("Period: ${state.period}", style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Amount Input
+                    OutlinedTextField(
+                        value = state.amount,
+                        onValueChange = { viewModel.onEvent(AddEditBudgetEvent.EnteredAmount(it)) },
+                        label = { Text("Monthly Limit") },
+                        modifier = Modifier.fillMaxWidth(),
+                        prefix = { Text("₹ ") }
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text("Alert Threshold: ${state.alertThreshold}%", style = MaterialTheme.typography.labelMedium)
+                    Slider(
+                        value = state.alertThreshold.toFloat(),
+                        onValueChange = { viewModel.onEvent(AddEditBudgetEvent.AlertThresholdChanged(it.toInt())) },
+                        valueRange = 50f..100f
+                    )
+
+                    Spacer(modifier = Modifier.weight(1f))
+                    
+                    PrimaryButton(
+                        text = "Save Budget",
+                        onClick = { viewModel.onEvent(AddEditBudgetEvent.SaveBudget) }
+                    )
+                }
+            }
         }
     }
 }

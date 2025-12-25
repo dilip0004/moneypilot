@@ -1,18 +1,12 @@
 package com.yourname.moneypilot.data.local.database.dao
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Update
+import androidx.room.*
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CategoryDao {
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(category: CategoryEntity): Long
 
@@ -30,6 +24,15 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories WHERE type = :type ORDER BY name ASC")
     fun getCategoriesByType(type: String): Flow<List<CategoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSubcategory(subcategory: SubcategoryEntity): Long
+
+    @Update
+    suspend fun updateSubcategory(subcategory: SubcategoryEntity)
+
+    @Delete
+    suspend fun deleteSubcategory(subcategory: SubcategoryEntity)
 
     @Query("SELECT * FROM subcategories WHERE categoryId = :parentId ORDER BY name ASC")
     fun getSubcategories(parentId: Long): Flow<List<SubcategoryEntity>>

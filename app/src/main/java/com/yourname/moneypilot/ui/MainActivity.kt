@@ -4,13 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -19,6 +23,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
+import com.yourname.moneypilot.ui.components.GradientBackground
 import com.yourname.moneypilot.ui.features.accounts.AccountsScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
@@ -42,7 +47,6 @@ import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -62,10 +66,12 @@ class MainActivity : ComponentActivity() {
 
             MoneyPilotTheme(
                 darkTheme = darkTheme,
-                dynamicColor = preferences?.useDynamicColor ?: true,
+                primaryColor = Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt()),
                 trueBlack = preferences?.theme == AppTheme.OLED
             ) {
-                MainScreen()
+                GradientBackground(isOledMode = preferences?.theme == AppTheme.OLED) {
+                    MainScreen()
+                }
             }
         }
     }
@@ -130,10 +136,12 @@ fun MainScreen() {
         }
     ) {
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 val showTopBar = screens.any { it.route == currentDestination?.route }
                 if (showTopBar) {
                     TopAppBar(
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                         title = { Text("MoneyPilot") },
                         navigationIcon = {
                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
@@ -152,7 +160,7 @@ fun MainScreen() {
                 val showBottomBar = screens.any { it.route == currentDestination?.route }
                 
                 if (showBottomBar) {
-                    NavigationBar {
+                    NavigationBar(containerColor = Color.Transparent) {
                         screens.forEach { screen ->
                             NavigationBarItem(
                                 icon = { Icon(screen.icon, contentDescription = null) },
@@ -176,7 +184,7 @@ fun MainScreen() {
             NavHost(
                 navController = navController,
                 startDestination = Screen.Calendar.route,
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.padding(innerPadding).fillMaxSize()
             ) {
                 composable(Screen.Calendar.route) { 
                     CalendarScreen(onAddTransaction = { date ->

@@ -22,6 +22,8 @@ data class UserPreferences(
     val currency: String,
     val theme: AppTheme,
     val primaryColor: Int,
+    val keyboardBackgroundColor: Int?,
+    val keyboardBoxColor: Int?,
     val useDynamicColor: Boolean,
     val useBiometrics: Boolean,
     val budgetAlertThreshold: Int,
@@ -37,6 +39,8 @@ class UserPreferencesRepository @Inject constructor(
         val CURRENCY = stringPreferencesKey("currency")
         val THEME = stringPreferencesKey("app_theme")
         val PRIMARY_COLOR = intPreferencesKey("primary_color")
+        val KEYBOARD_BG_COLOR = intPreferencesKey("keyboard_bg_color")
+        val KEYBOARD_BOX_COLOR = intPreferencesKey("keyboard_box_color")
         val USE_DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
         val USE_BIOMETRICS = booleanPreferencesKey("use_biometrics")
         val BUDGET_ALERT_THRESHOLD = stringPreferencesKey("budget_alert_threshold")
@@ -56,14 +60,17 @@ class UserPreferencesRepository @Inject constructor(
             val themeStr = preferences[PreferencesKeys.THEME] ?: AppTheme.SYSTEM.name
             val theme = try { AppTheme.valueOf(themeStr) } catch(e: Exception) { AppTheme.SYSTEM }
             
-            val primaryColor = preferences[PreferencesKeys.PRIMARY_COLOR] ?: 0xFF7F3DFF.toInt() // Default Purple
+            val primaryColor = preferences[PreferencesKeys.PRIMARY_COLOR] ?: 0xFF7B5CFA.toInt()
+            val kbBgColor = preferences[PreferencesKeys.KEYBOARD_BG_COLOR]
+            val kbBoxColor = preferences[PreferencesKeys.KEYBOARD_BOX_COLOR]
+            
             val useDynamicColor = preferences[PreferencesKeys.USE_DYNAMIC_COLOR] ?: true
             val useBiometrics = preferences[PreferencesKeys.USE_BIOMETRICS] ?: false
             val threshold = preferences[PreferencesKeys.BUDGET_ALERT_THRESHOLD]?.toIntOrNull() ?: 90
             val summaryEnabled = preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] ?: true
             val summaryTime = preferences[PreferencesKeys.DAILY_SUMMARY_TIME] ?: "22:00"
             
-            UserPreferences(currency, theme, primaryColor, useDynamicColor, useBiometrics, threshold, summaryEnabled, summaryTime)
+            UserPreferences(currency, theme, primaryColor, kbBgColor, kbBoxColor, useDynamicColor, useBiometrics, threshold, summaryEnabled, summaryTime)
         }
 
     suspend fun updateCurrency(currency: String) {
@@ -81,6 +88,13 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun updatePrimaryColor(color: Int) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.PRIMARY_COLOR] = color
+        }
+    }
+
+    suspend fun updateKeyboardColors(bgColor: Int?, boxColor: Int?) {
+        context.dataStore.edit { preferences ->
+            if (bgColor != null) preferences[PreferencesKeys.KEYBOARD_BG_COLOR] = bgColor
+            if (boxColor != null) preferences[PreferencesKeys.KEYBOARD_BOX_COLOR] = boxColor
         }
     }
 

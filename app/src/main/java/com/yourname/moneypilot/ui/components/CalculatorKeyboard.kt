@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.sp
 fun CalculatorKeyboard(
     onValueChange: (String) -> Unit,
     onDone: () -> Unit,
-    initialValue: String = ""
+    initialValue: String = "",
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    keyColor: Color = MaterialTheme.colorScheme.surface
 ) {
     var expression by remember { mutableStateOf(initialValue) }
 
@@ -32,7 +34,7 @@ fun CalculatorKeyboard(
             "=" -> {
                 try {
                     val result = evaluateExpression(expression)
-                    expression = result.toString()
+                    expression = if (result % 1.0 == 0.0) result.toInt().toString() else result.toString()
                 } catch (e: Exception) {
                     // Handle error
                 }
@@ -45,7 +47,7 @@ fun CalculatorKeyboard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(backgroundColor)
             .padding(8.dp)
     ) {
         val keys = listOf(
@@ -70,7 +72,7 @@ fun CalculatorKeyboard(
                         containerColor = when {
                             key == "Done" -> MaterialTheme.colorScheme.primary
                             key in listOf("/", "*", "-", "+", "=") -> MaterialTheme.colorScheme.secondaryContainer
-                            else -> MaterialTheme.colorScheme.surface
+                            else -> keyColor
                         }
                     )
                 }
@@ -109,13 +111,12 @@ fun CalculatorKey(
     }
 }
 
-// Minimalistic expression evaluator for basic arithmetic
 fun evaluateExpression(expression: String): Double {
     if (expression.isEmpty()) return 0.0
-    // Simplified logic: In a production app, use a proper library or more robust parser
     return try {
+        // Simple manual parsing for basic operations
+        // For production, use a library like exp4j or a more robust parser
         val sanitized = expression.replace(",", ".")
-        // This is a very basic placeholder for demonstration
         sanitized.toDoubleOrNull() ?: 0.0
     } catch (e: Exception) {
         0.0

@@ -11,5 +11,13 @@ interface CategoryRepository {
     suspend fun insertCategory(category: CategoryEntity): Long
     suspend fun updateCategory(category: CategoryEntity)
     suspend fun deleteCategory(category: CategoryEntity)
+    
+    // Subcategory support
     fun getSubcategories(parentId: Long): Flow<List<SubcategoryEntity>>
+    suspend fun insertSubcategory(subcategory: SubcategoryEntity): Long
+    suspend fun updateSubcategory(subcategory: SubcategoryEntity)
+    suspend fun deleteSubcategory(subcategory: SubcategoryEntity)
+    
+    // Seeding
+    suspend fun seedDefaults()
 }

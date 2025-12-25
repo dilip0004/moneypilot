@@ -36,8 +36,8 @@ fun AddEditTransactionScreen(
     
     var showAccountDropdown by remember { mutableStateOf(false) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
+    var showSubcategoryDropdown by remember { mutableStateOf(false) }
     
-    // Date Picker State
     val datePickerState = rememberDatePickerState()
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -59,8 +59,6 @@ fun AddEditTransactionScreen(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    // Update state.date logic should be in ViewModel, 
-                    // for now just closing the dialog.
                     showDatePicker = false
                 }) { Text("OK") }
             }
@@ -194,12 +192,49 @@ fun AddEditTransactionScreen(
                     ) {
                         state.categories.forEach { category ->
                             DropdownMenuItem(
-                                text = { Text(category.name) },
+                                text = { Text("${category.icon} ${category.name}") },
                                 onClick = {
                                     viewModel.onEvent(AddEditTransactionEvent.CategoryChanged(category.id))
                                     showCategoryDropdown = false
                                 }
                             )
+                        }
+                    }
+                }
+
+                // Subcategory Selection (New)
+                if (state.categoryId != null && state.subcategories.isNotEmpty()) {
+                    ExposedDropdownMenuBox(
+                        expanded = showSubcategoryDropdown,
+                        onExpandedChange = { 
+                            showSubcategoryDropdown = !showSubcategoryDropdown 
+                            if (showSubcategoryDropdown) {
+                                focusManager.clearFocus()
+                                showCalculator = false
+                            }
+                        }
+                    ) {
+                        OutlinedTextField(
+                            value = state.subcategories.find { it.id == state.subcategoryId }?.name ?: "Select Subcategory",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Subcategory") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showSubcategoryDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = showSubcategoryDropdown,
+                            onDismissRequest = { showSubcategoryDropdown = false }
+                        ) {
+                            state.subcategories.forEach { sub ->
+                                DropdownMenuItem(
+                                    text = { Text(sub.name) },
+                                    onClick = {
+                                        viewModel.onEvent(AddEditTransactionEvent.SubcategoryChanged(sub.id))
+                                        showSubcategoryDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
