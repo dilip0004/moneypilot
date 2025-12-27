@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.GoalEntity
 import com.yourname.moneypilot.ui.common.ScreenState
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun GoalsScreen(
@@ -85,7 +86,14 @@ fun GoalItem(goal: GoalEntity) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = goal.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Column {
+                    Text(text = goal.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "Target: ${goal.targetDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     text = "${(progress * 100).toInt()}%",
                     style = MaterialTheme.typography.titleMedium,
@@ -93,20 +101,20 @@ fun GoalItem(goal: GoalEntity) {
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             LinearProgressIndicator(
-                progress = progress,
-                modifier = Modifier.fillMaxWidth().height(8.dp),
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(10.dp),
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = "$${goal.currentAmount}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(text = "Target: $${goal.targetAmount}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "₹${goal.currentAmount}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                Text(text = "Goal: ₹${goal.targetAmount}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

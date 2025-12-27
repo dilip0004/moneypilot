@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +24,7 @@ import com.yourname.moneypilot.ui.theme.IncomeGreen
 @Composable
 fun ReportsScreen(
     onPopBackStack: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     viewModel: ReportsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -34,6 +36,11 @@ fun ReportsScreen(
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             )
@@ -54,16 +61,16 @@ fun ReportsScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("Income", color = IncomeGreen)
-                                        Text("INR ${summary.totalIncome}", fontWeight = FontWeight.Bold)
+                                        Text("₹ ${summary.totalIncome}", fontWeight = FontWeight.Bold)
                                     }
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("Expenses", color = ExpenseRed)
-                                        Text("INR ${summary.totalExpense}", fontWeight = FontWeight.Bold)
+                                        Text("₹ ${summary.totalExpense}", fontWeight = FontWeight.Bold)
                                     }
                                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("Net Cash Flow", fontWeight = FontWeight.SemiBold)
-                                        Text("INR ${summary.totalIncome - summary.totalExpense}", color = if (summary.totalIncome >= summary.totalExpense) IncomeGreen else ExpenseRed)
+                                        Text("₹ ${summary.totalIncome - summary.totalExpense}", color = if (summary.totalIncome >= summary.totalExpense) IncomeGreen else ExpenseRed)
                                     }
                                 }
                             }

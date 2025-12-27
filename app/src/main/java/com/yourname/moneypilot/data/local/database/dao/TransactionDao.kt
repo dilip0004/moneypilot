@@ -61,6 +61,17 @@ interface TransactionDao {
 
     @Query("""
         SELECT SUM(amount) FROM transactions 
+        WHERE type = :type
+        AND date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getTotalSumByType(
+        type: String,
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): Double?
+
+    @Query("""
+        SELECT SUM(amount) FROM transactions 
         WHERE account_id = :accountId 
         AND type = :type
         AND date BETWEEN :startDate AND :endDate
@@ -68,6 +79,18 @@ interface TransactionDao {
     suspend fun getTransactionSum(
         accountId: Long,
         type: String,
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): Double?
+
+    @Query("""
+        SELECT SUM(amount) FROM transactions 
+        WHERE category_id = :categoryId 
+        AND type = 'EXPENSE'
+        AND date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getCategoryExpenseSum(
+        categoryId: Long,
         startDate: LocalDateTime,
         endDate: LocalDateTime
     ): Double?

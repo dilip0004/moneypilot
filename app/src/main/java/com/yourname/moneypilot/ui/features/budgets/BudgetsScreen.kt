@@ -11,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -62,7 +63,7 @@ fun BudgetsScreen(
                 }
                 is ScreenState.Empty -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "No active budgets")
+                        Text(text = "No budgets set")
                     }
                 }
             }
@@ -73,14 +74,11 @@ fun BudgetsScreen(
 @Composable
 fun BudgetItem(budget: BudgetEntity) {
     val progress = if (budget.amount > 0) (budget.spentAmount / budget.amount).toFloat() else 0f
-    val isOverBudget = progress > 1f
+    val isOverBudget = budget.spentAmount > budget.amount
     
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isOverBudget) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
-        )
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -99,23 +97,18 @@ fun BudgetItem(budget: BudgetEntity) {
             Spacer(modifier = Modifier.height(8.dp))
             
             LinearProgressIndicator(
-                progress = progress.coerceAtMost(1f),
+                progress = { progress.coerceAtMost(1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp),
                 color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
             
             Spacer(modifier = Modifier.height(8.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    text = "$${budget.spentAmount} spent", 
-                    style = MaterialTheme.typography.bodyMedium, 
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isOverBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(text = "Limit: $${budget.amount}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "₹${budget.spentAmount} spent", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(text = "Limit: ₹${budget.amount}", style = MaterialTheme.typography.bodySmall)
             }
         }
     }

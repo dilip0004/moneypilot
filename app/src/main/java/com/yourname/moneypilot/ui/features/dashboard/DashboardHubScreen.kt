@@ -1,6 +1,7 @@
 package com.yourname.moneypilot.ui.features.dashboard
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -123,7 +124,8 @@ fun DashboardHubScreen(
             FloatingActionButton(
                 onClick = { onAddTransaction(LocalDate.now()) },
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }

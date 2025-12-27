@@ -45,6 +45,7 @@ class AddEditGoalViewModel @Inject constructor(
             is AddEditGoalEvent.EnteredTargetAmount -> _state.value = _state.value.copy(targetAmount = event.value)
             is AddEditGoalEvent.EnteredCurrentAmount -> _state.value = _state.value.copy(currentAmount = event.value)
             is AddEditGoalEvent.PriorityChanged -> _state.value = _state.value.copy(priority = event.value)
+            is AddEditGoalEvent.DateChanged -> _state.value = _state.value.copy(targetDate = event.value)
             is AddEditGoalEvent.SaveGoal -> saveGoal()
         }
     }
@@ -88,5 +89,6 @@ sealed class AddEditGoalEvent {
     data class EnteredTargetAmount(val value: String) : AddEditGoalEvent()
     data class EnteredCurrentAmount(val value: String) : AddEditGoalEvent()
     data class PriorityChanged(val value: Int) : AddEditGoalEvent()
+    data class DateChanged(val value: LocalDate) : AddEditGoalEvent()
     object SaveGoal : AddEditGoalEvent()
 }

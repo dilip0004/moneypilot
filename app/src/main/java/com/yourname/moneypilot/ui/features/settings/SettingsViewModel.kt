@@ -4,15 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.preferences.AppTheme
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
+import com.yourname.moneypilot.worker.NotificationScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val preferencesRepository: UserPreferencesRepository
+    private val preferencesRepository: UserPreferencesRepository,
+    private val notificationScheduler: NotificationScheduler
 ) : ViewModel() {
 
     val userPreferences = preferencesRepository.userPreferencesFlow
@@ -23,7 +26,6 @@ class SettingsViewModel @Inject constructor(
         )
 
     fun updateDarkMode(mode: String) {
-        // This is a legacy function, keeping it for compatibility or redirecting
         val theme = when(mode) {
             "LIGHT" -> AppTheme.LIGHT
             "DARK" -> AppTheme.DARK
@@ -48,6 +50,22 @@ class SettingsViewModel @Inject constructor(
     fun updateDynamicColor(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateUseDynamicColor(enabled)
+        }
+    }
+
+    fun updateDailySummaryEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateDailySummaryEnabled(enabled)
+            val prefs = preferencesRepository.userPreferencesFlow.first()
+            notificationScheduler.scheduleDailySummary(prefs.copy(dailySummaryEnabled = enabled))
+        }
+    }
+
+    fun updateDailySummaryTime(time: String) {
+        viewModelScope.launch {
+            preferencesRepository.updateDailySummaryTime(time)
+            val prefs = preferencesRepository.userPreferencesFlow.first()
+            notificationScheduler.scheduleDailySummary(prefs.copy(dailySummaryTime = time))
         }
     }
 

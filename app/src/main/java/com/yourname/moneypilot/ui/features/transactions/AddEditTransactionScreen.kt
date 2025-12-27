@@ -4,22 +4,25 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CompareArrows
-import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
+import com.yourname.moneypilot.ui.components.PrimaryButton
 import kotlinx.coroutines.flow.collectLatest
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,14 +35,23 @@ fun AddEditTransactionScreen(
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
+    val clipboardManager = LocalClipboardManager.current
     var showCalculator by remember { mutableStateOf(false) }
     
     var showAccountDropdown by remember { mutableStateOf(false) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var showSubcategoryDropdown by remember { mutableStateOf(false) }
     
-    val datePickerState = rememberDatePickerState()
+    // Date and Time Picker State
     var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = state.date.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
+    val timePickerState = rememberTimePickerState(
+        initialHour = state.date.hour,
+        initialMinute = state.date.minute
+    )
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -60,11 +72,39 @@ fun AddEditTransactionScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDatePicker = false
-                }) { Text("OK") }
+                    showTimePicker = true
+                }) { Text("Next") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
             }
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    if (showTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selectedDate = Instant.ofEpochMilli(datePickerState.selectedDateMillis ?: Instant.now().toEpochMilli())
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+                    val selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
+                    val combinedDateTime = LocalDateTime.of(selectedDate, selectedTime)
+                    
+                    viewModel.onEvent(AddEditTransactionEvent.DateChanged(combinedDateTime))
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+            },
+            text = {
+                TimePicker(state = timePickerState)
+            }
+        )
     }
 
     Scaffold(
@@ -78,6 +118,15 @@ fun AddEditTransactionScreen(
                     }
                 },
                 actions = {
+                    // MAGIC PASTE BUTTON
+                    IconButton(onClick = {
+                        val clipboardText = clipboardManager.getText()?.text
+                        if (clipboardText != null) {
+                            viewModel.onEvent(AddEditTransactionEvent.PasteSms(clipboardText))
+                        }
+                    }) {
+                        Icon(imageVector = Icons.Default.AutoFixHigh, contentDescription = "Magic Paste", tint = MaterialTheme.colorScheme.primary)
+                    }
                     IconButton(onClick = {
                         showCalculator = false
                         onNavigateToTransfer()
@@ -122,7 +171,7 @@ fun AddEditTransactionScreen(
                         Icon(Icons.Default.CalendarMonth, contentDescription = null)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Transaction Date", style = MaterialTheme.typography.labelSmall)
+                            Text("Transaction Date & Time", style = MaterialTheme.typography.labelSmall)
                             Text(
                                 text = state.date.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy - HH:mm")),
                                 style = MaterialTheme.typography.bodyLarge,
@@ -202,7 +251,7 @@ fun AddEditTransactionScreen(
                     }
                 }
 
-                // Subcategory Selection (New)
+                // Subcategory Selection
                 if (state.categoryId != null && state.subcategories.isNotEmpty()) {
                     ExposedDropdownMenuBox(
                         expanded = showSubcategoryDropdown,

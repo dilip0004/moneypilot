@@ -20,5 +20,7 @@ class GoalRepositoryImpl @Inject constructor(
 
     override suspend fun deleteGoal(goal: GoalEntity) = goalDao.delete(goal)
 
+    override suspend fun incrementCurrentAmount(goalId: Long, amount: Double) = goalDao.incrementCurrentAmount(goalId, amount)
+
     override suspend fun updateCurrentAmount(goalId: Long, amount: Double) = goalDao.updateCurrentAmount(goalId, amount)
 }

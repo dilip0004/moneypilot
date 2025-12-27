@@ -10,5 +10,6 @@ interface GoalRepository {
     suspend fun insertGoal(goal: GoalEntity): Long
     suspend fun updateGoal(goal: GoalEntity)
     suspend fun deleteGoal(goal: GoalEntity)
+    suspend fun incrementCurrentAmount(goalId: Long, amount: Double)
     suspend fun updateCurrentAmount(goalId: Long, amount: Double)
 }

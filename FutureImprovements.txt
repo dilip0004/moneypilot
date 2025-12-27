@@ -1,0 +1,68 @@
+==================================================
+           MONEYPILOT - FUTURE ROADMAP
+==================================================
+
+This document outlines high-level strategic improvements to evolve 
+MoneyPilot into an intelligent financial co-pilot.
+
+--------------------------------------------------
+1. INTELLIGENT AUTOMATION ("ZERO-INPUT" GOAL)
+--------------------------------------------------
+* BANK SMS PARSING: Auto-detect UPI/Bank SMS alerts to pre-fill 
+  transactions (Critical for Indian market).
+* OCR RECEIPT SCANNING: Extract amount, date, and merchant from 
+  photos using on-device ML Kit.
+* VOICE-DRIVEN ENTRY: Natural language processing for hands-free 
+  logging (e.g., "Spent 500 on Fuel from HDFC").
+
+--------------------------------------------------
+2. ADVANCED VISUAL INTELLIGENCE
+--------------------------------------------------
+* PREDICTIVE INSIGHTS: Forecast end-of-month balance based on 
+  current spending velocity.
+* BUDGET HEATMAPS: Visual comparison of "Allocated Peace of Mind" 
+  vs. actual usage.
+* AI SUMMARIES: Human-readable insights (e.g., "You've saved 15% 
+  more this week compared to your 3-month average").
+
+--------------------------------------------------
+3. PRIVACY & SECURITY REFINEMENT
+--------------------------------------------------
+* STEALTH MODE (MASKING): Global toggle to blur all currency 
+  figures (₹1,234 -> ****) for public use.
+* CLOUD-SYNC (ENCRYPTED): Auto-backup encrypted JSON to Google 
+  Drive or OneDrive.
+* PANIC PIN: Secondary PIN that displays a "Decoy" database with 
+  fake low-balance data.
+
+--------------------------------------------------
+4. FINANCIAL LIFECYCLE MANAGEMENT
+--------------------------------------------------
+* SUBSCRIPTION MANAGER: Track digital leakage (Netflix, iCloud) 
+  with reminders 2 days before auto-debit.
+* LOAN & DEBT TRACKER: Track EMI progress, interest vs. principal, 
+  and payoff timelines.
+* SHARED WALLETS: Multi-user sync for couples or small partners to 
+  manage shared "Home" cash.
+
+--------------------------------------------------
+5. UI/UX "POWER-USER" POLISH
+--------------------------------------------------
+* GESTURE SHORTCUTS: Swipe-to-Action in Records list (e.g., Swipe 
+  Right to Duplicate, Left to Delete).
+* DYNAMIC WIDGETS: Home screen progress rings and category-specific 
+  quick-add buttons.
+* BATCH EDITING: Select multiple records to re-categorize or move 
+  to a different account at once.
+
+--------------------------------------------------
+6. TECHNICAL DEBT & SCALING
+--------------------------------------------------
+* AUTO-MIGRATIONS: Robust database versioning to ensure zero data 
+  loss during future updates.
+* MULTI-CURRENCY ENGINE: Background conversion for international 
+  travel or crypto assets.
+
+==================================================
+MoneyPilot: From Data Tracker to Intelligent Co-Pilot.
+==================================================

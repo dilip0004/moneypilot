@@ -98,7 +98,7 @@ fun DistributionContent(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Monthly Surplus", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "INR ${state.totalSurplus}",
+                        "₹ ${state.totalSurplus}",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -145,7 +145,7 @@ fun RuleItem(rule: DistributionRuleEntity, onDelete: (DistributionRuleEntity) ->
         ) {
             Column {
                 Text("Target Account ID: ${rule.targetWalletId}", style = MaterialTheme.typography.bodyLarge)
-                val detail = if (rule.percentage != null) "${rule.percentage}%" else "INR ${rule.fixedAmount}"
+                val detail = if (rule.percentage != null) "${rule.percentage}%" else "₹ ${rule.fixedAmount}"
                 Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = { onDelete(rule) }) {
@@ -168,7 +168,7 @@ fun PlanActionItem(action: DistributionAction) {
         ) {
             Column {
                 Text("${action.sourceName} → ${action.targetName}", style = MaterialTheme.typography.bodyLarge)
-                Text("INR ${action.amount}", fontWeight = FontWeight.Bold)
+                Text("₹ ${action.amount}", fontWeight = FontWeight.Bold)
             }
             Text("Suggested", style = MaterialTheme.typography.labelSmall)
         }

@@ -9,4 +9,5 @@ interface TransactionRepository {
     fun getTransactionsByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<TransactionEntity>>
     suspend fun insertTransaction(transaction: TransactionEntity): Long
     suspend fun deleteTransaction(transaction: TransactionEntity)
+    suspend fun getCategoryExpenseSum(categoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double
 }

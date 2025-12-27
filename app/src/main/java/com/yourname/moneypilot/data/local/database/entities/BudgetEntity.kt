@@ -16,10 +16,17 @@ import java.time.LocalDateTime
             parentColumns = ["id"],
             childColumns = ["category_id"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = SubcategoryEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["subcategory_id"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
     indices = [
         Index("category_id"),
+        Index("subcategory_id"),
         Index("start_date"),
         Index("end_date")
     ]
@@ -30,6 +37,9 @@ data class BudgetEntity(
 
     @ColumnInfo(name = "category_id")
     val categoryId: Long,
+
+    @ColumnInfo(name = "subcategory_id")
+    val subcategoryId: Long? = null,
 
     @ColumnInfo(name = "amount")
     val amount: Double,

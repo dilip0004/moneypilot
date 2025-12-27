@@ -5,11 +5,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.components.CalculatorKeyboard
 import com.yourname.moneypilot.ui.components.ContentCard
 import com.yourname.moneypilot.ui.components.GradientBackground
 import com.yourname.moneypilot.ui.components.PrimaryButton
@@ -23,7 +27,9 @@ fun AddEditBudgetScreen(
 ) {
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
+    val focusManager = LocalFocusManager.current
     var expandedCategory by remember { mutableStateOf(false) }
+    var showCalculator by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -50,67 +56,103 @@ fun AddEditBudgetScreen(
                 )
             }
         ) { padding ->
-            Column(modifier = Modifier.padding(padding)) {
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                ContentCard {
-                    Text("Budget Details", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    ContentCard {
+                        Text("Budget Details", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    // Category Selector - CRITICAL FIX
-                    ExposedDropdownMenuBox(
-                        expanded = expandedCategory,
-                        onExpandedChange = { expandedCategory = !expandedCategory }
-                    ) {
-                        OutlinedTextField(
-                            value = state.categories.find { it.id == state.categoryId }?.name ?: "Select Category",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Target Category") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
+                        // Category Selector
+                        ExposedDropdownMenuBox(
                             expanded = expandedCategory,
-                            onDismissRequest = { expandedCategory = false }
+                            onExpandedChange = { 
+                                expandedCategory = !expandedCategory 
+                                if (expandedCategory) {
+                                    showCalculator = false
+                                    focusManager.clearFocus()
+                                }
+                            }
                         ) {
-                            state.categories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text("${category.icon} ${category.name}") },
-                                    onClick = {
-                                        viewModel.onEvent(AddEditBudgetEvent.CategoryChanged(category.id))
-                                        expandedCategory = false
+                            OutlinedTextField(
+                                value = state.categories.find { it.id == state.categoryId }?.name ?: "Select Category",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Target Category") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expandedCategory,
+                                onDismissRequest = { expandedCategory = false }
+                            ) {
+                                state.categories.forEach { category ->
+                                    if (category.type == "EXPENSE") { // Budgets are typically for expenses
+                                        DropdownMenuItem(
+                                            text = { Text("${category.icon} ${category.name}") },
+                                            onClick = {
+                                                viewModel.onEvent(AddEditBudgetEvent.CategoryChanged(category.id))
+                                                expandedCategory = false
+                                            }
+                                        )
                                     }
-                                )
+                                }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Amount Input with Calculator
+                        OutlinedTextField(
+                            value = state.amount,
+                            onValueChange = { viewModel.onEvent(AddEditBudgetEvent.EnteredAmount(it)) },
+                            label = { Text("Monthly Limit") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { 
+                                    if (it.isFocused) {
+                                        focusManager.clearFocus()
+                                        showCalculator = true
+                                    }
+                                },
+                            readOnly = true,
+                            prefix = { Text("₹ ") }
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Alert Threshold: ${state.alertThreshold}%", style = MaterialTheme.typography.labelMedium)
+                        Slider(
+                            value = state.alertThreshold.toFloat(),
+                            onValueChange = { viewModel.onEvent(AddEditBudgetEvent.AlertThresholdChanged(it.toInt())) },
+                            valueRange = 50f..100f
+                        )
+
+                        Spacer(modifier = Modifier.weight(1f))
+                        
+                        if (!showCalculator) {
+                            PrimaryButton(
+                                text = "Save Budget",
+                                onClick = { viewModel.onEvent(AddEditBudgetEvent.SaveBudget) }
+                            )
+                        }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Amount Input
-                    OutlinedTextField(
-                        value = state.amount,
-                        onValueChange = { viewModel.onEvent(AddEditBudgetEvent.EnteredAmount(it)) },
-                        label = { Text("Monthly Limit") },
-                        modifier = Modifier.fillMaxWidth(),
-                        prefix = { Text("₹ ") }
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text("Alert Threshold: ${state.alertThreshold}%", style = MaterialTheme.typography.labelMedium)
-                    Slider(
-                        value = state.alertThreshold.toFloat(),
-                        onValueChange = { viewModel.onEvent(AddEditBudgetEvent.AlertThresholdChanged(it.toInt())) },
-                        valueRange = 50f..100f
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-                    
-                    PrimaryButton(
-                        text = "Save Budget",
-                        onClick = { viewModel.onEvent(AddEditBudgetEvent.SaveBudget) }
-                    )
+                if (showCalculator) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        CalculatorKeyboard(
+                            initialValue = state.amount,
+                            onValueChange = { viewModel.onEvent(AddEditBudgetEvent.EnteredAmount(it)) },
+                            onDone = { 
+                                showCalculator = false 
+                                focusManager.clearFocus()
+                            }
+                        )
+                    }
                 }
             }
         }

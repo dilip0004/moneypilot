@@ -20,4 +20,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun deleteTransaction(transaction: TransactionEntity) = 
         transactionDao.delete(transaction)
+
+    override suspend fun getCategoryExpenseSum(categoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double =
+        transactionDao.getCategoryExpenseSum(categoryId, startDate, endDate) ?: 0.0
 }

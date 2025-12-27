@@ -23,7 +23,7 @@ import com.yourname.moneypilot.data.local.database.converters.LocalDateTimeConve
         InvestmentEntity::class,
         DistributionRuleEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class)

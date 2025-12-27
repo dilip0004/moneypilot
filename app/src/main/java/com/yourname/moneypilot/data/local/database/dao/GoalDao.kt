@@ -1,11 +1,6 @@
 package com.yourname.moneypilot.data.local.database.dao
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Update
+import androidx.room.*
 import com.yourname.moneypilot.data.local.database.entities.GoalEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -30,6 +25,9 @@ interface GoalDao {
     @Query("SELECT * FROM goals WHERE status = :status ORDER BY target_date ASC")
     fun getGoalsByStatus(status: String): Flow<List<GoalEntity>>
 
+    @Query("UPDATE goals SET current_amount = current_amount + :amount WHERE id = :goalId")
+    suspend fun incrementCurrentAmount(goalId: Long, amount: Double)
+    
     @Query("UPDATE goals SET current_amount = :amount WHERE id = :goalId")
     suspend fun updateCurrentAmount(goalId: Long, amount: Double)
 }

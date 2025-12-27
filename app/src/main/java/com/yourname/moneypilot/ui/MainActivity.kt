@@ -1,8 +1,13 @@
 package com.yourname.moneypilot.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +20,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -65,6 +72,31 @@ class MainActivity : ComponentActivity() {
             }
 
             val isOled = preferences?.theme == AppTheme.OLED
+
+            // Request Notification Permission for Android 13+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val context = LocalContext.current
+                var hasNotificationPermission by remember {
+                    mutableStateOf(
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+                    )
+                }
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestPermission(),
+                    onResult = { isGranted ->
+                        hasNotificationPermission = isGranted
+                    }
+                )
+
+                LaunchedEffect(Unit) {
+                    if (!hasNotificationPermission) {
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            }
 
             MoneyPilotTheme(
                 darkTheme = darkTheme,
@@ -184,7 +216,10 @@ fun MainScreen() {
                 }
                 
                 composable(Screen.Analytics.route) { 
-                    ReportsScreen(onPopBackStack = { navController.popBackStack() })
+                    ReportsScreen(
+                        onPopBackStack = { navController.popBackStack() },
+                        onNavigateToSettings = { navController.navigate("settings") }
+                    )
                 }
                 
                 composable(Screen.Records.route) { 

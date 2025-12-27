@@ -1,0 +1,90 @@
+==================================================
+           MONEYPILOT - USER GUIDE
+==================================================
+
+Welcome to MoneyPilot! This guide provides a detailed breakdown of 
+every feature and interaction designed to help you master your 
+finances like a professional.
+
+--------------------------------------------------
+1. THE CORE LAYOUT (3-HUB MODEL)
+--------------------------------------------------
+MoneyPilot uses three primary "Hubs" at the bottom of the screen:
+
+* DASHBOARD: Your daily command center with Amazon-style navigation.
+* ANALYTICS: Visual spending patterns and financial health charts.
+* RECORDS: A comprehensive ledger for search, audit, and corrections.
+
+--------------------------------------------------
+2. DASHBOARD HUB (SUB-TABS)
+--------------------------------------------------
+The Dashboard features 5 sub-tabs at the top for different views:
+
+1. DAILY: List of today's activities with a net profit/loss total.
+2. CALENDAR: visual monthly grid.
+   - Financial Dots: Green (Income) and Red (Expense) indicators.
+   - Interaction: Tap a date to see transactions for that day.
+3. MONTHLY: High-level spending vs. income summary for the month.
+4. TOTAL: Net Worth view aggregating Bank, Cash, and CC balances.
+5. NOTE: Search through memos and tags for specific entries.
+
+--------------------------------------------------
+3. ADVANCED TRANSACTION ENTRY
+--------------------------------------------------
+Logging data is designed to be error-proof:
+
+* INTEGRATED CALCULATOR: Perform math (e.g., 100+50) inside the input box.
+* SEQUENTIAL PICKER: Date selection followed immediately by Time selection.
+* HIERARCHY: Select Category (e.g., Food), then Subcategory (e.g., Groceries).
+* WALLET LINKING: Explicitly choose the source/target account for every entry.
+
+--------------------------------------------------
+4. PLANNING HUB (DRAWER MENU)
+--------------------------------------------------
+Slide from the left or tap the menu icon to access:
+
+A. WALLETS & ACCOUNTS
+   - Manage Bank, Cash, UPI, and Credit Cards.
+   - Set "Primary Wallet" for default automated entries.
+   - Track Credit Card outstanding balances as negative assets.
+
+B. CATEGORY MANAGER
+   - Customize labels with 70+ professional emojis.
+   - Create nested subcategories for granular tracking.
+
+C. BUDGETING
+   - Set monthly limits for categories or subcategories.
+   - Alert Thresholds: Visual warnings (red) when hitting 80/90% of a limit.
+
+D. LEFTOVER DISTRIBUTION
+   - Automation: Logic to calculate "Unallocated" surplus at month-end.
+   - Rules: Set % or fixed rules to move leftovers to Goals or Investments.
+
+--------------------------------------------------
+5. AUDIT & MAINTENANCE (RECORDS HUB)
+--------------------------------------------------
+* REAL-TIME SEARCH: Instant filtering of thousands of records by keyword.
+* CONTEXT MENU (LONG-PRESS):
+   - Edit: Modify existing records.
+   - Duplicate: Clone a record to "Today" for fast entry of common items.
+   - Delete: Permanently remove a record and restore wallet balance.
+
+--------------------------------------------------
+6. PERSONALIZATION & STEALTH
+--------------------------------------------------
+* WHITE MODE: Clean, high-density professional interface.
+* OLED STEALTH MODE: 100% Pure Black background (#000000).
+   - Zero gradients, maximum battery savings for S23 Ultra.
+* COLOR PICKER: Select a primary accent color that flows through the app.
+
+--------------------------------------------------
+7. BACKGROUND INTELLIGENCE
+--------------------------------------------------
+* 10 PM DAILY DIGEST: Automatic notification summarizing daily totals.
+* DATA PORTABILITY:
+   - CSV Export: Save history as a spreadsheet.
+   - JSON Restore: Rebuild your database from a backup file safely.
+
+==================================================
+MoneyPilot: Data-First Financial Management.
+==================================================
