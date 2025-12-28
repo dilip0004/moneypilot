@@ -8,14 +8,12 @@ import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.yourname.moneypilot.R
 import com.yourname.moneypilot.data.local.database.dao.TransactionDao
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
 
 @HiltWorker
@@ -27,20 +25,25 @@ class DailySummaryWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val preferences = preferencesRepository.userPreferencesFlow.first()
-        if (!preferences.dailySummaryEnabled) return Result.success()
+        try {
+            val preferences = preferencesRepository.userPreferencesFlow.first()
+            if (!preferences.dailySummaryEnabled) return Result.success()
 
-        val today = LocalDate.now()
-        val startOfDay = today.atStartOfDay()
-        val endOfDay = today.atTime(LocalTime.MAX)
+            val today = LocalDate.now()
+            val startOfDay = today.atStartOfDay()
+            val endOfDay = today.atTime(LocalTime.MAX)
 
-        val transactions = transactionDao.getTransactionsByDateRange(startOfDay, endOfDay).first()
-        
-        val totalSpent = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
-        val totalEarned = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
+            // Use the one-shot query to avoid Flow collection issues in background workers
+            val transactions = transactionDao.getTransactionsByDateRangeOnce(startOfDay, endOfDay)
+            
+            val totalSpent = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+            val totalEarned = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
 
-        sendNotification(totalSpent, totalEarned)
-        return Result.success()
+            sendNotification(totalSpent, totalEarned)
+            return Result.success()
+        } catch (e: Exception) {
+            return Result.failure()
+        }
     }
 
     private fun sendNotification(spent: Double, earned: Double) {
@@ -51,8 +54,10 @@ class DailySummaryWorker @AssistedInject constructor(
             val channel = NotificationChannel(
                 channelId,
                 "Daily Summary",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Daily financial spending and earnings summary"
+            }
             notificationManager.createNotificationChannel(channel)
         }
 
@@ -60,8 +65,9 @@ class DailySummaryWorker @AssistedInject constructor(
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Daily Financial Summary")
             .setContentText("Spent: ₹${String.format("%.2f", spent)} | Earned: ₹${String.format("%.2f", earned)}")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .build()
 
         notificationManager.notify(1, notification)

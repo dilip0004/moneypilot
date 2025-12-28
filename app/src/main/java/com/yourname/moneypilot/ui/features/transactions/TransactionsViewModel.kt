@@ -1,6 +1,7 @@
 package com.yourname.moneypilot.ui.features.transactions
 
 import androidx.lifecycle.viewModelScope
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.data.repository.AccountRepository
 import com.yourname.moneypilot.data.repository.BudgetRepository
@@ -19,7 +20,7 @@ import javax.inject.Inject
 
 data class GroupedTransactions(
     val date: LocalDate,
-    val transactions: List<TransactionEntity>,
+    val transactions: List<TransactionWithCategory>,
     val dailyTotal: Double
 )
 
@@ -46,21 +47,22 @@ class TransactionsViewModel @Inject constructor(
             _uiState.value = ScreenState.Loading
             
             combine(
-                transactionRepository.getAllTransactions(),
+                transactionRepository.getAllTransactionsWithCategory(),
                 _searchQuery
             ) { transactions, query ->
                 val filtered = if (query.isBlank()) {
                     transactions
                 } else {
                     transactions.filter { 
-                        it.description.contains(query, ignoreCase = true)
+                        it.transaction.description.contains(query, ignoreCase = true) ||
+                        it.category?.name?.contains(query, ignoreCase = true) == true
                     }
                 }
 
-                val grouped = filtered.groupBy { it.date.toLocalDate() }
+                val grouped = filtered.groupBy { it.transaction.date.toLocalDate() }
                     .map { (date, items) ->
                         val total = items.sumOf { 
-                            if (it.type == "EXPENSE") -it.amount else it.amount 
+                            if (it.transaction.type == "EXPENSE") -it.transaction.amount else it.transaction.amount 
                         }
                         GroupedTransactions(date, items, total)
                     }
@@ -94,7 +96,7 @@ class TransactionsViewModel @Inject constructor(
 
                 // Reverse Sync: Update budget if needed
                 if (transaction.type == "EXPENSE" && transaction.categoryId != null) {
-                    recalculateBudget(transaction.categoryId, transaction.date)
+                    recalculateBudget(transaction.categoryId!!, transaction.date)
                 }
 
                 transactionRepository.deleteTransaction(transaction)
@@ -123,7 +125,6 @@ class TransactionsViewModel @Inject constructor(
                 createdAt = LocalDateTime.now(),
                 updatedAt = LocalDateTime.now()
             )
-            // Note: insertTransaction should ideally handle balance update too, but for consistency:
             transactionRepository.insertTransaction(duplicated)
             
             val balanceChange = when (duplicated.type) {
@@ -134,7 +135,7 @@ class TransactionsViewModel @Inject constructor(
             accountRepository.updateBalance(duplicated.accountId, balanceChange)
             
             if (duplicated.type == "EXPENSE" && duplicated.categoryId != null) {
-                recalculateBudget(duplicated.categoryId, duplicated.date)
+                recalculateBudget(duplicated.categoryId!!, duplicated.date)
             }
         }
     }

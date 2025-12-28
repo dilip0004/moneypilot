@@ -21,12 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
 
@@ -238,6 +240,67 @@ fun NotesTab() {
             Icon(Icons.Default.Notes, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
             Text("Notes & Tags View", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Search by memos coming soon", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+fun TransactionItem(transaction: TransactionWithCategory) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = transaction.category?.icon ?: "❓",
+                            fontSize = 20.sp
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column {
+                    Text(
+                        text = transaction.category?.name ?: "Uncategorized",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = transaction.transaction.description.ifBlank { "No description" },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+            }
+            
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "${if (transaction.transaction.type == "EXPENSE") "-" else "+"}₹${transaction.transaction.amount}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (transaction.transaction.type == "EXPENSE") ExpenseRed else IncomeGreen,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = transaction.transaction.date.format(DateTimeFormatter.ofPattern("hh:mm a")),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

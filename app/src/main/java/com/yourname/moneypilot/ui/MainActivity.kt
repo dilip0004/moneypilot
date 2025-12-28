@@ -120,10 +120,11 @@ fun MainScreen() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
-    val screens = listOf(
-        Screen.Dashboard,
-        Screen.Analytics,
-        Screen.Records
+    val hubs = listOf(
+        Screen.Transactions,
+        Screen.Stats,
+        Screen.Accounts,
+        Screen.More
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -153,14 +154,6 @@ fun MainScreen() {
                     }
                 )
                 NavigationDrawerItem(
-                    label = { Text("Wallets") },
-                    selected = false,
-                    onClick = { 
-                        navController.navigate("accounts_list")
-                        scope.launch { drawerState.close() }
-                    }
-                )
-                NavigationDrawerItem(
                     label = { Text("Distribution") },
                     selected = false,
                     onClick = { 
@@ -173,17 +166,17 @@ fun MainScreen() {
     ) {
         Scaffold(
             bottomBar = {
-                val showBottomBar = screens.any { it.route == currentDestination?.route }
+                val showBottomBar = hubs.any { it.route == currentDestination?.route }
                 
                 if (showBottomBar) {
                     NavigationBar {
-                        screens.forEach { screen ->
+                        hubs.forEach { hub ->
                             NavigationBarItem(
-                                icon = { Icon(screen.icon, contentDescription = null) },
-                                label = { Text(screen.title) },
-                                selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                                icon = { Icon(hub.icon, contentDescription = null) },
+                                label = { Text(hub.title) },
+                                selected = currentDestination?.hierarchy?.any { it.route == hub.route } == true,
                                 onClick = {
-                                    navController.navigate(screen.route) {
+                                    navController.navigate(hub.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
                                             saveState = true
                                         }
@@ -199,10 +192,10 @@ fun MainScreen() {
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = Screen.Dashboard.route,
+                startDestination = Screen.Transactions.route,
                 modifier = Modifier.padding(innerPadding).fillMaxSize()
             ) {
-                composable(Screen.Dashboard.route) { 
+                composable(Screen.Transactions.route) { 
                     DashboardHubScreen(
                         onAddTransaction = { date ->
                             navController.navigate("add_transaction?date=${date}")
@@ -215,27 +208,33 @@ fun MainScreen() {
                     )
                 }
                 
-                composable(Screen.Analytics.route) { 
+                composable(Screen.Stats.route) { 
                     ReportsScreen(
                         onPopBackStack = { navController.popBackStack() },
                         onNavigateToSettings = { navController.navigate("settings") }
                     )
                 }
-                
-                composable(Screen.Records.route) { 
-                    TransactionsScreen(
-                        onAddTransaction = {
-                            navController.navigate("add_transaction")
-                        },
-                        onEditTransaction = { transactionId ->
-                            navController.navigate("add_transaction?transactionId=$transactionId")
-                        }
+
+                composable(Screen.Accounts.route) {
+                    AccountsScreen(onAddAccount = { navController.navigate("add_account") })
+                }
+
+                composable(Screen.More.route) {
+                    SettingsScreen(
+                        onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
+                        onNavigateToCategories = { navController.navigate("categories") },
+                        onNavigateToBudgets = { navController.navigate("budgets") },
+                        onNavigateToDistribution = { navController.navigate("distribution") },
+                        onNavigateToAppearance = { navController.navigate("appearance") },
+                        onNavigateToSecurity = { navController.navigate("security") },
+                        onNavigateToNotifications = { navController.navigate("notifications") },
+                        onNavigateToBackup = { navController.navigate("backup") }
                     )
                 }
                 
                 composable("settings") { 
                     SettingsScreen(
-                        onNavigateToAccounts = { navController.navigate("accounts_list") },
+                        onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
                         onNavigateToCategories = { navController.navigate("categories") },
                         onNavigateToBudgets = { navController.navigate("budgets") },
                         onNavigateToDistribution = { navController.navigate("distribution") },

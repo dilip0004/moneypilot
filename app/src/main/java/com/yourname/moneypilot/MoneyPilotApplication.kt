@@ -1,6 +1,10 @@
 package com.yourname.moneypilot
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
@@ -32,7 +36,23 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
         super.onCreate()
         Timber.plant(Timber.DebugTree())
         
+        createNotificationChannel()
         scheduleBackgroundTasks()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = "daily_summary_channel"
+            val name = "Daily Financial Summary"
+            val descriptionText = "Evening summary of your daily transactions"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(channelId, name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 
     private fun scheduleBackgroundTasks() {

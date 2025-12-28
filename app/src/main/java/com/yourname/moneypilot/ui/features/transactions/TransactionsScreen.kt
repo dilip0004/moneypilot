@@ -15,6 +15,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.features.dashboard.TransactionItem
@@ -120,9 +121,9 @@ fun TransactionHistoryContent(
             items(grouped.transactions) { transaction ->
                 TransactionListItemWithMenu(
                     transaction = transaction,
-                    onEdit = { onEdit(transaction.id) },
-                    onDuplicate = { onDuplicate(transaction) },
-                    onDelete = { onDelete(transaction) }
+                    onEdit = { onEdit(transaction.transaction.id) },
+                    onDuplicate = { onDuplicate(transaction.transaction) },
+                    onDelete = { onDelete(transaction.transaction) }
                 )
             }
         }
@@ -131,7 +132,7 @@ fun TransactionHistoryContent(
 
 @Composable
 fun TransactionListItemWithMenu(
-    transaction: TransactionEntity,
+    transaction: TransactionWithCategory,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit
