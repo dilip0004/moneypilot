@@ -39,6 +39,6 @@ interface AccountDao {
     @Query("SELECT SUM(current_balance) FROM accounts WHERE is_archived = 0")
     suspend fun getTotalBalance(): Double?
 
-    @Query("UPDATE accounts SET current_balance = :newBalance WHERE id = :accountId")
-    suspend fun updateBalance(accountId: Long, newBalance: Double)
+    @Query("UPDATE accounts SET current_balance = current_balance + :amount WHERE id = :accountId")
+    suspend fun updateBalance(accountId: Long, amount: Double)
 }

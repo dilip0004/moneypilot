@@ -9,5 +9,6 @@ interface AccountRepository {
     suspend fun insertAccount(account: AccountEntity): Long
     suspend fun updateAccount(account: AccountEntity)
     suspend fun deleteAccount(account: AccountEntity)
+    suspend fun updateBalance(accountId: Long, amount: Double)
     suspend fun getTotalBalance(): Double
 }

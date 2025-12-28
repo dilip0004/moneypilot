@@ -1,7 +1,11 @@
 package com.yourname.moneypilot.ui.features.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -15,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.theme.ExpenseRed
@@ -30,17 +36,17 @@ fun DashboardHubScreen(
     onAddTransaction: (LocalDate) -> Unit,
     onEditTransaction: (Long) -> Unit,
     onOpenDrawer: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    viewModel: DashboardHubViewModel = hiltViewModel()
 ) {
+    val hubState by viewModel.state.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Daily", "Calendar", "Monthly", "Total", "Note")
-    var currentMonth by remember { mutableStateOf(YearMonth.now()) }
 
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
                 Column {
-                    // Header Row: Menu, Date Selector, Icons
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -55,15 +61,15 @@ fun DashboardHubScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
                         ) {
-                            IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
+                            IconButton(onClick = { viewModel.onMonthChange(hubState.currentMonth.minusMonths(1)) }) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
                             }
                             Text(
-                                text = "${currentMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${currentMonth.year}",
+                                text = "${hubState.currentMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${hubState.currentMonth.year}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
+                            IconButton(onClick = { viewModel.onMonthChange(hubState.currentMonth.plusMonths(1)) }) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
                             }
                         }
@@ -79,7 +85,6 @@ fun DashboardHubScreen(
                         }
                     }
 
-                    // Tab Row
                     TabRow(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -106,16 +111,15 @@ fun DashboardHubScreen(
                         }
                     }
 
-                    // Summary Bar (Income, Expenses, Total)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp, horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem(label = "Income", value = "0.00", color = IncomeGreen)
-                        SummaryItem(label = "Expenses", value = "0.00", color = ExpenseRed)
-                        SummaryItem(label = "Total", value = "0.00", color = MaterialTheme.colorScheme.onSurface)
+                        SummaryItem(label = "Income", value = "₹ ${hubState.monthlyIncome}", color = IncomeGreen)
+                        SummaryItem(label = "Expenses", value = "₹ ${hubState.monthlyExpense}", color = ExpenseRed)
+                        SummaryItem(label = "Total", value = "₹ ${hubState.monthlyIncome - hubState.monthlyExpense}", color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -142,16 +146,107 @@ fun DashboardHubScreen(
                 }
                 1 -> {
                     CalendarScreen(
+                        currentMonth = hubState.currentMonth,
                         onAddTransaction = onAddTransaction
                     )
                 }
-                else -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("${tabs[selectedTabIndex]} View Placeholder", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                2 -> {
+                    MonthlySummaryTab(hubState)
+                }
+                3 -> {
+                    TotalNetWorthTab(hubState)
+                }
+                4 -> {
+                    NotesTab()
                 }
             }
         }
+    }
+}
+
+@Composable
+fun MonthlySummaryTab(state: DashboardHubState) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Text("Monthly Overview", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Cash Flow", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow("Total Income", "₹ ${state.monthlyIncome}", IncomeGreen)
+                    FlowRow("Total Expense", "₹ ${state.monthlyExpense}", ExpenseRed)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    FlowRow("Net Surplus", "₹ ${state.monthlyIncome - state.monthlyExpense}", MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TotalNetWorthTab(state: DashboardHubState) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text("Net Worth", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("₹ ${state.totalBalance}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+        }
+        item { Spacer(modifier = Modifier.height(8.dp)) }
+        item { Text("Your Wallets", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        
+        items(state.accounts) { account ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = Color(account.color).copy(alpha = 0.2f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(account.icon, fontSize = 20.sp)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(account.name, fontWeight = FontWeight.Bold)
+                            Text(account.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Text("₹ ${account.currentBalance}", fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotesTab() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.Notes, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
+            Text("Notes & Tags View", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Search by memos coming soon", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+fun FlowRow(label: String, value: String, color: Color) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label)
+        Text(value, color = color, fontWeight = FontWeight.Bold)
     }
 }
 

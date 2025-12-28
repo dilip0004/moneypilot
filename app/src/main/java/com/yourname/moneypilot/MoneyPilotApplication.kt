@@ -3,14 +3,16 @@ package com.yourname.moneypilot
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
-import com.yourname.moneypilot.worker.DailySummaryWorker
+import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 import com.yourname.moneypilot.worker.DailyUpdateWorker
 import com.yourname.moneypilot.worker.MonthlyRolloverWorker
+import com.yourname.moneypilot.worker.NotificationScheduler
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import timber.log.Timber
-import java.time.Duration
-import java.time.LocalDateTime
-import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -18,6 +20,8 @@ import javax.inject.Inject
 class MoneyPilotApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var preferencesRepository: UserPreferencesRepository
+    @Inject lateinit var notificationScheduler: NotificationScheduler
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -27,6 +31,7 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         Timber.plant(Timber.DebugTree())
+        
         scheduleBackgroundTasks()
     }
 
@@ -44,27 +49,11 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
             .build()
         workManager.enqueueUniquePeriodicWork("MonthlyRolloverWork", ExistingPeriodicWorkPolicy.KEEP, monthlyRequest)
 
-        // 3. DAILY SUMMARY NOTIFICATION (The Fix for 10 PM Requirement)
-        val now = LocalDateTime.now()
-        var executionTime = LocalDateTime.now().with(LocalTime.of(22, 0)) // Target 10 PM
-        
-        if (now.isAfter(executionTime)) {
-            executionTime = executionTime.plusDays(1)
+        // 3. Daily Summary Notification (preference-aware)
+        CoroutineScope(Dispatchers.IO).launch {
+            val preferences = preferencesRepository.userPreferencesFlow.first()
+            notificationScheduler.scheduleDailySummary(preferences)
+            Timber.d("Daily Summary scheduled via NotificationScheduler")
         }
-        
-        val initialDelay = Duration.between(now, executionTime).toMinutes()
-
-        val summaryRequest = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(initialDelay, TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
-            .build()
-
-        workManager.enqueueUniquePeriodicWork(
-            "DailySummaryWork",
-            ExistingPeriodicWorkPolicy.REPLACE, // REPLACE to ensure the new 10PM timing is applied
-            summaryRequest
-        )
-        
-        Timber.d("All tasks scheduled. Daily Summary scheduled for 10 PM with delay of $initialDelay mins")
     }
 }

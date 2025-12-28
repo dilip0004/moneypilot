@@ -7,6 +7,7 @@ import com.yourname.moneypilot.data.repository.AccountRepository
 import com.yourname.moneypilot.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
@@ -28,25 +29,37 @@ class DashboardHubViewModel @Inject constructor(
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
     
-    val state: StateFlow<DashboardHubState> = combine(
-        accountRepository.getAllAccounts(),
-        _currentMonth
-    ) { accounts, month ->
+    private val _hubState = MutableStateFlow(DashboardHubState())
+    val state: StateFlow<DashboardHubState> = _hubState.asStateFlow()
+
+    init {
+        // Observe accounts and month changes
+        combine(
+            accountRepository.getAllAccounts(),
+            _currentMonth
+        ) { accounts, month ->
+            Pair(accounts, month)
+        }.onEach { (accounts, month) ->
+            updateTotals(accounts, month)
+        }.launchIn(viewModelScope)
+    }
+
+    private suspend fun updateTotals(accounts: List<AccountEntity>, month: YearMonth) {
         val start = month.atDay(1).atStartOfDay()
         val end = month.atEndOfMonth().atTime(LocalTime.MAX)
         
-        // Use the repository method we built earlier for budget sync
-        val income = 0.0 // Placeholder for sum query if not exists
-        val expense = transactionRepository.getCategoryExpenseSum(-1L, start, end) // Need to adjust repository for total sum
+        // Use repository to get global totals for the month
+        val income = transactionRepository.getTotalSumByType("INCOME", start, end)
+        val expense = transactionRepository.getTotalSumByType("EXPENSE", start, end)
 
-        DashboardHubState(
+        _hubState.value = DashboardHubState(
             accounts = accounts,
             totalBalance = accounts.sumOf { it.currentBalance },
-            monthlyIncome = 0.0, // Calculate from transactions
+            monthlyIncome = income,
             monthlyExpense = expense,
             currentMonth = month
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardHubState())
+    }
 
     fun onMonthChange(month: YearMonth) {
         _currentMonth.value = month

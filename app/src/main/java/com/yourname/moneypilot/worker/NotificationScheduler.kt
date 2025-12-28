@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.*
 import com.yourname.moneypilot.data.local.preferences.UserPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
+import timber.log.Timber
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -20,31 +21,44 @@ class NotificationScheduler @Inject constructor(
 
         if (!preferences.dailySummaryEnabled) {
             workManager.cancelUniqueWork("DailySummaryWork")
+            Timber.d("Daily Summary disabled and work cancelled")
             return
         }
 
+        // Parse 24h time safely
         val timeParts = preferences.dailySummaryTime.split(":")
-        val hour = timeParts.getOrNull(0)?.toInt() ?: 22
-        val minute = timeParts.getOrNull(1)?.toInt() ?: 0
+        val hour = timeParts.getOrNull(0)?.toIntOrNull() ?: 22
+        val minute = timeParts.getOrNull(1)?.toIntOrNull() ?: 0
 
         val now = LocalDateTime.now()
-        var executionTime = LocalDateTime.now().with(LocalTime.of(hour, minute))
+        var executionTime = now.with(LocalTime.of(hour, minute, 0))
         
+        // If the time has already passed today, schedule for tomorrow
         if (now.isAfter(executionTime)) {
             executionTime = executionTime.plusDays(1)
         }
         
-        val initialDelay = Duration.between(now, executionTime).toMinutes()
+        val initialDelayMillis = Duration.between(now, executionTime).toMillis()
 
         val summaryRequest = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(initialDelay, TimeUnit.MINUTES)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.HOURS)
+            .setInitialDelay(initialDelayMillis, TimeUnit.MILLISECONDS)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                    .setRequiresBatteryNotLow(false)
+                    .setRequiresCharging(false)
+                    .build()
+            )
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
             .build()
 
+        // Use REPLACE to ensure the new schedule/delay is applied immediately
         workManager.enqueueUniquePeriodicWork(
             "DailySummaryWork",
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingPeriodicWorkPolicy.REPLACE,
             summaryRequest
         )
+        
+        Timber.d("Daily Summary scheduled for $executionTime (delay: ${initialDelayMillis / 1000}s)")
     }
 }

@@ -47,6 +47,16 @@ interface TransactionDao {
         endDate: LocalDateTime
     ): Flow<List<TransactionEntity>>
 
+    // One-shot query for Worker
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE date BETWEEN :startDate AND :endDate
+    """)
+    suspend fun getTransactionsByDateRangeOnce(
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): List<TransactionEntity>
+
     @Query("""
         SELECT * FROM transactions 
         WHERE account_id = :accountId 

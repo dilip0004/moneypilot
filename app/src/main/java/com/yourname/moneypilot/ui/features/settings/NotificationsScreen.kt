@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,12 +22,22 @@ fun NotificationsScreen(
 ) {
     val preferences by viewModel.userPreferences.collectAsState()
     var showTimePicker by remember { mutableStateOf(false) }
-    val timePickerState = rememberTimePickerState(
-        initialHour = preferences?.dailySummaryTime?.split(":")?.get(0)?.toInt() ?: 22,
-        initialMinute = preferences?.dailySummaryTime?.split(":")?.get(1)?.toInt() ?: 0
-    )
+    
+    // Formatter for UI display (12h with AM/PM)
+    val uiFormatter = DateTimeFormatter.ofPattern("hh:mm a")
 
-    if (showTimePicker) {
+    if (showTimePicker && preferences != null) {
+        // Extract latest values from preferences
+        val savedTime = preferences!!.dailySummaryTime.split(":")
+        val currentHour = savedTime.getOrNull(0)?.toIntOrNull() ?: 22
+        val currentMinute = savedTime.getOrNull(1)?.toIntOrNull() ?: 0
+
+        val timePickerState = rememberTimePickerState(
+            initialHour = currentHour,
+            initialMinute = currentMinute,
+            is24Hour = false
+        )
+
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
             confirmButton = {
@@ -76,6 +88,14 @@ fun NotificationsScreen(
                 )
             }
 
+            // Correctly parse the saved time for display
+            val displayTime = preferences?.dailySummaryTime?.let {
+                val parts = it.split(":")
+                val h = parts.getOrNull(0)?.toIntOrNull() ?: 22
+                val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                LocalTime.of(h, m).format(uiFormatter)
+            } ?: "10:00 PM"
+
             Surface(
                 onClick = { showTimePicker = true },
                 shape = MaterialTheme.shapes.medium,
@@ -92,7 +112,7 @@ fun NotificationsScreen(
                     Column {
                         Text("Notification Time", style = MaterialTheme.typography.labelSmall)
                         Text(
-                            text = preferences?.dailySummaryTime ?: "22:00",
+                            text = displayTime,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         )

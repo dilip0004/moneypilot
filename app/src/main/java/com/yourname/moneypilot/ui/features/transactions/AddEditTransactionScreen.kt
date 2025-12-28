@@ -2,7 +2,10 @@ package com.yourname.moneypilot.ui.features.transactions
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,11 +16,12 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
-import com.yourname.moneypilot.ui.components.PrimaryButton
 import kotlinx.coroutines.flow.collectLatest
 import java.time.Instant
 import java.time.LocalDateTime
@@ -32,19 +36,22 @@ fun AddEditTransactionScreen(
     onNavigateToTransfer: () -> Unit,
     viewModel: AddEditTransactionViewModel = hiltViewModel()
 ) {
-    val state = viewModel.state.value
+    val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
     val clipboardManager = LocalClipboardManager.current
-    var showCalculator by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
     
+    var showCalculator by remember { mutableStateOf(false) }
     var showAccountDropdown by remember { mutableStateOf(false) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var showSubcategoryDropdown by remember { mutableStateOf(false) }
+    var showGoalDropdown by remember { mutableStateOf(false) }
     
     // Date and Time Picker State
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = state.date.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     )
@@ -118,7 +125,6 @@ fun AddEditTransactionScreen(
                     }
                 },
                 actions = {
-                    // MAGIC PASTE BUTTON
                     IconButton(onClick = {
                         val clipboardText = clipboardManager.getText()?.text
                         if (clipboardText != null) {
@@ -146,10 +152,16 @@ fun AddEditTransactionScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .imePadding()
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(scrollState)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -193,7 +205,7 @@ fun AddEditTransactionScreen(
                     }
                 ) {
                     OutlinedTextField(
-                        value = state.accounts.find { it.id == state.accountId }?.name ?: "Select Account",
+                        value = state.accounts.find { acc -> acc.id == state.accountId }?.name ?: "Select Account",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Wallet / Account") },
@@ -216,78 +228,116 @@ fun AddEditTransactionScreen(
                     }
                 }
 
-                // Category Selection
-                ExposedDropdownMenuBox(
-                    expanded = showCategoryDropdown,
-                    onExpandedChange = { 
-                        showCategoryDropdown = !showCategoryDropdown 
-                        if (showCategoryDropdown) {
-                            focusManager.clearFocus()
-                            showCalculator = false
-                        }
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = state.categories.find { it.id == state.categoryId }?.name ?: "Uncategorized",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Category") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = showCategoryDropdown,
-                        onDismissRequest = { showCategoryDropdown = false }
-                    ) {
-                        state.categories.forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text("${category.icon} ${category.name}") },
-                                onClick = {
-                                    viewModel.onEvent(AddEditTransactionEvent.CategoryChanged(category.id))
-                                    showCategoryDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Subcategory Selection
-                if (state.categoryId != null && state.subcategories.isNotEmpty()) {
+                // Goal Selection (Only for GOAL_CONTRIBUTION type)
+                if (state.type == "GOAL_CONTRIBUTION") {
                     ExposedDropdownMenuBox(
-                        expanded = showSubcategoryDropdown,
+                        expanded = showGoalDropdown,
                         onExpandedChange = { 
-                            showSubcategoryDropdown = !showSubcategoryDropdown 
-                            if (showSubcategoryDropdown) {
+                            showGoalDropdown = !showGoalDropdown 
+                            if (showGoalDropdown) {
                                 focusManager.clearFocus()
                                 showCalculator = false
                             }
                         }
                     ) {
                         OutlinedTextField(
-                            value = state.subcategories.find { it.id == state.subcategoryId }?.name ?: "Select Subcategory",
+                            value = state.goals.find { g -> g.id == state.goalId }?.name ?: "Select Goal",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Subcategory") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showSubcategoryDropdown) },
+                            label = { Text("Savings Goal") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showGoalDropdown) },
                             modifier = Modifier.menuAnchor().fillMaxWidth()
                         )
                         ExposedDropdownMenu(
-                            expanded = showSubcategoryDropdown,
-                            onDismissRequest = { showSubcategoryDropdown = false }
+                            expanded = showGoalDropdown,
+                            onDismissRequest = { showGoalDropdown = false }
                         ) {
-                            state.subcategories.forEach { sub ->
+                            state.goals.forEach { goal ->
                                 DropdownMenuItem(
-                                    text = { Text(sub.name) },
+                                    text = { Text(goal.name) },
                                     onClick = {
-                                        viewModel.onEvent(AddEditTransactionEvent.SubcategoryChanged(sub.id))
-                                        showSubcategoryDropdown = false
+                                        viewModel.onEvent(AddEditTransactionEvent.GoalChanged(goal.id))
+                                        showGoalDropdown = false
                                     }
                                 )
                             }
                         }
                     }
+                } else {
+                    // Category Selection
+                    ExposedDropdownMenuBox(
+                        expanded = showCategoryDropdown,
+                        onExpandedChange = { 
+                            showCategoryDropdown = !showCategoryDropdown 
+                            if (showCategoryDropdown) {
+                                focusManager.clearFocus()
+                                showCalculator = false
+                            }
+                        }
+                    ) {
+                        OutlinedTextField(
+                            value = state.categories.find { cat -> cat.id == state.categoryId }?.name ?: "Uncategorized",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Category") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = showCategoryDropdown,
+                            onDismissRequest = { showCategoryDropdown = false }
+                        ) {
+                            state.categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text("${category.icon} ${category.name}") },
+                                    onClick = {
+                                        viewModel.onEvent(AddEditTransactionEvent.CategoryChanged(category.id))
+                                        showCategoryDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Subcategory Selection
+                    if (state.categoryId != null && state.subcategories.isNotEmpty()) {
+                        ExposedDropdownMenuBox(
+                            expanded = showSubcategoryDropdown,
+                            onExpandedChange = { 
+                                showSubcategoryDropdown = !showSubcategoryDropdown 
+                                if (showSubcategoryDropdown) {
+                                    focusManager.clearFocus()
+                                    showCalculator = false
+                                }
+                            }
+                        ) {
+                            OutlinedTextField(
+                                value = state.subcategories.find { sub -> sub.id == state.subcategoryId }?.name ?: "Select Subcategory",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Subcategory") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showSubcategoryDropdown) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = showSubcategoryDropdown,
+                                onDismissRequest = { showSubcategoryDropdown = false }
+                            ) {
+                                state.subcategories.forEach { subItem ->
+                                    DropdownMenuItem(
+                                        text = { Text(subItem.name) },
+                                        onClick = {
+                                            viewModel.onEvent(AddEditTransactionEvent.SubcategoryChanged(subItem.id))
+                                            showSubcategoryDropdown = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
+                // DESCRIPTION FIELD - IMPROVED
                 OutlinedTextField(
                     value = state.description,
                     onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredDescription(it)) },
@@ -298,9 +348,17 @@ fun AddEditTransactionScreen(
                             if (it.isFocused) {
                                 showCalculator = false
                             }
-                        }
+                        },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Next,
+                        capitalization = KeyboardCapitalization.Sentences
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }
+                    )
                 )
 
+                // AMOUNT FIELD
                 OutlinedTextField(
                     value = state.amount,
                     onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredAmount(it)) },
@@ -314,7 +372,7 @@ fun AddEditTransactionScreen(
                             }
                         },
                     readOnly = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    prefix = { Text("₹ ") }
                 )
 
                 Text("Type: ${state.type}", style = MaterialTheme.typography.bodyLarge)
@@ -335,7 +393,17 @@ fun AddEditTransactionScreen(
                         },
                         label = { Text("Income") }
                     )
+                    FilterChip(
+                        selected = state.type == "GOAL_CONTRIBUTION",
+                        onClick = { 
+                            showCalculator = false
+                            viewModel.onEvent(AddEditTransactionEvent.TypeChanged("GOAL_CONTRIBUTION")) 
+                        },
+                        label = { Text("Goal") }
+                    )
                 }
+                
+                Spacer(modifier = Modifier.height(100.dp))
             }
 
             if (showCalculator) {

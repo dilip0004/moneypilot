@@ -23,4 +23,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getCategoryExpenseSum(categoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double =
         transactionDao.getCategoryExpenseSum(categoryId, startDate, endDate) ?: 0.0
+
+    override suspend fun getTotalSumByType(type: String, startDate: LocalDateTime, endDate: LocalDateTime): Double =
+        transactionDao.getTotalSumByType(type, startDate, endDate) ?: 0.0
 }
