@@ -10,8 +10,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.ChevronLeft
+import androidx.compose.material.icons.automirrored.filled.ChevronRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -55,7 +56,6 @@ fun ReportsScreen(
                 Column {
                     TopAppBar(
                         title = { },
-                        // navigationIcon and actions removed as per request
                     )
                     
                     SingleChoiceSegmentedButtonRow(
@@ -139,7 +139,6 @@ fun ReportsScreen(
                             )
                         }
 
-                        // THE INSIGHT ROW
                         item {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -172,7 +171,7 @@ fun ReportsScreen(
                                 shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                             ) {
-                                var selectedViz by remember { mutableIntStateOf(0) } // 0: Distribution, 1: Trend
+                                var selectedViz by remember { mutableIntStateOf(0) }
                                 
                                 Column(
                                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -217,7 +216,8 @@ fun ReportsScreen(
                                             } else {
                                                 TrendLineGraphCompact(
                                                     data = data.chartData,
-                                                    color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary
+                                                    color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary,
+                                                    timeRange = data.timeRange
                                                 )
                                             }
                                         }
@@ -271,14 +271,14 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronLeft, null) }
+        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.ChevronLeft, null) }
         val label = when (range) {
             TimeRange.WEEKLY -> "${rangeStart.format(DateTimeFormatter.ofPattern("dd MMM"))} - ${rangeEnd.format(DateTimeFormatter.ofPattern("dd MMM"))}"
             TimeRange.MONTHLY -> "${date.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())} ${date.year}"
             TimeRange.YEARLY -> "${date.year}"
         }
         Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronRight, null) }
+        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.ChevronRight, null) }
     }
 }
 
@@ -304,7 +304,6 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                     val sweepAngle = (rank.amount / total).toFloat() * 360f * animationProgress.value
                     val color = CHART_COLORS[index % CHART_COLORS.size]
                     
-                    // Draw Slice
                     drawArc(
                         color = color,
                         startAngle = startAngle,
@@ -312,17 +311,14 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                         useCenter = true
                     )
                     
-                    // Draw Pointer line and Label
                     if (sweepAngle > 10f && animationProgress.value > 0.9f) {
                         val midAngle = (startAngle + sweepAngle / 2) * (Math.PI / 180f).toFloat()
                         
-                        // Line Start (inside slice)
                         val lineStart = Offset(
                             center.x + cos(midAngle) * (radius * 0.6f),
                             center.y + sin(midAngle) * (radius * 0.6f)
                         )
                         
-                        // Line End (outside slice)
                         val lineEnd = Offset(
                             center.x + cos(midAngle) * (radius * 1.25f),
                             center.y + sin(midAngle) * (radius * 1.25f)
@@ -335,9 +331,8 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                             strokeWidth = 1.dp.toPx()
                         )
                         
-                        // Draw Percentage & Icon Text at the end of line
                         val percentageText = "${(rank.percentage * 100).toInt()}%"
-                        val displayText = "${rank.icon} ${rank.name}\n$percentageText"
+                        val displayText = "${rank.icon} ${rank.name}  $percentageText"
                         
                         drawContext.canvas.nativeCanvas.drawText(
                             displayText,
@@ -360,57 +355,92 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
 }
 
 @Composable
-fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color) {
+fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeRange) {
     if (data.isEmpty()) return
     
     val values = data.values.toList()
     val max = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
     val animationProgress = remember { Animatable(0f) }
+    val onSurface = MaterialTheme.colorScheme.onSurfaceVariant
 
     LaunchedEffect(data) {
         animationProgress.snapTo(0f)
         animationProgress.animateTo(1f, tween(1000))
     }
 
-    Canvas(modifier = Modifier.fillMaxWidth().height(140.dp)) {
-        val width = size.width
-        val height = size.height
-        val stepX = width / (data.size - 1).coerceAtLeast(1)
-        
-        val path = Path()
-        val fillPath = Path()
-        
-        data.values.forEachIndexed { index, value ->
-            val x = index * stepX
-            val y = height - (value.toFloat() / max.toFloat() * height * animationProgress.value)
+    Column {
+        Canvas(modifier = Modifier.fillMaxWidth().height(140.dp).padding(horizontal = 8.dp)) {
+            val width = size.width
+            val height = size.height
+            val stepX = width / (data.size - 1).coerceAtLeast(1)
             
-            if (index == 0) {
-                path.moveTo(x, y)
-                fillPath.moveTo(x, height)
-                fillPath.lineTo(x, y)
-            } else {
-                path.lineTo(x, y)
-                fillPath.lineTo(x, y)
+            val path = Path()
+            val fillPath = Path()
+            
+            val paint = android.graphics.Paint().apply {
+                this.color = onSurface.toArgb()
+                this.textSize = 20f
+                this.textAlign = android.graphics.Paint.Align.LEFT
+            }
+            drawContext.canvas.nativeCanvas.drawText("₹${max.toInt()}", 0f, 20f, paint)
+            drawContext.canvas.nativeCanvas.drawText("₹${(max / 2).toInt()}", 0f, height / 2, paint)
+            drawContext.canvas.nativeCanvas.drawText("0", 0f, height, paint)
+
+            data.values.forEachIndexed { index, value ->
+                val x = index * stepX
+                val y = height - (value.toFloat() / max.toFloat() * height * animationProgress.value)
+                
+                if (index == 0) {
+                    path.moveTo(x, y)
+                    fillPath.moveTo(x, height)
+                    fillPath.lineTo(x, y)
+                } else {
+                    path.lineTo(x, y)
+                    fillPath.lineTo(x, y)
+                }
+                
+                if (index == data.size - 1) {
+                    fillPath.lineTo(x, height)
+                    fillPath.close()
+                }
             }
             
-            if (index == data.size - 1) {
-                fillPath.lineTo(x, height)
-                fillPath.close()
-            }
+            drawPath(
+                path = fillPath,
+                brush = Brush.verticalGradient(
+                    colors = listOf(color.copy(alpha = 0.3f), Color.Transparent)
+                )
+            )
+            
+            drawPath(
+                path = path,
+                color = color,
+                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+            )
         }
         
-        drawPath(
-            path = fillPath,
-            brush = Brush.verticalGradient(
-                colors = listOf(color.copy(alpha = 0.3f), Color.Transparent)
-            )
-        )
-        
-        drawPath(
-            path = path,
-            color = color,
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            when (timeRange) {
+                TimeRange.WEEKLY -> {
+                    listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach {
+                        Text(it, fontSize = 10.sp, color = onSurface)
+                    }
+                }
+                TimeRange.MONTHLY -> {
+                    listOf("1", "5", "10", "15", "20", "25", "30").forEach {
+                        Text(it, fontSize = 10.sp, color = onSurface)
+                    }
+                }
+                TimeRange.YEARLY -> {
+                    listOf("Jan", "Mar", "May", "Jul", "Sep", "Nov").forEach {
+                        Text(it, fontSize = 10.sp, color = onSurface)
+                    }
+                }
+            }
+        }
     }
 }
 

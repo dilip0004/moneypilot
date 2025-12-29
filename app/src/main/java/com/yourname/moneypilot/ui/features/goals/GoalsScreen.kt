@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.goals
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,7 +12,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun GoalsScreen(
     onAddGoal: () -> Unit,
+    onEditGoal: (Long) -> Unit,
     viewModel: GoalsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,7 +56,10 @@ fun GoalsScreen(
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         items(state.data.goals) { goal ->
-                            GoalItem(goal)
+                            GoalItem(
+                                goal = goal,
+                                onClick = { onEditGoal(goal.id) }
+                            )
                         }
                     }
                 }
@@ -73,11 +77,16 @@ fun GoalsScreen(
 }
 
 @Composable
-fun GoalItem(goal: GoalEntity) {
+fun GoalItem(
+    goal: GoalEntity,
+    onClick: () -> Unit
+) {
     val progress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
     
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {

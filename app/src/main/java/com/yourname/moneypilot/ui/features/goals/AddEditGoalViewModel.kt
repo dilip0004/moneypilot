@@ -2,6 +2,7 @@ package com.yourname.moneypilot.ui.features.goals
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.GoalEntity
@@ -25,11 +26,14 @@ data class AddEditGoalState(
 
 @HiltViewModel
 class AddEditGoalViewModel @Inject constructor(
-    private val goalRepository: GoalRepository
+    private val goalRepository: GoalRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _state = mutableStateOf(AddEditGoalState())
     val state: State<AddEditGoalState> = _state
+
+    private var currentGoalId: Long? = null
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
     val eventFlow = _eventFlow.asSharedFlow()
@@ -37,6 +41,27 @@ class AddEditGoalViewModel @Inject constructor(
     sealed class UiEvent {
         object SaveGoal : UiEvent()
         data class ShowSnackbar(val message: String) : UiEvent()
+    }
+
+    init {
+        savedStateHandle.get<Long>("goalId")?.let { goalId ->
+            if (goalId != -1L) {
+                viewModelScope.launch {
+                    goalRepository.getGoalById(goalId)?.also { goal ->
+                        currentGoalId = goal.id
+                        _state.value = _state.value.copy(
+                            name = goal.name,
+                            targetAmount = goal.targetAmount.toString(),
+                            currentAmount = goal.currentAmount.toString(),
+                            targetDate = goal.targetDate,
+                            priority = goal.priority,
+                            color = goal.color,
+                            icon = goal.icon
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun onEvent(event: AddEditGoalEvent) {
@@ -65,6 +90,7 @@ class AddEditGoalViewModel @Inject constructor(
 
                 goalRepository.insertGoal(
                     GoalEntity(
+                        id = currentGoalId ?: 0L,
                         name = _state.value.name,
                         description = "",
                         type = "SAVINGS",
