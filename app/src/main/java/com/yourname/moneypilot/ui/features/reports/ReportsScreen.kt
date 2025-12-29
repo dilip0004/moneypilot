@@ -1,5 +1,7 @@
 package com.yourname.moneypilot.ui.features.reports
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,9 +15,11 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -32,14 +36,8 @@ import java.time.format.TextStyle
 import java.util.*
 
 private val CHART_COLORS = listOf(
-    Color(0xFF7B5CFA), // Purple
-    Color(0xFF0067FF), // Blue
-    Color(0xFF00A36C), // Green
-    Color(0xFFFF5733), // Orange
-    Color(0xFFE91E63), // Pink
-    Color(0xFF607D8B), // Gray
-    Color(0xFF00BCD4), // Cyan
-    Color(0xFFFFC107)  // Amber
+    Color(0xFF7B5CFA), Color(0xFF0067FF), Color(0xFF00A36C), Color(0xFFFF5733),
+    Color(0xFFE91E63), Color(0xFF607D8B), Color(0xFF00BCD4), Color(0xFFFFC107)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +55,7 @@ fun ReportsScreen(
             Surface(tonalElevation = 2.dp) {
                 Column {
                     TopAppBar(
-                        title = { Text("Financial Stats", fontWeight = FontWeight.Bold) },
+                        title = { Text("Stats", fontWeight = FontWeight.Bold) },
                         navigationIcon = {
                             IconButton(onClick = onPopBackStack) {
                                 Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -65,15 +63,13 @@ fun ReportsScreen(
                         },
                         actions = {
                             IconButton(onClick = onNavigateToSettings) {
-                                Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
+                                Icon(Icons.Default.Settings, contentDescription = "Settings")
                             }
                         }
                     )
                     
                     SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                     ) {
                         TimeRange.entries.forEachIndexed { index, range ->
                             SegmentedButton(
@@ -81,7 +77,7 @@ fun ReportsScreen(
                                 onClick = { viewModel.onTimeRangeChange(range) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeRange.entries.size)
                             ) {
-                                Text(range.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) })
+                                Text(range.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }, fontSize = 12.sp)
                             }
                         }
                     }
@@ -89,7 +85,16 @@ fun ReportsScreen(
                     TabRow(
                         selectedTabIndex = reportState.reportType.ordinal,
                         containerColor = Color.Transparent,
-                        divider = {}
+                        divider = {},
+                        indicator = { tabPositions ->
+                            if (reportState.reportType.ordinal < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(tabPositions[reportState.reportType.ordinal]),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        modifier = Modifier.height(40.dp)
                     ) {
                         ReportType.entries.forEach { type ->
                             Tab(
@@ -97,8 +102,9 @@ fun ReportsScreen(
                                 onClick = { viewModel.onReportTypeChange(type) },
                                 text = { 
                                     Text(
-                                        text = type.name.replace("_", " ").lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) },
-                                        style = MaterialTheme.typography.labelMedium
+                                        text = type.name.replace("_", " ").lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }, 
+                                        fontSize = 12.sp,
+                                        color = if (reportState.reportType == type) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     ) 
                                 }
                             )
@@ -110,18 +116,16 @@ fun ReportsScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = uiState) {
-                is ScreenState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
+                is ScreenState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 is ScreenState.Success -> {
                     val data = state.data
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp),
-                        contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
                     ) {
                         item {
-                            DateNavigator(
+                            DateNavigatorCompact(
                                 date = data.selectedDate,
                                 rangeStart = data.rangeStart,
                                 rangeEnd = data.rangeEnd,
@@ -145,58 +149,77 @@ fun ReportsScreen(
                             )
                         }
 
+                        // THE INSIGHT ROW
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                InsightTile(
+                                    label = "Efficiency",
+                                    value = "${(data.savingsPercentage * 100).toInt()}%",
+                                    subLabel = "Saved",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                InsightTile(
+                                    label = "Velocity",
+                                    value = "₹${data.dailyAverage.toInt()}",
+                                    subLabel = "per day",
+                                    modifier = Modifier.weight(1f)
+                                )
+                                InsightTile(
+                                    label = "Frequency",
+                                    value = "${data.transactionCount}",
+                                    subLabel = "Entries",
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(24.dp),
+                                shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(24.dp),
+                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    val title = if (data.reportType == ReportType.CASH_FLOW) "Net Flow" else "Total ${data.reportType.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }}"
-                                    Text(title, style = MaterialTheme.typography.labelMedium)
                                     Text(
-                                        text = "₹ ${String.format(Locale.getDefault(), "%.2f", data.totalAmount)}",
-                                        style = MaterialTheme.typography.headlineLarge,
+                                        text = "₹ ${String.format(Locale.getDefault(), "%,.2f", data.totalAmount)}",
+                                        style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary
                                     )
                                     
-                                    Spacer(modifier = Modifier.height(32.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
                                     
-                                    if (data.reportType == ReportType.CASH_FLOW) {
-                                        CashFlowBarChart(data.chartData)
-                                    } else {
-                                        PieChart(data.categoryBreakdown)
+                                    // FIXED PIE CHART ALIGNMENT - NOW FULL PIE
+                                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                        if (data.reportType == ReportType.CASH_FLOW) {
+                                            CashFlowBarChartCompact(data.chartData)
+                                        } else {
+                                            PieChartCompact(data.categoryBreakdown)
+                                        }
                                     }
                                 }
                             }
                         }
 
                         if (data.reportType != ReportType.CASH_FLOW && data.categoryBreakdown.isNotEmpty()) {
-                            item {
-                                Text("Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            }
                             itemsIndexed(data.categoryBreakdown) { index, rank ->
-                                CategoryRankItem(
+                                CategoryRankItemCompact(
                                     rank = rank,
                                     categoryColor = CHART_COLORS[index % CHART_COLORS.size]
                                 )
-                            }
-                        } else if (data.categoryBreakdown.isEmpty() && data.reportType != ReportType.CASH_FLOW) {
-                            item {
-                                Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                                    Text("No data for this selection", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
                             }
                         }
                     }
                 }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No data available for this selection.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("No data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -205,101 +228,92 @@ fun ReportsScreen(
 }
 
 @Composable
-fun DateNavigator(
-    date: LocalDate, 
-    rangeStart: LocalDate,
-    rangeEnd: LocalDate,
-    range: TimeRange, 
-    onPrev: () -> Unit, 
-    onNext: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+fun InsightTile(label: String, value: String, subLabel: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
     ) {
-        IconButton(onClick = onPrev) { Icon(Icons.Default.ChevronLeft, null) }
-        val label = when (range) {
-            TimeRange.WEEKLY -> "${rangeStart.format(DateTimeFormatter.ofPattern("dd MMM"))} - ${rangeEnd.format(DateTimeFormatter.ofPattern("dd MMM"))}"
-            TimeRange.MONTHLY -> "${date.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${date.year}"
-            TimeRange.YEARLY -> "${date.year}"
+        Column(
+            modifier = Modifier.padding(8.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(subLabel, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, null) }
     }
 }
 
 @Composable
-fun PieChart(ranks: List<CategoryRank>) {
-    val total = ranks.sumOf { it.amount }
-    
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
+fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: LocalDate, range: TimeRange, onPrev: () -> Unit, onNext: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(40.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Canvas(modifier = Modifier.size(240.dp)) {
+        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronLeft, null) }
+        val label = when (range) {
+            TimeRange.WEEKLY -> "${rangeStart.format(DateTimeFormatter.ofPattern("dd MMM"))} - ${rangeEnd.format(DateTimeFormatter.ofPattern("dd MMM"))}"
+            TimeRange.MONTHLY -> "${date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${date.year}"
+            TimeRange.YEARLY -> "${date.year}"
+        }
+        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
+        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronRight, null) }
+    }
+}
+
+@Composable
+fun PieChartCompact(ranks: List<CategoryRank>) {
+    val total = ranks.sumOf { it.amount }
+    val animationProgress = remember { Animatable(0f) }
+
+    LaunchedEffect(ranks) {
+        animationProgress.snapTo(0f)
+        animationProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 1000)
+        )
+    }
+
+    Box(contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.size(140.dp)) {
             var startAngle = -90f
             ranks.forEachIndexed { index, rank ->
                 if (total > 0) {
-                    val sweepAngle = (rank.amount / total).toFloat() * 360f
+                    val sweepAngle = (rank.amount / total).toFloat() * 360f * animationProgress.value
                     drawArc(
                         color = CHART_COLORS[index % CHART_COLORS.size],
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
-                        useCenter = false,
-                        style = Stroke(width = 32.dp.toPx(), cap = StrokeCap.Round)
+                        useCenter = true // Use center for filled pie slices
                     )
                     startAngle += sweepAngle
                 }
             }
-            if (total == 0.0) {
-                drawArc(
-                    color = Color.LightGray.copy(alpha = 0.3f),
-                    startAngle = 0f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(width = 32.dp.toPx())
-                )
-            }
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = if (total > 0) "${ranks.size}" else "0",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text("Categories", style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
 @Composable
-fun CategoryRankItem(rank: CategoryRank, categoryColor: Color) {
+fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
-            color = categoryColor.copy(alpha = 0.2f)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(rank.icon, fontSize = 20.sp)
-            }
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Text(rank.icon, fontSize = 16.sp, modifier = Modifier.width(24.dp))
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(rank.name, fontWeight = FontWeight.Medium)
-                Text("₹ ${String.format(Locale.getDefault(), "%.2f", rank.amount)}", fontWeight = FontWeight.Bold)
+                Text(
+                    text = "${rank.name} (${(rank.percentage * 100).toInt()}%)", 
+                    fontSize = 13.sp, 
+                    fontWeight = FontWeight.Medium
+                )
+                Text("₹ ${String.format(Locale.getDefault(), "%,.2f", rank.amount)}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(modifier = Modifier.height(4.dp))
             LinearProgressIndicator(
                 progress = { rank.percentage },
-                modifier = Modifier.fillMaxWidth().height(6.dp),
+                modifier = Modifier.fillMaxWidth().height(3.dp).padding(top = 2.dp),
                 color = categoryColor,
                 strokeCap = StrokeCap.Round,
                 trackColor = categoryColor.copy(alpha = 0.1f)
@@ -309,24 +323,16 @@ fun CategoryRankItem(rank: CategoryRank, categoryColor: Color) {
 }
 
 @Composable
-fun CashFlowBarChart(data: Map<Int, Double>) {
+fun CashFlowBarChartCompact(data: Map<Int, Double>) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(180.dp),
+        modifier = Modifier.fillMaxWidth().height(100.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         val max = data.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
         data.values.forEach { amount ->
             val heightFactor = (amount / max).toFloat().coerceAtLeast(0.05f)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(heightFactor)
-                    .background(
-                        MaterialTheme.colorScheme.primary,
-                        RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp)
-                    )
-            )
+            Box(modifier = Modifier.weight(1f).fillMaxHeight(heightFactor).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)))
         }
     }
 }

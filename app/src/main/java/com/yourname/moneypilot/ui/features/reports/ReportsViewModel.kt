@@ -12,11 +12,13 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 import java.util.TreeMap
 import javax.inject.Inject
 
 enum class TimeRange { WEEKLY, MONTHLY, YEARLY }
 enum class ReportType { EXPENSE, INCOME, CASH_FLOW }
+enum class WeatherState { SUNNY, CLOUDY, RAINY, STORMY }
 
 data class ReportState(
     val timeRange: TimeRange = TimeRange.MONTHLY,
@@ -27,7 +29,12 @@ data class ReportState(
     val chartData: Map<Int, Double> = emptyMap(), 
     val selectedDate: LocalDate = LocalDate.now(),
     val rangeStart: LocalDate = LocalDate.now(),
-    val rangeEnd: LocalDate = LocalDate.now()
+    val rangeEnd: LocalDate = LocalDate.now(),
+    val weatherSummary: Map<WeatherState, Int> = emptyMap(),
+    val weatherInsight: String = "",
+    val savingsPercentage: Float = 0f,
+    val dailyAverage: Double = 0.0,
+    val transactionCount: Int = 0
 )
 
 data class CategoryRank(
@@ -68,7 +75,7 @@ class ReportsViewModel @Inject constructor(
     }
 
     private fun loadReport() {
-        reportJob?.cancel() // Cancel previous job to avoid overlapping flows
+        reportJob?.cancel()
         reportJob = viewModelScope.launch {
             _uiState.value = ScreenState.Loading
             
@@ -78,8 +85,10 @@ class ReportsViewModel @Inject constructor(
             transactionRepository.getTransactionsWithCategoryByDateRange(start, end).collect { transactions ->
                 val typeString = if (currentState.reportType == ReportType.INCOME) "INCOME" else "EXPENSE"
                 
-                val incomeSum = transactions.filter { it.transaction.type == "INCOME" }.sumOf { it.transaction.amount }
-                val expenseSum = transactions.filter { it.transaction.type == "EXPENSE" }.sumOf { it.transaction.amount }
+                val confirmedTransactions = transactions.filter { it.transaction.type != "TRANSFER" }
+
+                val incomeSum = confirmedTransactions.filter { it.transaction.type == "INCOME" }.sumOf { it.transaction.amount }
+                val expenseSum = confirmedTransactions.filter { it.transaction.type == "EXPENSE" }.sumOf { it.transaction.amount }
                 
                 val totalDisplay = when (currentState.reportType) {
                     ReportType.INCOME -> incomeSum
@@ -88,9 +97,9 @@ class ReportsViewModel @Inject constructor(
                 }
 
                 val listFiltered = if (currentState.reportType == ReportType.CASH_FLOW) {
-                    transactions.filter { it.transaction.type == "EXPENSE" } 
+                    confirmedTransactions.filter { it.transaction.type == "EXPENSE" } 
                 } else {
-                    transactions.filter { it.transaction.type == typeString }
+                    confirmedTransactions.filter { it.transaction.type == typeString }
                 }
 
                 val ranks = listFiltered
@@ -109,6 +118,14 @@ class ReportsViewModel @Inject constructor(
                     .sortedByDescending { it.amount }
 
                 val chartDataMap = generateSequentialChartData(listFiltered, currentState.timeRange, start.toLocalDate())
+                
+                val weatherData = calculateWeather(confirmedTransactions, start.toLocalDate(), end.toLocalDate())
+
+                // New Insight Calculations
+                val savingsPct = if (incomeSum > 0) ((incomeSum - expenseSum) / incomeSum).toFloat() else 0f
+                val days = ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()) + 1
+                val dailyAvg = if (days > 0) expenseSum / days else 0.0
+                val count = confirmedTransactions.size
 
                 _reportState.update { it.copy(
                     totalAmount = totalDisplay,
@@ -116,11 +133,48 @@ class ReportsViewModel @Inject constructor(
                     categoryBreakdown = ranks,
                     chartData = chartDataMap,
                     rangeStart = start.toLocalDate(),
-                    rangeEnd = end.toLocalDate()
+                    rangeEnd = end.toLocalDate(),
+                    weatherSummary = weatherData.first,
+                    weatherInsight = weatherData.second,
+                    savingsPercentage = savingsPct,
+                    dailyAverage = dailyAvg,
+                    transactionCount = count
                 ) }
                 _uiState.value = ScreenState.Success(_reportState.value)
             }
         }
+    }
+
+    private fun calculateWeather(transactions: List<TransactionWithCategory>, start: LocalDate, end: LocalDate): Pair<Map<WeatherState, Int>, String> {
+        val dailyNet = transactions.groupBy { it.transaction.date.toLocalDate() }
+            .mapValues { entry ->
+                entry.value.sumOf { if (it.transaction.type == "INCOME") it.transaction.amount else -it.transaction.amount }
+            }
+
+        val summary = mutableMapOf<WeatherState, Int>()
+        var currentDate = start
+        while (!currentDate.isAfter(end)) {
+            val net = dailyNet[currentDate] ?: 0.0
+            val state = when {
+                net > 100 -> WeatherState.SUNNY
+                net < -500 -> WeatherState.STORMY
+                net < 0 -> WeatherState.RAINY
+                else -> WeatherState.CLOUDY
+            }
+            summary[state] = summary.getOrDefault(state, 0) + 1
+            currentDate = currentDate.plusDays(1)
+        }
+
+        val sunnyDays = summary.getOrDefault(WeatherState.SUNNY, 0)
+        val rainyDays = summary.getOrDefault(WeatherState.RAINY, 0) + summary.getOrDefault(WeatherState.STORMY, 0)
+        
+        val insight = when {
+            sunnyDays > rainyDays -> "The financial climate was predominantly clear, with multiple days of positive net flow."
+            rainyDays > sunnyDays -> "Increased activity led to a period of frequent outflows, similar to a rainy season."
+            else -> "A balanced month with stable conditions across most days."
+        }
+
+        return Pair(summary, insight)
     }
 
     private fun generateSequentialChartData(
