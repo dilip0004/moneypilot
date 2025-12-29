@@ -9,5 +9,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Transactions : Screen("transactions_hub", "Trans.", Icons.AutoMirrored.Filled.ReceiptLong)
     object Stats : Screen("stats_hub", "Stats", Icons.Default.BarChart)
     object Accounts : Screen("accounts_hub", "Accounts", Icons.Default.AccountBalanceWallet)
-    object More : Screen("more_hub", "More", Icons.Default.MoreHoriz)
+    object Planning : Screen("planning_hub", "Planning", Icons.Default.TrackChanges)
+    object Settings : Screen("settings_hub", "Settings", Icons.Default.Settings)
 }

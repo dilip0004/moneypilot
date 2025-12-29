@@ -10,8 +10,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ChevronLeft
-import androidx.compose.material.icons.automirrored.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -53,10 +53,8 @@ fun ReportsScreen(
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                Column {
-                    TopAppBar(
-                        title = { },
-                    )
+                Column(modifier = Modifier.statusBarsPadding()) {
+                    TopAppBar(title = { })
                     
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
@@ -67,7 +65,10 @@ fun ReportsScreen(
                                 onClick = { viewModel.onTimeRangeChange(range) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeRange.entries.size)
                             ) {
-                                Text(range.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }, fontSize = 12.sp)
+                                val label = range.name.lowercase().replaceFirstChar { char ->
+                                    if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+                                }
+                                Text(label, fontSize = 12.sp)
                             }
                         }
                     }
@@ -91,8 +92,11 @@ fun ReportsScreen(
                                 selected = reportState.reportType == type,
                                 onClick = { viewModel.onReportTypeChange(type) },
                                 text = { 
+                                    val label = type.name.replace("_", " ").lowercase().replaceFirstChar { char ->
+                                        if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+                                    }
                                     Text(
-                                        text = type.name.replace("_", " ").lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }, 
+                                        text = label, 
                                         fontSize = 12.sp,
                                         color = if (reportState.reportType == type) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     ) 
@@ -111,7 +115,7 @@ fun ReportsScreen(
                     val data = state.data
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
                     ) {
                         item {
@@ -271,14 +275,20 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.ChevronLeft, null) }
+        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null) }
         val label = when (range) {
-            TimeRange.WEEKLY -> "${rangeStart.format(DateTimeFormatter.ofPattern("dd MMM"))} - ${rangeEnd.format(DateTimeFormatter.ofPattern("dd MMM"))}"
-            TimeRange.MONTHLY -> "${date.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())} ${date.year}"
+            TimeRange.WEEKLY -> {
+                val formatter = DateTimeFormatter.ofPattern("dd MMM")
+                "${rangeStart.format(formatter)} - ${rangeEnd.format(formatter)}"
+            }
+            TimeRange.MONTHLY -> {
+                val monthName = date.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())
+                "$monthName ${date.year}"
+            }
             TimeRange.YEARLY -> "${date.year}"
         }
         Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.ChevronRight, null) }
+        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) }
     }
 }
 
@@ -304,6 +314,7 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                     val sweepAngle = (rank.amount / total).toFloat() * 360f * animationProgress.value
                     val color = CHART_COLORS[index % CHART_COLORS.size]
                     
+                    // Draw Slice
                     drawArc(
                         color = color,
                         startAngle = startAngle,
@@ -311,17 +322,20 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                         useCenter = true
                     )
                     
+                    // Draw Pointer line and Label
                     if (sweepAngle > 10f && animationProgress.value > 0.9f) {
                         val midAngle = (startAngle + sweepAngle / 2) * (Math.PI / 180f).toFloat()
                         
+                        // Line Start (inside slice)
                         val lineStart = Offset(
-                            center.x + cos(midAngle) * (radius * 0.6f),
-                            center.y + sin(midAngle) * (radius * 0.6f)
+                            center.x + cos(midAngle).toFloat() * (radius * 0.6f),
+                            center.y + sin(midAngle).toFloat() * (radius * 0.6f)
                         )
                         
+                        // Line End (outside slice)
                         val lineEnd = Offset(
-                            center.x + cos(midAngle) * (radius * 1.25f),
-                            center.y + sin(midAngle) * (radius * 1.25f)
+                            center.x + cos(midAngle).toFloat() * (radius * 1.25f),
+                            center.y + sin(midAngle).toFloat() * (radius * 1.25f)
                         )
                         
                         drawLine(
@@ -331,8 +345,8 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                             strokeWidth = 1.dp.toPx()
                         )
                         
-                        val percentageText = "${(rank.percentage * 100).toInt()}%"
-                        val displayText = "${rank.icon} ${rank.name}  $percentageText"
+                        val pctValue = (rank.percentage * 100).toInt()
+                        val displayText = "${rank.icon} ${rank.name}  $pctValue%"
                         
                         drawContext.canvas.nativeCanvas.drawText(
                             displayText,
@@ -377,6 +391,7 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
             val path = Path()
             val fillPath = Path()
             
+            // Draw Y-axis labels (3 levels)
             val paint = android.graphics.Paint().apply {
                 this.color = onSurface.toArgb()
                 this.textSize = 20f
@@ -423,22 +438,13 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            when (timeRange) {
-                TimeRange.WEEKLY -> {
-                    listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach {
-                        Text(it, fontSize = 10.sp, color = onSurface)
-                    }
-                }
-                TimeRange.MONTHLY -> {
-                    listOf("1", "5", "10", "15", "20", "25", "30").forEach {
-                        Text(it, fontSize = 10.sp, color = onSurface)
-                    }
-                }
-                TimeRange.YEARLY -> {
-                    listOf("Jan", "Mar", "May", "Jul", "Sep", "Nov").forEach {
-                        Text(it, fontSize = 10.sp, color = onSurface)
-                    }
-                }
+            val xLabels = when (timeRange) {
+                TimeRange.WEEKLY -> listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                TimeRange.MONTHLY -> listOf("1", "5", "10", "15", "20", "25", "30")
+                TimeRange.YEARLY -> listOf("Jan", "Mar", "May", "Jul", "Sep", "Nov")
+            }
+            xLabels.forEach { label ->
+                Text(label, fontSize = 10.sp, color = onSurface)
             }
         }
     }
@@ -453,8 +459,9 @@ fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color) {
         Text(rank.icon, fontSize = 16.sp, modifier = Modifier.width(24.dp))
         Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                val pct = (rank.percentage * 100).toInt()
                 Text(
-                    text = "${rank.name} (${(rank.percentage * 100).toInt()}%)", 
+                    text = "${rank.name} ($pct%)", 
                     fontSize = 13.sp, 
                     fontWeight = FontWeight.Medium
                 )
@@ -480,7 +487,7 @@ fun CashFlowBarChartCompact(data: Map<Int, Double>) {
     ) {
         val max = data.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
         data.values.forEach { amount ->
-            val heightFactor = (amount / max).toFloat().coerceAtLeast(0.05f)
+            val heightFactor = (amount.toFloat() / max.toFloat()).coerceAtLeast(0.05f)
             Box(modifier = Modifier.weight(1f).fillMaxHeight(heightFactor).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)))
         }
     }
