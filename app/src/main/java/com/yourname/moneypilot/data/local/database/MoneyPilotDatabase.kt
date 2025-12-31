@@ -21,9 +21,11 @@ import com.yourname.moneypilot.data.local.database.converters.LocalDateTimeConve
         TagEntity::class,
         TransactionTagCrossRef::class,
         InvestmentEntity::class,
-        DistributionRuleEntity::class
+        DistributionRuleEntity::class,
+        LoanEntity::class,
+        BigBillEntity::class
     ],
-    version = 5,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class)
@@ -37,6 +39,8 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun investmentDao(): InvestmentDao
     abstract fun distributionRuleDao(): DistributionRuleDao
+    abstract fun loanDao(): LoanDao
+    abstract fun bigBillDao(): BigBillDao
 
     companion object {
         @Volatile

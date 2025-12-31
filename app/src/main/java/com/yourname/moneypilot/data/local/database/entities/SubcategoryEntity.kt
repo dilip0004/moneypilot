@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(
     tableName = "subcategories",
@@ -17,6 +18,7 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("categoryId")]
 )
+@Serializable
 data class SubcategoryEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

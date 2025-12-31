@@ -5,6 +5,8 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -31,6 +33,7 @@ import java.time.LocalDateTime
         Index("end_date")
     ]
 )
+@Serializable
 data class BudgetEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -48,9 +51,11 @@ data class BudgetEntity(
     val period: String, // "MONTHLY", "YEARLY", "CUSTOM"
 
     @ColumnInfo(name = "start_date")
+    @Contextual
     val startDate: LocalDate,
 
     @ColumnInfo(name = "end_date")
+    @Contextual
     val endDate: LocalDate,
 
     @ColumnInfo(name = "rollover_enabled")
@@ -63,8 +68,10 @@ data class BudgetEntity(
     val spentAmount: Double = 0.0,
 
     @ColumnInfo(name = "created_at")
+    @Contextual
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
     @ColumnInfo(name = "updated_at")
+    @Contextual
     val updatedAt: LocalDateTime = LocalDateTime.now()
 )

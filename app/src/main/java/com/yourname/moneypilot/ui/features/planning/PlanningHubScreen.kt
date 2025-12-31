@@ -1,8 +1,6 @@
 package com.yourname.moneypilot.ui.features.planning
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -11,16 +9,19 @@ import androidx.compose.ui.unit.dp
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.GoalsScreen
+import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlanningHubScreen(
     onAddGoal: () -> Unit,
     onEditGoal: (Long) -> Unit,
-    onAddBudget: () -> Unit
+    onAddBudget: () -> Unit,
+    onAddInvestment: () -> Unit,
+    onAddBigBill: () -> Unit
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Goals", "Budgets", "Distribution")
+    val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Distribution")
 
     Scaffold(
         topBar = {
@@ -29,9 +30,10 @@ fun PlanningHubScreen(
                     TopAppBar(
                         title = { Text("Financial Planning", fontWeight = FontWeight.Bold) }
                     )
-                    TabRow(
+                    ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = MaterialTheme.colorScheme.surface,
+                        edgePadding = 16.dp,
                         divider = {}
                     ) {
                         tabs.forEachIndexed { index, title ->
@@ -55,8 +57,10 @@ fun PlanningHubScreen(
                 1 -> BudgetsScreen(
                     onAddBudget = onAddBudget
                 )
-                2 -> DistributionScreen(
-                    onPopBackStack = {} // Handled internally in hub
+                2 -> InvestmentsScreen() // Add onAddInvestment trigger to FAB inside screen
+                3 -> BigBillsScreen() // Add onAddBigBill trigger to FAB inside screen
+                4 -> DistributionScreen(
+                    onPopBackStack = {}
                 )
             }
         }

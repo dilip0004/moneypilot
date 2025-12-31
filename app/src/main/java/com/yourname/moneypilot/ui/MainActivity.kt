@@ -24,7 +24,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
-import com.yourname.moneypilot.ui.features.accounts.AccountsScreen
+import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
@@ -169,7 +169,10 @@ fun MainScreen() {
             }
 
             composable(Screen.Accounts.route) {
-                AccountsScreen(onAddAccount = { navController.navigate("add_account") })
+                AccountsHubScreen(
+                    onAddAccount = { navController.navigate("add_account") },
+                    onAddLoan = { navController.navigate("add_loan") }
+                )
             }
 
             composable(Screen.Planning.route) {
@@ -224,6 +227,7 @@ fun MainScreen() {
 
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_budget") { AddEditBudgetScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("add_loan") { /* To be built */ }
         }
     }
 }

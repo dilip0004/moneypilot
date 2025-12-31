@@ -9,6 +9,9 @@ interface LoanDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLoan(loan: LoanEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(loans: List<LoanEntity>)
+
     @Update
     suspend fun updateLoan(loan: LoanEntity)
 
@@ -20,6 +23,9 @@ interface LoanDao {
 
     @Query("SELECT * FROM loans ORDER BY startDate DESC")
     fun getAllLoans(): Flow<List<LoanEntity>>
+
+    @Query("SELECT * FROM loans")
+    suspend fun getAllLoansList(): List<LoanEntity>
 
     @Query("SELECT * FROM loans WHERE status = :status ORDER BY startDate DESC")
     fun getLoansByStatus(status: String): Flow<List<LoanEntity>>

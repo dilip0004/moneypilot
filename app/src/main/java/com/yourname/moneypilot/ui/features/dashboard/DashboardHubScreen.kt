@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,7 +53,7 @@ fun DashboardHubScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 4.dp),
+                            .padding(horizontal = 4.dp, vertical = 0.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onOpenDrawer) {
@@ -63,21 +64,21 @@ fun DashboardHubScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
                         ) {
-                            IconButton(onClick = { viewModel.onMonthChange(hubState.currentMonth.minusMonths(1)) }) {
+                            IconButton(onClick = { viewModel.onMonthChange(hubState.currentMonth.minusMonths(1)) }, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
                             }
                             Text(
                                 text = "${hubState.currentMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${hubState.currentMonth.year}",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
-                            IconButton(onClick = { viewModel.onMonthChange(hubState.currentMonth.plusMonths(1)) }) {
+                            IconButton(onClick = { viewModel.onMonthChange(hubState.currentMonth.plusMonths(1)) }, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
                             }
                         }
 
                         IconButton(onClick = { /* Star logic */ }) {
-                            Icon(Icons.Outlined.StarOutline, contentDescription = "Favorite")
+                            Icon(Icons.Default.StarOutline, contentDescription = "Favorite")
                         }
                         IconButton(onClick = { /* Search logic */ }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
@@ -87,26 +88,35 @@ fun DashboardHubScreen(
                         }
                     }
 
-                    TabRow(
+                    ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = MaterialTheme.colorScheme.surface,
+                        edgePadding = 8.dp,
                         divider = {},
                         indicator = { tabPositions ->
-                            TabRowDefaults.SecondaryIndicator(
-                                Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                            if (selectedTabIndex < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                    height = 3.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        modifier = Modifier.height(40.dp)
                     ) {
                         tabs.forEachIndexed { index, title ->
+                            val isSelected = selectedTabIndex == index
                             Tab(
-                                selected = selectedTabIndex == index,
+                                selected = isSelected,
                                 onClick = { selectedTabIndex = index },
                                 text = { 
                                     Text(
                                         text = title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     ) 
                                 }
                             )
@@ -116,7 +126,7 @@ fun DashboardHubScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp, horizontal = 16.dp),
+                            .padding(vertical = 4.dp, horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         SummaryItem(label = "Income", value = "₹ ${hubState.monthlyIncome}", color = IncomeGreen)
@@ -131,7 +141,8 @@ fun DashboardHubScreen(
                 onClick = { onAddTransaction(LocalDate.now()) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape
+                shape = CircleShape,
+                modifier = Modifier.size(56.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
@@ -252,36 +263,36 @@ fun TransactionItem(transaction: TransactionWithCategory) {
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(12.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Surface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(36.dp),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = transaction.category?.icon ?: "❓",
-                            fontSize = 20.sp
+                            fontSize = 18.sp
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 
                 Column {
                     Text(
                         text = transaction.category?.name ?: "Uncategorized",
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = transaction.transaction.description.ifBlank { "No description" },
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1
                     )
@@ -291,7 +302,7 @@ fun TransactionItem(transaction: TransactionWithCategory) {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "${if (transaction.transaction.type == "EXPENSE") "-" else "+"}₹${transaction.transaction.amount}",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = if (transaction.transaction.type == "EXPENSE") ExpenseRed else IncomeGreen,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -319,7 +330,7 @@ fun SummaryItem(label: String, value: String, color: Color) {
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
             color = color
         )

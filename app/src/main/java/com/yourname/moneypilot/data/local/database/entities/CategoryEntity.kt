@@ -3,9 +3,12 @@ package com.yourname.moneypilot.data.local.database.entities
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
 import java.time.LocalDateTime
 
 @Entity(tableName = "categories")
+@Serializable
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -32,8 +35,10 @@ data class CategoryEntity(
     val isSystem: Boolean = false,
 
     @ColumnInfo(name = "created_at")
+    @Contextual
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
     @ColumnInfo(name = "updated_at")
+    @Contextual
     val updatedAt: LocalDateTime = LocalDateTime.now()
 )

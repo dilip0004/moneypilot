@@ -10,6 +10,9 @@ interface GoalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(goal: GoalEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(goals: List<GoalEntity>)
+
     @Update
     suspend fun update(goal: GoalEntity)
 
@@ -21,6 +24,9 @@ interface GoalDao {
 
     @Query("SELECT * FROM goals ORDER BY target_date ASC")
     fun getAllGoals(): Flow<List<GoalEntity>>
+
+    @Query("SELECT * FROM goals")
+    suspend fun getAllGoalsList(): List<GoalEntity>
 
     @Query("SELECT * FROM goals WHERE status = :status ORDER BY target_date ASC")
     fun getGoalsByStatus(status: String): Flow<List<GoalEntity>>

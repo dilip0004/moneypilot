@@ -7,23 +7,18 @@ import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-@Entity(tableName = "loans")
+@Entity(tableName = "big_bills")
 @Serializable
-data class LoanEntity(
+data class BigBillEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val name: String,
-    val lender: String,
-    val totalAmount: Double,
-    val interestRate: Double,
+    val amount: Double,
     @Contextual
-    val startDate: LocalDate,
-    val durationMonths: Int,
-    val currentBalance: Double,
-    val monthlyPayment: Double,
-    val type: String, // BORROWED, LENT
-    val status: String = "ACTIVE", // ACTIVE, COMPLETED
-    val accountId: Long?, // Linked physical wallet
+    val dueDate: LocalDate,
+    val categoryId: Long?,
+    val isPaid: Boolean = false,
+    val notes: String = "",
     @Contextual
     val createdAt: LocalDateTime = LocalDateTime.now(),
     @Contextual

@@ -9,6 +9,9 @@ interface InvestmentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInvestment(investment: InvestmentEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(investments: List<InvestmentEntity>)
+
     @Update
     suspend fun updateInvestment(investment: InvestmentEntity)
 
@@ -17,6 +20,9 @@ interface InvestmentDao {
 
     @Query("SELECT * FROM investments")
     fun getAllInvestments(): Flow<List<InvestmentEntity>>
+
+    @Query("SELECT * FROM investments")
+    suspend fun getAllInvestmentsList(): List<InvestmentEntity>
 
     @Query("SELECT SUM(quantity * currentPrice) FROM investments")
     suspend fun getTotalPortfolioValue(): Double?

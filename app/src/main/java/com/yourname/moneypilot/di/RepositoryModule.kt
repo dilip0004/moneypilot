@@ -52,4 +52,16 @@ abstract class RepositoryModule {
     abstract fun bindDistributionRepository(
         distributionRepositoryImpl: DistributionRepositoryImpl
     ): DistributionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLoanRepository(
+        loanRepositoryImpl: LoanRepositoryImpl
+    ): LoanRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBigBillRepository(
+        bigBillRepositoryImpl: BigBillRepositoryImpl
+    ): BigBillRepository
 }

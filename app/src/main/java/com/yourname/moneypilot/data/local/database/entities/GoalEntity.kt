@@ -4,6 +4,8 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -14,6 +16,7 @@ import java.time.LocalDateTime
         Index("status")
     ]
 )
+@Serializable
 data class GoalEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -34,6 +37,7 @@ data class GoalEntity(
     val currentAmount: Double = 0.0,
 
     @ColumnInfo(name = "target_date")
+    @Contextual
     val targetDate: LocalDate,
 
     @ColumnInfo(name = "priority")
@@ -49,8 +53,10 @@ data class GoalEntity(
     val status: String = "ACTIVE", // "ACTIVE", "COMPLETED", "CANCELLED"
 
     @ColumnInfo(name = "created_at")
+    @Contextual
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
     @ColumnInfo(name = "updated_at")
+    @Contextual
     val updatedAt: LocalDateTime = LocalDateTime.now()
 )
