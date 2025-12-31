@@ -25,48 +25,41 @@ fun BudgetsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            Text(
-                text = "Budgets",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(16.dp)
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddBudget) {
-                Icon(Icons.Default.Add, contentDescription = "Add Budget")
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (val state = uiState) {
+            is ScreenState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is ScreenState.Success -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+                ) {
+                    items(state.data.budgets) { budget ->
+                        BudgetItem(budget)
+                    }
+                }
+            }
+            is ScreenState.Error -> {
+                Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+            }
+            is ScreenState.Empty -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(text = "No budgets set")
+                }
             }
         }
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            when (val state = uiState) {
-                is ScreenState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                }
-                is ScreenState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
-                    ) {
-                        items(state.data.budgets) { budget ->
-                            BudgetItem(budget)
-                        }
-                    }
-                }
-                is ScreenState.Error -> {
-                    Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                }
-                is ScreenState.Empty -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "No budgets set")
-                    }
-                }
-            }
+        
+        FloatingActionButton(
+            onClick = onAddBudget,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Budget")
         }
     }
 }

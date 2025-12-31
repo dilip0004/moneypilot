@@ -150,7 +150,7 @@ fun TransactionListItemWithMenu(
                     )
                 }
         ) {
-            TransactionItem(transaction)
+            TransactionItem(transaction.transaction)
         }
         
         DropdownMenu(

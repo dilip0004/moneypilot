@@ -28,6 +28,7 @@ import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
+import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
 import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
@@ -157,7 +158,6 @@ fun MainScreen() {
                     onEditTransaction = { transactionId ->
                         navController.navigate("add_transaction?transactionId=$transactionId")
                     },
-                    onOpenDrawer = { /* Consistently handled by Hub now */ },
                     onOpenSettings = { navController.navigate(Screen.Settings.route) }
                 )
             }
@@ -188,9 +188,9 @@ fun MainScreen() {
 
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    onNavigateToAccounts = { navController.navigate(Screen.Accounts.route) },
+                    onNavigateToAccounts = { navController.navigate("accounts_list") },
                     onNavigateToCategories = { navController.navigate("categories") },
-                    onNavigateToBudgets = { navController.navigate("budgets") },
+                    onNavigateToBudgets = { navController.navigate("budgets_list") },
                     onNavigateToDistribution = { navController.navigate("distribution") },
                     onNavigateToAppearance = { navController.navigate("appearance") },
                     onNavigateToSecurity = { navController.navigate("security") },
@@ -202,11 +202,23 @@ fun MainScreen() {
             composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("categories") { CategoryManagerScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("distribution") { DistributionScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("investments") { InvestmentsScreen() }
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_account") { AddEditAccountScreen(onPopBackStack = { navController.popBackStack() }) }
             
+            composable("accounts_list") {
+                AccountsHubScreen(
+                    onAddAccount = { navController.navigate("add_account") },
+                    onAddLoan = { navController.navigate("add_loan") }
+                )
+            }
+
+            composable("budgets_list") {
+                BudgetsScreen(onAddBudget = { navController.navigate("add_budget") })
+            }
+
             composable(
                 route = "add_transaction?date={date}&transactionId={transactionId}",
                 arguments = listOf(

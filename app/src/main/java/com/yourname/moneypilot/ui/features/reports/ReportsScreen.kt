@@ -7,18 +7,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -65,9 +62,7 @@ fun ReportsScreen(
                                 onClick = { viewModel.onTimeRangeChange(range) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeRange.entries.size)
                             ) {
-                                val label = range.name.lowercase().replaceFirstChar { char ->
-                                    if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
-                                }
+                                val label = range.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }
                                 Text(label, fontSize = 12.sp)
                             }
                         }
@@ -92,9 +87,7 @@ fun ReportsScreen(
                                 selected = reportState.reportType == type,
                                 onClick = { viewModel.onReportTypeChange(type) },
                                 text = { 
-                                    val label = type.name.replace("_", " ").lowercase().replaceFirstChar { char ->
-                                        if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
-                                    }
+                                    val label = type.name.replace("_", " ").lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }
                                     Text(
                                         text = label, 
                                         fontSize = 12.sp,
@@ -115,7 +108,7 @@ fun ReportsScreen(
                     val data = state.data
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
                     ) {
                         item {
@@ -181,9 +174,9 @@ fun ReportsScreen(
                                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    val totalValue = String.format(Locale.getDefault(), "%,.2f", data.totalAmount)
+                                    val amountStr = String.format(Locale.getDefault(), "%,.2f", data.totalAmount)
                                     Text(
-                                        text = "₹ $totalValue",
+                                        text = "₹ $amountStr",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary
@@ -276,10 +269,10 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronLeft, null) }
+        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowLeft, null) }
         val label = when (range) {
             TimeRange.WEEKLY -> {
-                val formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMM")
+                val formatter = DateTimeFormatter.ofPattern("dd MMM")
                 "${rangeStart.format(formatter)} - ${rangeEnd.format(formatter)}"
             }
             TimeRange.MONTHLY -> {
@@ -289,7 +282,7 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
             TimeRange.YEARLY -> "${date.year}"
         }
         Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronRight, null) }
+        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowRight, null) }
     }
 }
 
@@ -301,7 +294,10 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
 
     LaunchedEffect(ranks) {
         animationProgress.snapTo(0f)
-        animationProgress.animateTo(1f, tween(1000))
+        animationProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 1000)
+        )
     }
 
     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(32.dp).fillMaxWidth()) {
@@ -464,8 +460,8 @@ fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color) {
                     fontSize = 13.sp, 
                     fontWeight = FontWeight.Medium
                 )
-                val amountText = String.format(Locale.getDefault(), "%,.2f", rank.amount)
-                Text("₹ $amountText", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                val amountStr = String.format(Locale.getDefault(), "%,.2f", rank.amount)
+                Text("₹ $amountStr", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             LinearProgressIndicator(
                 progress = { rank.percentage },

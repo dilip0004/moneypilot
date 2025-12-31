@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -28,8 +27,6 @@ import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import java.time.LocalDate
-import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
 
@@ -38,7 +35,6 @@ import java.util.*
 fun DashboardHubScreen(
     onAddTransaction: (LocalDate) -> Unit,
     onEditTransaction: (Long) -> Unit,
-    onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: DashboardHubViewModel = hiltViewModel()
 ) {
@@ -49,17 +45,14 @@ fun DashboardHubScreen(
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                Column {
+                Column(modifier = Modifier.statusBarsPadding()) {
+                    // Header Area
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 0.dp),
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onOpenDrawer) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                        }
-                        
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
@@ -69,7 +62,7 @@ fun DashboardHubScreen(
                             }
                             Text(
                                 text = "${hubState.currentMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${hubState.currentMonth.year}",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             IconButton(onClick = { viewModel.onMonthChange(hubState.currentMonth.plusMonths(1)) }, modifier = Modifier.size(32.dp)) {
@@ -77,27 +70,25 @@ fun DashboardHubScreen(
                             }
                         }
 
-                        IconButton(onClick = { /* Star logic */ }) {
-                            Icon(Icons.Default.StarOutline, contentDescription = "Favorite")
-                        }
-                        IconButton(onClick = { /* Search logic */ }) {
+                        IconButton(onClick = { /* Search logic */ }, modifier = Modifier.size(40.dp)) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
-                        IconButton(onClick = onOpenSettings) {
+                        IconButton(onClick = onOpenSettings, modifier = Modifier.size(40.dp)) {
                             Icon(Icons.Default.Tune, contentDescription = "Filter")
                         }
                     }
 
+                    // Compact Scrollable Tab Row to prevent text wrap
                     ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
-                        containerColor = MaterialTheme.colorScheme.surface,
+                        containerColor = Color.Transparent,
                         edgePadding = 8.dp,
                         divider = {},
                         indicator = { tabPositions ->
                             if (selectedTabIndex < tabPositions.size) {
                                 TabRowDefaults.SecondaryIndicator(
                                     Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                    height = 3.dp,
+                                    height = 2.dp,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -112,21 +103,22 @@ fun DashboardHubScreen(
                                 text = { 
                                     Text(
                                         text = title,
-                                        style = MaterialTheme.typography.labelLarge,
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        overflow = TextOverflow.Visible
                                     ) 
                                 }
                             )
                         }
                     }
 
+                    // Summary Bar
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp, horizontal = 16.dp),
+                            .padding(vertical = 6.dp, horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         SummaryItem(label = "Income", value = "₹ ${hubState.monthlyIncome}", color = IncomeGreen)
@@ -141,8 +133,7 @@ fun DashboardHubScreen(
                 onClick = { onAddTransaction(LocalDate.now()) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape,
-                modifier = Modifier.size(56.dp)
+                shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
@@ -163,15 +154,9 @@ fun DashboardHubScreen(
                         onAddTransaction = onAddTransaction
                     )
                 }
-                2 -> {
-                    MonthlySummaryTab(hubState)
-                }
-                3 -> {
-                    TotalNetWorthTab(hubState)
-                }
-                4 -> {
-                    NotesTab()
-                }
+                2 -> MonthlySummaryTab(hubState)
+                3 -> TotalNetWorthTab(hubState)
+                4 -> NotesTab()
             }
         }
     }
@@ -256,67 +241,6 @@ fun NotesTab() {
 }
 
 @Composable
-fun TransactionItem(transaction: TransactionWithCategory) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Surface(
-                    modifier = Modifier.size(36.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = transaction.category?.icon ?: "❓",
-                            fontSize = 18.sp
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(10.dp))
-                
-                Column {
-                    Text(
-                        text = transaction.category?.name ?: "Uncategorized",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = transaction.transaction.description.ifBlank { "No description" },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-            }
-            
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "${if (transaction.transaction.type == "EXPENSE") "-" else "+"}₹${transaction.transaction.amount}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (transaction.transaction.type == "EXPENSE") ExpenseRed else IncomeGreen,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    text = transaction.transaction.date.format(DateTimeFormatter.ofPattern("hh:mm a")),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
 fun FlowRow(label: String, value: String, color: Color) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label)
@@ -330,7 +254,7 @@ fun SummaryItem(label: String, value: String, color: Color) {
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text = value,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             color = color
         )
