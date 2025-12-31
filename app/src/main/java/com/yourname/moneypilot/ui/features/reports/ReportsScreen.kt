@@ -10,8 +10,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -181,8 +181,9 @@ fun ReportsScreen(
                                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
+                                    val totalValue = String.format(Locale.getDefault(), "%,.2f", data.totalAmount)
                                     Text(
-                                        text = "₹ ${String.format(Locale.getDefault(), "%,.2f", data.totalAmount)}",
+                                        text = "₹ $totalValue",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary
@@ -275,10 +276,10 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null) }
+        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronLeft, null) }
         val label = when (range) {
             TimeRange.WEEKLY -> {
-                val formatter = DateTimeFormatter.ofPattern("dd MMM")
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMM")
                 "${rangeStart.format(formatter)} - ${rangeEnd.format(formatter)}"
             }
             TimeRange.MONTHLY -> {
@@ -288,7 +289,7 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
             TimeRange.YEARLY -> "${date.year}"
         }
         Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) }
+        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.ChevronRight, null) }
     }
 }
 
@@ -314,7 +315,6 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                     val sweepAngle = (rank.amount / total).toFloat() * 360f * animationProgress.value
                     val color = CHART_COLORS[index % CHART_COLORS.size]
                     
-                    // Draw Slice
                     drawArc(
                         color = color,
                         startAngle = startAngle,
@@ -322,17 +322,14 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                         useCenter = true
                     )
                     
-                    // Draw Pointer line and Label
                     if (sweepAngle > 10f && animationProgress.value > 0.9f) {
                         val midAngle = (startAngle + sweepAngle / 2) * (Math.PI / 180f).toFloat()
                         
-                        // Line Start (inside slice)
                         val lineStart = Offset(
                             center.x + cos(midAngle).toFloat() * (radius * 0.6f),
                             center.y + sin(midAngle).toFloat() * (radius * 0.6f)
                         )
                         
-                        // Line End (outside slice)
                         val lineEnd = Offset(
                             center.x + cos(midAngle).toFloat() * (radius * 1.25f),
                             center.y + sin(midAngle).toFloat() * (radius * 1.25f)
@@ -345,8 +342,8 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                             strokeWidth = 1.dp.toPx()
                         )
                         
-                        val pctValue = (rank.percentage * 100).toInt()
-                        val displayText = "${rank.icon} ${rank.name}  $pctValue%"
+                        val pct = (rank.percentage * 100).toInt()
+                        val displayText = "${rank.icon} ${rank.name}  $pct%"
                         
                         drawContext.canvas.nativeCanvas.drawText(
                             displayText,
@@ -391,14 +388,16 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
             val path = Path()
             val fillPath = Path()
             
-            // Draw Y-axis labels (3 levels)
             val paint = android.graphics.Paint().apply {
                 this.color = onSurface.toArgb()
                 this.textSize = 20f
                 this.textAlign = android.graphics.Paint.Align.LEFT
             }
-            drawContext.canvas.nativeCanvas.drawText("₹${max.toInt()}", 0f, 20f, paint)
-            drawContext.canvas.nativeCanvas.drawText("₹${(max / 2).toInt()}", 0f, height / 2, paint)
+            val maxStr = String.format(Locale.getDefault(), "₹%.0f", max)
+            val midStr = String.format(Locale.getDefault(), "₹%.0f", max / 2)
+            
+            drawContext.canvas.nativeCanvas.drawText(maxStr, 0f, 20f, paint)
+            drawContext.canvas.nativeCanvas.drawText(midStr, 0f, height / 2, paint)
             drawContext.canvas.nativeCanvas.drawText("0", 0f, height, paint)
 
             data.values.forEachIndexed { index, value ->
@@ -465,7 +464,8 @@ fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color) {
                     fontSize = 13.sp, 
                     fontWeight = FontWeight.Medium
                 )
-                Text("₹ ${String.format(Locale.getDefault(), "%,.2f", rank.amount)}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                val amountText = String.format(Locale.getDefault(), "%,.2f", rank.amount)
+                Text("₹ $amountText", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             LinearProgressIndicator(
                 progress = { rank.percentage },
