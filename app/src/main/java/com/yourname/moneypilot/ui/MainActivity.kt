@@ -34,6 +34,7 @@ import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
 import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
 import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
+import com.yourname.moneypilot.ui.features.investments.AddEditInvestmentScreen
 import com.yourname.moneypilot.ui.features.reports.ReportsScreen
 import com.yourname.moneypilot.ui.features.settings.AppearanceScreen
 import com.yourname.moneypilot.ui.features.settings.NotificationsScreen
@@ -179,7 +180,9 @@ fun MainScreen() {
                 PlanningHubScreen(
                     onAddGoal = { navController.navigate("add_goal") },
                     onEditGoal = { id -> navController.navigate("add_goal?goalId=$id") },
-                    onAddBudget = { navController.navigate("add_budget") }
+                    onAddBudget = { navController.navigate("add_budget") },
+                    onAddInvestment = { navController.navigate("add_investment") },
+                    onAddBigBill = { /* To be built */ }
                 )
             }
 
@@ -199,7 +202,6 @@ fun MainScreen() {
             composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("categories") { CategoryManagerScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("distribution") { DistributionScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("investments") { InvestmentsScreen() }
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
@@ -223,6 +225,13 @@ fun MainScreen() {
                 arguments = listOf(navArgument("goalId") { type = NavType.LongType; defaultValue = -1L })
             ) {
                 AddEditGoalScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable(
+                route = "add_investment?investmentId={investmentId}",
+                arguments = listOf(navArgument("investmentId") { type = NavType.LongType; defaultValue = -1L })
+            ) {
+                AddEditInvestmentScreen(onPopBackStack = { navController.popBackStack() })
             }
 
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }

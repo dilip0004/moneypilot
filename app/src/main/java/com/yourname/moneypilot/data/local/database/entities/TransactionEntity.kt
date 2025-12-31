@@ -35,6 +35,12 @@ import java.time.LocalDateTime
             parentColumns = ["id"],
             childColumns = ["goal_id"],
             onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = LoanEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["loan_id"],
+            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [
@@ -42,6 +48,7 @@ import java.time.LocalDateTime
         Index("category_id"),
         Index("subcategory_id"),
         Index("goal_id"),
+        Index("loan_id"),
         Index("date"),
         Index("type")
     ]
@@ -63,8 +70,11 @@ data class TransactionEntity(
     @ColumnInfo(name = "goal_id")
     val goalId: Long? = null,
 
+    @ColumnInfo(name = "loan_id")
+    val loanId: Long? = null,
+
     @ColumnInfo(name = "type")
-    val type: String, // "INCOME", "EXPENSE", "TRANSFER", "GOAL_CONTRIBUTION"
+    val type: String, // "INCOME", "EXPENSE", "TRANSFER", "GOAL_CONTRIBUTION", "LOAN_REPAYMENT"
 
     @ColumnInfo(name = "amount")
     val amount: Double,

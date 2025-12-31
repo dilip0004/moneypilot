@@ -1,6 +1,7 @@
 package com.yourname.moneypilot.data.local.database.dao
 
 import androidx.room.*
+import com.yourname.moneypilot.data.local.database.entities.AccountEntity
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +14,12 @@ data class TransactionWithCategory(
         parentColumn = "category_id",
         entityColumn = "id"
     )
-    val category: CategoryEntity?
+    val category: CategoryEntity?,
+    @Relation(
+        parentColumn = "account_id",
+        entityColumn = "id"
+    )
+    val account: AccountEntity?
 )
 
 @Dao
