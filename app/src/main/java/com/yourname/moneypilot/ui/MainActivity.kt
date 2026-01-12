@@ -36,14 +36,17 @@ import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
 import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
 import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
 import com.yourname.moneypilot.ui.features.investments.AddEditInvestmentScreen
+import com.yourname.moneypilot.ui.features.planning.AddEditBigBillScreen
 import com.yourname.moneypilot.ui.features.reports.ReportsScreen
 import com.yourname.moneypilot.ui.features.settings.AppearanceScreen
+import com.yourname.moneypilot.ui.features.settings.DiagnosticsScreen
 import com.yourname.moneypilot.ui.features.settings.NotificationsScreen
 import com.yourname.moneypilot.ui.features.settings.SecurityScreen
 import com.yourname.moneypilot.ui.features.settings.SettingsScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.features.transactions.TransferScreen
+import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -158,14 +161,17 @@ fun MainScreen() {
                     onEditTransaction = { transactionId ->
                         navController.navigate("add_transaction?transactionId=$transactionId")
                     },
-                    onOpenSettings = { navController.navigate(Screen.Settings.route) }
+                    onOpenSettings = { 
+                        navController.navigate(Screen.Settings.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
             
             composable(Screen.Stats.route) { 
                 ReportsScreen(
-                    onPopBackStack = { navController.popBackStack() },
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                    onPopBackStack = { navController.popBackStack() }
                 )
             }
 
@@ -182,7 +188,7 @@ fun MainScreen() {
                     onEditGoal = { id -> navController.navigate("add_goal?goalId=$id") },
                     onAddBudget = { navController.navigate("add_budget") },
                     onAddInvestment = { navController.navigate("add_investment") },
-                    onAddBigBill = { /* To be built */ }
+                    onAddBigBill = { navController.navigate("add_big_bill") }
                 )
             }
 
@@ -195,7 +201,8 @@ fun MainScreen() {
                     onNavigateToAppearance = { navController.navigate("appearance") },
                     onNavigateToSecurity = { navController.navigate("security") },
                     onNavigateToNotifications = { navController.navigate("notifications") },
-                    onNavigateToBackup = { navController.navigate("backup") }
+                    onNavigateToBackup = { navController.navigate("backup") },
+                    onNavigateToDiagnostics = { navController.navigate("diagnostics") }
                 )
             }
 
@@ -206,6 +213,7 @@ fun MainScreen() {
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("diagnostics") { DiagnosticsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_account") { AddEditAccountScreen(onPopBackStack = { navController.popBackStack() }) }
             
             composable("accounts_list") {
@@ -246,9 +254,22 @@ fun MainScreen() {
                 AddEditInvestmentScreen(onPopBackStack = { navController.popBackStack() })
             }
 
+            composable(
+                route = "add_big_bill?bigBillId={bigBillId}",
+                arguments = listOf(navArgument("bigBillId") { type = NavType.LongType; defaultValue = -1L })
+            ) {
+                AddEditBigBillScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable(
+                route = "add_loan?loanId={loanId}",
+                arguments = listOf(navArgument("loanId") { type = NavType.LongType; defaultValue = -1L })
+            ) {
+                AddEditLoanScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_budget") { AddEditBudgetScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("add_loan") { /* To be built */ }
         }
     }
 }

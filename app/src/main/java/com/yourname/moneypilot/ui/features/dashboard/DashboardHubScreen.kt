@@ -73,9 +73,7 @@ fun DashboardHubScreen(
                         IconButton(onClick = { /* Search logic */ }, modifier = Modifier.size(40.dp)) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
-                        IconButton(onClick = onOpenSettings, modifier = Modifier.size(40.dp)) {
-                            Icon(Icons.Default.Tune, contentDescription = "Filter")
-                        }
+                        // BUG 1: Removed onOpenSettings (Tune/Filter icon) from top right
                     }
 
                     // Compact Scrollable Tab Row to prevent text wrap

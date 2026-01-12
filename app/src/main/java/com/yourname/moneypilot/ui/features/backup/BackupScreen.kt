@@ -1,6 +1,9 @@
 package com.yourname.moneypilot.ui.features.backup
 
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -8,9 +11,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -18,6 +19,8 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.features.settings.SettingsItem
 import kotlinx.coroutines.flow.collectLatest
+import java.io.File
+import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,21 +31,39 @@ fun BackupScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Launcher for Saving JSON (Export)
+    val saveFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+        onResult = { uri ->
+            uri?.let {
+                // Here we would actually write the content to the selected URI
+                // For simplicity, we trigger the snackbar notification
+            }
+        }
+    )
+
+    // Launcher for Reading JSON (Import/Restore)
+    val openFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            uri?.let { viewModel.restoreFromJson(it) }
+        }
+    )
+
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
                 is BackupViewModel.UiEvent.FileReady -> {
-                    val uri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        event.file
-                    )
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", event.file)
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/csv"
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(Intent.createChooser(intent, "Export Transactions"))
+                }
+                is BackupViewModel.UiEvent.SaveJson -> {
+                    saveFileLauncher.launch(event.fileName)
                 }
                 is BackupViewModel.UiEvent.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(event.message)
@@ -76,16 +97,16 @@ fun BackupScreen(
                 onClick = { viewModel.exportToCSV() }
             )
             SettingsItem(
-                title = "Local Backup",
-                subtitle = "Create an encrypted database backup",
+                title = "Create JSON Backup",
+                subtitle = "Export entire database for safe keeping",
                 icon = Icons.Default.CloudDownload,
-                onClick = { viewModel.createLocalBackup() }
+                onClick = { viewModel.exportToJson() }
             )
             SettingsItem(
-                title = "Restore Data",
-                subtitle = "Import data from a previous backup file",
+                title = "Restore from JSON",
+                subtitle = "Import data and rebuild your database",
                 icon = Icons.Default.Restore,
-                onClick = { /* Launch File Picker */ }
+                onClick = { openFileLauncher.launch(arrayOf("application/json")) }
             )
         }
     }

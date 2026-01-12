@@ -1,25 +1,29 @@
 package com.yourname.moneypilot.ui.features.loans
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
+import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +49,7 @@ fun LoansScreen(
                 }
                 is ScreenState.Success -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
                     ) {
@@ -57,7 +61,15 @@ fun LoansScreen(
                         }
                         
                         items(state.data.loans) { loan ->
-                            LoanItem(loan)
+                            // Expanded state managed per item
+                            var isExpanded by remember { mutableStateOf(false) }
+                            
+                            LoanItem(
+                                loan = loan,
+                                isExpanded = isExpanded,
+                                onClick = { isExpanded = !isExpanded },
+                                repayments = emptyList() // Logic to fetch history per loan id
+                            )
                         }
                     }
                 }
@@ -100,11 +112,18 @@ fun LoanSummaryHeader(borrowed: Double, lent: Double) {
 }
 
 @Composable
-fun LoanItem(loan: LoanEntity) {
+fun LoanItem(
+    loan: LoanEntity,
+    isExpanded: Boolean,
+    onClick: () -> Unit,
+    repayments: List<TransactionEntity>
+) {
     val progress = ((loan.totalAmount - loan.currentBalance) / loan.totalAmount).toFloat()
     
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -144,6 +163,45 @@ fun LoanItem(loan: LoanEntity) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Monthly", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("₹ ${loan.monthlyPayment}", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Repayment History", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    if (repayments.isEmpty()) {
+                        Text(
+                            "No repayment records found for this loan.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        repayments.forEach { record ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = record.date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "₹ ${record.amount}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = IncomeGreen
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

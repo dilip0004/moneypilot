@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -28,6 +29,7 @@ import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.*
 import kotlin.math.cos
 import kotlin.math.sin
@@ -40,8 +42,7 @@ private val CHART_COLORS = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreen(
-    onPopBackStack: () -> Unit,
-    onNavigateToSettings: () -> Unit,
+    onPopBackStack: () -> Unit = {},
     viewModel: ReportsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -51,10 +52,9 @@ fun ReportsScreen(
         topBar = {
             Surface(tonalElevation = 2.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
-                    TopAppBar(title = { })
-                    
+                    // Removed TopAppBar to fix the empty first line (Bug 3)
                     SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         TimeRange.entries.forEachIndexed { index, range ->
                             SegmentedButton(
@@ -62,7 +62,9 @@ fun ReportsScreen(
                                 onClick = { viewModel.onTimeRangeChange(range) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeRange.entries.size)
                             ) {
-                                val label = range.name.lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }
+                                val label = range.name.lowercase().replaceFirstChar { char ->
+                                    if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+                                }
                                 Text(label, fontSize = 12.sp)
                             }
                         }
@@ -87,7 +89,9 @@ fun ReportsScreen(
                                 selected = reportState.reportType == type,
                                 onClick = { viewModel.onReportTypeChange(type) },
                                 text = { 
-                                    val label = type.name.replace("_", " ").lowercase().replaceFirstChar { it.titlecase(Locale.getDefault()) }
+                                    val label = type.name.replace("_", " ").lowercase().replaceFirstChar { char ->
+                                        if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
+                                    }
                                     Text(
                                         text = label, 
                                         fontSize = 12.sp,
@@ -136,6 +140,19 @@ fun ReportsScreen(
                             )
                         }
 
+                        if (data.reflectionPrompts.isNotEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    data.reflectionPrompts.forEach { prompt ->
+                                        ReflectionCard(prompt)
+                                    }
+                                }
+                            }
+                        }
+
                         item {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -178,7 +195,7 @@ fun ReportsScreen(
                                     Text(
                                         text = "₹ $amountStr",
                                         style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.ExtraBold,
+                                        fontWeight = FontWeight.Bold,
                                         color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary
                                     )
                                     
@@ -245,6 +262,35 @@ fun ReportsScreen(
 }
 
 @Composable
+fun ReflectionCard(prompt: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Info, 
+                contentDescription = null, 
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = prompt,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
 fun InsightTile(label: String, value: String, subLabel: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
@@ -275,10 +321,7 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
                 val formatter = DateTimeFormatter.ofPattern("dd MMM")
                 "${rangeStart.format(formatter)} - ${rangeEnd.format(formatter)}"
             }
-            TimeRange.MONTHLY -> {
-                val monthName = date.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())
-                "$monthName ${date.year}"
-            }
+            TimeRange.MONTHLY -> "${date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${date.year}"
             TimeRange.YEARLY -> "${date.year}"
         }
         Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
@@ -294,10 +337,7 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
 
     LaunchedEffect(ranks) {
         animationProgress.snapTo(0f)
-        animationProgress.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 1000)
-        )
+        animationProgress.animateTo(1f, tween(1000))
     }
 
     Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(32.dp).fillMaxWidth()) {
@@ -322,13 +362,13 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                         val midAngle = (startAngle + sweepAngle / 2) * (Math.PI / 180f).toFloat()
                         
                         val lineStart = Offset(
-                            center.x + cos(midAngle).toFloat() * (radius * 0.6f),
-                            center.y + sin(midAngle).toFloat() * (radius * 0.6f)
+                            center.x + cos(midAngle.toDouble()).toFloat() * (radius * 0.6f),
+                            center.y + sin(midAngle.toDouble()).toFloat() * (radius * 0.6f)
                         )
                         
                         val lineEnd = Offset(
-                            center.x + cos(midAngle).toFloat() * (radius * 1.25f),
-                            center.y + sin(midAngle).toFloat() * (radius * 1.25f)
+                            center.x + cos(midAngle.toDouble()).toFloat() * (radius * 1.25f),
+                            center.y + sin(midAngle.toDouble()).toFloat() * (radius * 1.25f)
                         )
                         
                         drawLine(
@@ -344,11 +384,11 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                         drawContext.canvas.nativeCanvas.drawText(
                             displayText,
                             lineEnd.x,
-                            lineEnd.y + if (sin(midAngle) > 0) 20f else -10f,
+                            lineEnd.y + if (sin(midAngle.toDouble()) > 0) 20f else -10f,
                             android.graphics.Paint().apply {
                                 this.color = onSurface.toArgb()
                                 this.textSize = 24f
-                                this.textAlign = if (cos(midAngle) > 0) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.RIGHT
+                                this.textAlign = if (cos(midAngle.toDouble()) > 0) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.RIGHT
                                 this.isFakeBoldText = true
                             }
                         )
@@ -460,8 +500,8 @@ fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color) {
                     fontSize = 13.sp, 
                     fontWeight = FontWeight.Medium
                 )
-                val amountStr = String.format(Locale.getDefault(), "%,.2f", rank.amount)
-                Text("₹ $amountStr", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                val amountText = String.format(Locale.getDefault(), "%,.2f", rank.amount)
+                Text("₹ $amountText", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             LinearProgressIndicator(
                 progress = { rank.percentage },
@@ -483,7 +523,7 @@ fun CashFlowBarChartCompact(data: Map<Int, Double>) {
     ) {
         val max = data.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
         data.values.forEach { amount ->
-            val heightFactor = (amount.toFloat() / max.toFloat()).coerceAtLeast(0.05f)
+            val heightFactor = (amount.toFloat() / max.toFloat()).coerceAtMost(1f).coerceAtLeast(0.05f)
             Box(modifier = Modifier.weight(1f).fillMaxHeight(heightFactor).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)))
         }
     }

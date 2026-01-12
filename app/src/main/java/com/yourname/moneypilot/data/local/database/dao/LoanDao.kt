@@ -2,7 +2,17 @@ package com.yourname.moneypilot.data.local.database.dao
 
 import androidx.room.*
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
+import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import kotlinx.coroutines.flow.Flow
+
+data class LoanWithHistory(
+    @Embedded val loan: LoanEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "loan_id"
+    )
+    val history: List<TransactionEntity>
+)
 
 @Dao
 interface LoanDao {
@@ -21,8 +31,16 @@ interface LoanDao {
     @Query("SELECT * FROM loans WHERE id = :loanId")
     suspend fun getLoanById(loanId: Long): LoanEntity?
 
+    @Transaction
+    @Query("SELECT * FROM loans WHERE id = :loanId")
+    fun getLoanWithHistory(loanId: Long): Flow<LoanWithHistory?>
+
     @Query("SELECT * FROM loans ORDER BY startDate DESC")
     fun getAllLoans(): Flow<List<LoanEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM loans ORDER BY startDate DESC")
+    fun getAllLoansWithHistory(): Flow<List<LoanWithHistory>>
 
     @Query("SELECT * FROM loans")
     suspend fun getAllLoansList(): List<LoanEntity>

@@ -34,7 +34,8 @@ data class ReportState(
     val weatherInsight: String = "",
     val savingsPercentage: Float = 0f,
     val dailyAverage: Double = 0.0,
-    val transactionCount: Int = 0
+    val transactionCount: Int = 0,
+    val reflectionPrompts: List<String> = emptyList() // V2 Reflection triggers
 )
 
 data class CategoryRank(
@@ -82,54 +83,81 @@ class ReportsViewModel @Inject constructor(
             val currentState = _reportState.value
             val (start, end) = calculateRange(currentState.selectedDate, currentState.timeRange)
             
-            transactionRepository.getTransactionsWithCategoryByDateRange(start, end).collect { transactions ->
-                val typeString = if (currentState.reportType == ReportType.INCOME) "INCOME" else "EXPENSE"
-                
-                val confirmedTransactions = transactions.filter { it.transaction.type != "TRANSFER" }
+            // For historical comparison, we fetch current and previous periods
+            val (prevStart, prevEnd) = calculatePreviousRange(currentState.selectedDate, currentState.timeRange)
 
-                val incomeSum = confirmedTransactions.filter { it.transaction.type == "INCOME" }.sumOf { it.transaction.amount }
-                val expenseSum = confirmedTransactions.filter { it.transaction.type == "EXPENSE" }.sumOf { it.transaction.amount }
+            val currentFlow = transactionRepository.getTransactionsWithCategoryByDateRange(start, end)
+            val prevFlow = transactionRepository.getTransactionsWithCategoryByDateRange(prevStart, prevEnd)
+
+            combine(currentFlow, prevFlow) { current, previous ->
+                Pair(current, previous)
+            }.collect { (transactions, prevTransactions) ->
+                val nonTransferTransactions = transactions.filter { it.transaction.type != "TRANSFER" }
+                val prevNonTransfer = prevTransactions.filter { it.transaction.type != "TRANSFER" }
+
+                val incomeSum = nonTransferTransactions.filter { it.transaction.type == "INCOME" }.sumOf { it.transaction.amount }
+                val expenseSum = nonTransferTransactions.filter { it.transaction.type == "EXPENSE" }.sumOf { it.transaction.amount }
+                val prevExpenseSum = prevNonTransfer.filter { it.transaction.type == "EXPENSE" }.sumOf { it.transaction.amount }
                 
+                val loanRepaymentSum = nonTransferTransactions.filter { it.transaction.type == "LOAN_REPAYMENT" }.sumOf { it.transaction.amount }
+                val goalContributionSum = nonTransferTransactions.filter { it.transaction.type == "GOAL_CONTRIBUTION" }.sumOf { it.transaction.amount }
+                val totalOutflow = expenseSum + loanRepaymentSum + goalContributionSum
+
                 val totalDisplay = when (currentState.reportType) {
                     ReportType.INCOME -> incomeSum
                     ReportType.EXPENSE -> expenseSum
-                    ReportType.CASH_FLOW -> incomeSum - expenseSum
+                    ReportType.CASH_FLOW -> incomeSum - totalOutflow
                 }
 
-                val listFiltered = if (currentState.reportType == ReportType.CASH_FLOW) {
-                    confirmedTransactions.filter { it.transaction.type == "EXPENSE" } 
-                } else {
-                    confirmedTransactions.filter { it.transaction.type == typeString }
+                val listFiltered = when (currentState.reportType) {
+                    ReportType.INCOME -> nonTransferTransactions.filter { it.transaction.type == "INCOME" }
+                    ReportType.EXPENSE -> nonTransferTransactions.filter { it.transaction.type == "EXPENSE" }
+                    ReportType.CASH_FLOW -> nonTransferTransactions.filter { it.transaction.type != "INCOME" }
                 }
 
                 val ranks = listFiltered
-                    .groupBy { it.transaction.categoryId }
+                    .groupBy { 
+                        if (it.transaction.type == "LOAN_REPAYMENT") -100L
+                        else if (it.transaction.type == "GOAL_CONTRIBUTION") -200L
+                        else it.transaction.categoryId 
+                    }
                     .map { (id, items) ->
                         val sum = items.sumOf { it.transaction.amount }
-                        val denom = if (currentState.reportType == ReportType.INCOME) incomeSum else expenseSum
+                        val denom = when (currentState.reportType) {
+                            ReportType.INCOME -> incomeSum
+                            ReportType.EXPENSE -> expenseSum
+                            ReportType.CASH_FLOW -> totalOutflow
+                        }
                         CategoryRank(
-                            categoryId = id,
-                            name = items.first().category?.name ?: "Uncategorized",
-                            icon = items.first().category?.icon ?: "❓",
+                            categoryId = if (id != null && id < 0L) null else id,
+                            name = when (id) {
+                                -100L -> "Loan Repayment"
+                                -200L -> "Savings Contribution"
+                                else -> items.first().category?.name ?: "Uncategorized"
+                            },
+                            icon = when (id) {
+                                -100L -> "💸"
+                                -200L -> "🎯"
+                                else -> items.first().category?.icon ?: "❓"
+                            },
                             amount = sum,
                             percentage = if (denom > 0) (sum / denom).toFloat() else 0f
                         )
                     }
                     .sortedByDescending { it.amount }
 
+                val prompts = generateReflectionPrompts(expenseSum, prevExpenseSum, ranks, currentState.timeRange)
                 val chartDataMap = generateSequentialChartData(listFiltered, currentState.timeRange, start.toLocalDate())
-                
-                val weatherData = calculateWeather(confirmedTransactions, start.toLocalDate(), end.toLocalDate())
+                val weatherData = calculateWeather(nonTransferTransactions, start.toLocalDate(), end.toLocalDate())
 
-                // New Insight Calculations
-                val savingsPct = if (incomeSum > 0) ((incomeSum - expenseSum) / incomeSum).toFloat() else 0f
+                val savingsPct = if (incomeSum > 0) ((incomeSum - totalOutflow) / incomeSum).toFloat() else 0f
                 val days = ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()) + 1
                 val dailyAvg = if (days > 0) expenseSum / days else 0.0
-                val count = confirmedTransactions.size
+                val count = nonTransferTransactions.size
 
                 _reportState.update { it.copy(
                     totalAmount = totalDisplay,
-                    secondaryAmount = if (currentState.reportType == ReportType.CASH_FLOW) expenseSum else 0.0,
+                    secondaryAmount = if (currentState.reportType == ReportType.CASH_FLOW) totalOutflow else 0.0,
                     categoryBreakdown = ranks,
                     chartData = chartDataMap,
                     rangeStart = start.toLocalDate(),
@@ -138,17 +166,62 @@ class ReportsViewModel @Inject constructor(
                     weatherInsight = weatherData.second,
                     savingsPercentage = savingsPct,
                     dailyAverage = dailyAvg,
-                    transactionCount = count
+                    transactionCount = count,
+                    reflectionPrompts = prompts
                 ) }
                 _uiState.value = ScreenState.Success(_reportState.value)
             }
         }
     }
 
+    private fun generateReflectionPrompts(
+        currentTotal: Double, 
+        prevTotal: Double, 
+        ranks: List<CategoryRank>,
+        range: TimeRange
+    ): List<String> {
+        val prompts = mutableListOf<String>()
+        val periodName = when(range) {
+            TimeRange.WEEKLY -> "last week"
+            TimeRange.MONTHLY -> "last month"
+            TimeRange.YEARLY -> "last year"
+        }
+
+        // 1. Total Spending Trigger
+        if (prevTotal > 0) {
+            val diff = ((currentTotal - prevTotal) / prevTotal) * 100
+            if (diff > 10) {
+                prompts.add("Consumption is up ${diff.toInt()}% compared to $periodName. Reflect on what changed.")
+            } else if (diff < -10) {
+                prompts.add("Great job! You've reduced spending by ${Math.abs(diff.toInt())}% vs $periodName.")
+            }
+        }
+
+        // 2. Category Dominance Trigger
+        ranks.firstOrNull()?.let { top ->
+            if (top.percentage > 0.4f) {
+                prompts.add("${top.icon} ${top.name} is dominating your outflows at ${(top.percentage * 100).toInt()}%.")
+            }
+        }
+
+        // 3. Low Savings Trigger
+        val income = _reportState.value.totalAmount
+        if (income > 0 && currentTotal / income > 0.9) {
+            prompts.add("Warning: High burn rate. You've consumed over 90% of your income this period.")
+        }
+
+        return prompts
+    }
+
     private fun calculateWeather(transactions: List<TransactionWithCategory>, start: LocalDate, end: LocalDate): Pair<Map<WeatherState, Int>, String> {
         val dailyNet = transactions.groupBy { it.transaction.date.toLocalDate() }
             .mapValues { entry ->
-                entry.value.sumOf { if (it.transaction.type == "INCOME") it.transaction.amount else -it.transaction.amount }
+                entry.value.sumOf { 
+                    when (it.transaction.type) {
+                        "INCOME" -> it.transaction.amount
+                        else -> -it.transaction.amount 
+                    }
+                }
             }
 
         val summary = mutableMapOf<WeatherState, Int>()
@@ -157,7 +230,7 @@ class ReportsViewModel @Inject constructor(
             val net = dailyNet[currentDate] ?: 0.0
             val state = when {
                 net > 100 -> WeatherState.SUNNY
-                net < -500 -> WeatherState.STORMY
+                net < -1000 -> WeatherState.STORMY
                 net < 0 -> WeatherState.RAINY
                 else -> WeatherState.CLOUDY
             }
@@ -169,9 +242,9 @@ class ReportsViewModel @Inject constructor(
         val rainyDays = summary.getOrDefault(WeatherState.RAINY, 0) + summary.getOrDefault(WeatherState.STORMY, 0)
         
         val insight = when {
-            sunnyDays > rainyDays -> "The financial climate was predominantly clear, with multiple days of positive net flow."
-            rainyDays > sunnyDays -> "Increased activity led to a period of frequent outflows, similar to a rainy season."
-            else -> "A balanced month with stable conditions across most days."
+            sunnyDays > rainyDays -> "Predicting a clear horizon: Inflows are outpacing outflows."
+            rainyDays > sunnyDays -> "Caution: High frequency of outflows detected."
+            else -> "A balanced financial climate."
         }
 
         return Pair(summary, insight)
@@ -216,6 +289,14 @@ class ReportsViewModel @Inject constructor(
                 val start = date.withDayOfYear(1).atStartOfDay()
                 Pair(start, start.plusYears(1).minusNanos(1))
             }
+        }
+    }
+
+    private fun calculatePreviousRange(date: LocalDate, range: TimeRange): Pair<LocalDateTime, LocalDateTime> {
+        return when (range) {
+            TimeRange.WEEKLY -> calculateRange(date.minusWeeks(1), range)
+            TimeRange.MONTHLY -> calculateRange(date.minusMonths(1), range)
+            TimeRange.YEARLY -> calculateRange(date.minusYears(1), range)
         }
     }
 }

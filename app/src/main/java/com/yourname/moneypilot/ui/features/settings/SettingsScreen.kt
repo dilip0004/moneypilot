@@ -23,7 +23,8 @@ fun SettingsScreen(
     onNavigateToAppearance: () -> Unit,
     onNavigateToSecurity: () -> Unit,
     onNavigateToNotifications: () -> Unit,
-    onNavigateToBackup: () -> Unit
+    onNavigateToBackup: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -90,6 +91,12 @@ fun SettingsScreen(
                 subtitle = "Export data to CSV, Excel, or JSON",
                 icon = Icons.Default.Backup,
                 onClick = onNavigateToBackup
+            )
+            SettingsItem(
+                title = "App Diagnostics",
+                subtitle = "Run system integrity & functional tests",
+                icon = Icons.Default.HealthAndSafety,
+                onClick = onNavigateToDiagnostics
             )
         }
     }
