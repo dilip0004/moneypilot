@@ -14,29 +14,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
+import com.yourname.moneypilot.domain.loan.LoanAutoDeductionProcessor
+import com.yourname.moneypilot.domain.monthly.MonthlyRolloverProcessor
 import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
-import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
+import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
-import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
-import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
 import com.yourname.moneypilot.ui.features.investments.AddEditInvestmentScreen
+import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
+import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
+import com.yourname.moneypilot.ui.features.loans.LoanDetailsScreen
 import com.yourname.moneypilot.ui.features.planning.AddEditBigBillScreen
+import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
 import com.yourname.moneypilot.ui.features.reports.ReportsScreen
 import com.yourname.moneypilot.ui.features.settings.AppearanceScreen
 import com.yourname.moneypilot.ui.features.settings.DiagnosticsScreen
@@ -44,17 +48,30 @@ import com.yourname.moneypilot.ui.features.settings.NotificationsScreen
 import com.yourname.moneypilot.ui.features.settings.SecurityScreen
 import com.yourname.moneypilot.ui.features.settings.SettingsScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
-import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.features.transactions.TransferScreen
-import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @javax.inject.Inject
+    lateinit var loanAutoDeductionProcessor: LoanAutoDeductionProcessor
+
+    @javax.inject.Inject
+    lateinit var monthlyRolloverProcessor: MonthlyRolloverProcessor
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Run processors on app startup (catch-up logic)
+        lifecycleScope.launch {
+            loanAutoDeductionProcessor.process()
+            monthlyRolloverProcessor.process()
+        }
+
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
             val preferences by mainViewModel.userPreferences.collectAsState()
@@ -81,9 +98,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { isGranted ->
-                        hasNotificationPermission = isGranted
-                    }
+                    onResult = { isGranted -> hasNotificationPermission = isGranted }
                 )
 
                 LaunchedEffect(Unit) {
@@ -93,10 +108,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MoneyPilotTheme(
-                darkTheme = darkTheme,
-                trueBlack = isOled
-            ) {
+            MoneyPilotTheme(darkTheme = darkTheme, trueBlack = isOled) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -111,7 +123,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
-    
+
     val navItems = listOf(
         Screen.Transactions,
         Screen.Stats,
@@ -135,9 +147,7 @@ fun MainScreen() {
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
                                 navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -151,34 +161,27 @@ fun MainScreen() {
         NavHost(
             navController = navController,
             startDestination = Screen.Transactions.route,
-            modifier = Modifier.padding(innerPadding).fillMaxSize()
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
         ) {
-            composable(Screen.Transactions.route) { 
+            composable(Screen.Transactions.route) {
                 DashboardHubScreen(
-                    onAddTransaction = { date ->
-                        navController.navigate("add_transaction?date=${date}")
-                    },
-                    onEditTransaction = { transactionId ->
-                        navController.navigate("add_transaction?transactionId=$transactionId")
-                    },
-                    onOpenSettings = { 
-                        navController.navigate(Screen.Settings.route) {
-                            launchSingleTop = true
-                        }
-                    }
+                    onAddTransaction = { date -> navController.navigate("add_transaction?date=$date") },
+                    onEditTransaction = { transactionId -> navController.navigate("add_transaction?transactionId=$transactionId") },
+                    onOpenSettings = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } }
                 )
             }
-            
-            composable(Screen.Stats.route) { 
-                ReportsScreen(
-                    onPopBackStack = { navController.popBackStack() }
-                )
+
+            composable(Screen.Stats.route) {
+                ReportsScreen(onPopBackStack = { navController.popBackStack() })
             }
 
             composable(Screen.Accounts.route) {
                 AccountsHubScreen(
                     onAddAccount = { navController.navigate("add_account") },
-                    onAddLoan = { navController.navigate("add_loan") }
+                    onAddLoan = { navController.navigate("add_loan") },
+                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") }
                 )
             }
 
@@ -215,11 +218,12 @@ fun MainScreen() {
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("diagnostics") { DiagnosticsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_account") { AddEditAccountScreen(onPopBackStack = { navController.popBackStack() }) }
-            
+
             composable("accounts_list") {
                 AccountsHubScreen(
                     onAddAccount = { navController.navigate("add_account") },
-                    onAddLoan = { navController.navigate("add_loan") }
+                    onAddLoan = { navController.navigate("add_loan") },
+                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") }
                 )
             }
 
@@ -270,6 +274,17 @@ fun MainScreen() {
 
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_budget") { AddEditBudgetScreen(onPopBackStack = { navController.popBackStack() }) }
+
+            composable(
+                route = "loan_details/{loanId}",
+                arguments = listOf(navArgument("loanId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getLong("loanId") ?: -1L
+                LoanDetailsScreen(
+                    loanId = id,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

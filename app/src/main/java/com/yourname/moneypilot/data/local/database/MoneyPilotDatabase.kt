@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.yourname.moneypilot.BuildConfig
 import com.yourname.moneypilot.data.local.database.dao.*
 import com.yourname.moneypilot.data.local.database.entities.*
 import com.yourname.moneypilot.data.local.database.converters.LocalDateConverter
@@ -23,6 +24,8 @@ import com.yourname.moneypilot.data.local.database.converters.LocalDateTimeConve
         InvestmentEntity::class,
         DistributionRuleEntity::class,
         LoanEntity::class,
+        LoanEventEntity::class,
+        MonthlyAccountSnapshotEntity::class,
         BigBillEntity::class
     ],
     version = 7,
@@ -40,6 +43,8 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
     abstract fun investmentDao(): InvestmentDao
     abstract fun distributionRuleDao(): DistributionRuleDao
     abstract fun loanDao(): LoanDao
+    abstract fun loanEventDao(): LoanEventDao
+    abstract fun monthlySnapshotDao(): MonthlySnapshotDao
     abstract fun bigBillDao(): BigBillDao
 
     companion object {
@@ -53,7 +58,11 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
                     MoneyPilotDatabase::class.java,
                     "moneypilot.db"
                 )
-                    .fallbackToDestructiveMigration()
+                    .apply {
+                    if (BuildConfig.DEBUG) {
+                        fallbackToDestructiveMigration()
+                    }
+                }
                     .build()
                 INSTANCE = instance
                 instance

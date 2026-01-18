@@ -3,18 +3,24 @@ package com.yourname.moneypilot.data.local.database.dao
 import androidx.room.*
 import com.yourname.moneypilot.data.local.database.entities.AccountEntity
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
+import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
 data class TransactionWithCategory(
-    @Embedded 
+    @Embedded
     val transaction: TransactionEntity,
     @Relation(
         parentColumn = "category_id",
         entityColumn = "id"
     )
     val category: CategoryEntity?,
+    @Relation(
+        parentColumn = "subcategory_id",
+        entityColumn = "id"
+    )
+    val subcategory: SubcategoryEntity?,
     @Relation(
         parentColumn = "account_id",
         entityColumn = "id"
@@ -24,6 +30,43 @@ data class TransactionWithCategory(
 
 @Dao
 interface TransactionDao {
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(
+            CASE
+                WHEN type IN ('INCOME','TRANSFER_IN') THEN amount
+                WHEN type IN ('EXPENSE','TRANSFER_OUT','LOAN_REPAYMENT','GOAL_CONTRIBUTION') THEN -amount
+                ELSE 0
+            END
+        ), 0)
+        FROM transactions
+        WHERE account_id = :accountId AND date <= :asOf
+        """
+    )
+    suspend fun getBalanceAt(accountId: Long, asOf: LocalDateTime): Double
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE account_id = :accountId
+          AND type IN ('INCOME','TRANSFER_IN')
+          AND date BETWEEN :start AND :end
+        """
+    )
+    suspend fun getIncomeInRange(accountId: Long, start: LocalDateTime, end: LocalDateTime): Double
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE account_id = :accountId
+          AND type IN ('EXPENSE','TRANSFER_OUT','LOAN_REPAYMENT','GOAL_CONTRIBUTION')
+          AND date BETWEEN :start AND :end
+        """
+    )
+    suspend fun getExpenseInRange(accountId: Long, start: LocalDateTime, end: LocalDateTime): Double
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(transaction: TransactionEntity): Long
@@ -63,23 +106,27 @@ interface TransactionDao {
         endDate: LocalDateTime
     ): List<TransactionEntity>
 
-    @Query("""
-        SELECT SUM(amount) FROM transactions 
+    @Query(
+        """
+        SELECT SUM(amount) FROM transactions
         WHERE type = :type
         AND date BETWEEN :startDate AND :endDate
-    """)
+        """
+    )
     suspend fun getTotalSumByType(
         type: String,
         startDate: LocalDateTime,
         endDate: LocalDateTime
     ): Double?
 
-    @Query("""
-        SELECT SUM(amount) FROM transactions 
-        WHERE category_id = :categoryId 
+    @Query(
+        """
+        SELECT SUM(amount) FROM transactions
+        WHERE category_id = :categoryId
         AND type = 'EXPENSE'
         AND date BETWEEN :startDate AND :endDate
-    """)
+        """
+    )
     suspend fun getCategoryExpenseSum(
         categoryId: Long,
         startDate: LocalDateTime,

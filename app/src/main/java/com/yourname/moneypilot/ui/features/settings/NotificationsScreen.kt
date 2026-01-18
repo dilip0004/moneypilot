@@ -28,7 +28,7 @@ fun NotificationsScreen(
 
     if (showTimePicker && preferences != null) {
         // Extract latest values from preferences
-        val savedTime = preferences!!.dailySummaryTime.split(":")
+        val savedTime = preferences?.dailySummaryTime?.split(":") ?: emptyList()
         val currentHour = savedTime.getOrNull(0)?.toIntOrNull() ?: 22
         val currentMinute = savedTime.getOrNull(1)?.toIntOrNull() ?: 0
 

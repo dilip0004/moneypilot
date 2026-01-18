@@ -120,14 +120,14 @@ class AddEditBudgetViewModel @Inject constructor(
                 }
 
                 val initialSpent = transactionRepository.getCategoryExpenseSum(
-                    categoryId = _state.value.categoryId!!,
+                    categoryId = requireNotNull(_state.value.categoryId),
                     startDate = _state.value.startDate.atStartOfDay(),
                     endDate = _state.value.endDate.atTime(LocalTime.MAX)
                 )
 
                 budgetRepository.insertBudget(
                     BudgetEntity(
-                        categoryId = _state.value.categoryId!!,
+                        categoryId = requireNotNull(_state.value.categoryId),
                         subcategoryId = _state.value.subcategoryId,
                         amount = amount,
                         spentAmount = initialSpent,

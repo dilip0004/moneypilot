@@ -29,6 +29,9 @@ interface AccountDao {
     fun getAllAccounts(): Flow<List<AccountEntity>>
 
     @Query("SELECT * FROM accounts")
+    suspend fun getAllAccountsOnce(): List<AccountEntity>
+
+    @Query("SELECT * FROM accounts")
     suspend fun getAllAccountsList(): List<AccountEntity>
 
     @Query("SELECT * FROM accounts WHERE is_archived = 1 ORDER BY updated_at DESC")

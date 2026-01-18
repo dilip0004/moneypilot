@@ -48,5 +48,11 @@ object AppModule {
     fun provideLoanDao(database: MoneyPilotDatabase): LoanDao = database.loanDao()
 
     @Provides
+    fun provideLoanEventDao(database: MoneyPilotDatabase): LoanEventDao = database.loanEventDao()
+
+    @Provides
+    fun provideMonthlySnapshotDao(database: MoneyPilotDatabase): MonthlySnapshotDao = database.monthlySnapshotDao()
+
+    @Provides
     fun provideBigBillDao(database: MoneyPilotDatabase): BigBillDao = database.bigBillDao()
 }

@@ -36,7 +36,7 @@ class GenerateLeftoverPlanUseCase @Inject constructor(
         
         // Apply fixed amount rules first
         rules.filter { it.fixedAmount != null }.sortedByDescending { it.priority }.forEach { rule ->
-            val amount = rule.fixedAmount!!
+            val amount = requireNotNull(rule.fixedAmount)
             if (remainingToDistribute >= amount) {
                 val targetAccount = accounts.find { it.id == rule.targetWalletId }
                 if (targetAccount != null) {
@@ -55,7 +55,7 @@ class GenerateLeftoverPlanUseCase @Inject constructor(
         // Apply percentage rules to what's left
         val totalPercentageSurplus = remainingToDistribute
         rules.filter { it.percentage != null }.sortedByDescending { it.priority }.forEach { rule ->
-            val amount = (rule.percentage!! / 100.0) * totalPercentageSurplus
+            val amount = (requireNotNull(rule.percentage) / 100.0) * totalPercentageSurplus
             val targetAccount = accounts.find { it.id == rule.targetWalletId }
             if (targetAccount != null && amount > 0) {
                 actions.add(DistributionAction(

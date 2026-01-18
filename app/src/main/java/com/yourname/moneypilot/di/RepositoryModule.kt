@@ -64,4 +64,11 @@ abstract class RepositoryModule {
     abstract fun bindBigBillRepository(
         bigBillRepositoryImpl: BigBillRepositoryImpl
     ): BigBillRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMonthlySnapshotRepository(
+        impl: MonthlySnapshotRepositoryImpl
+    ): MonthlySnapshotRepository
+
 }

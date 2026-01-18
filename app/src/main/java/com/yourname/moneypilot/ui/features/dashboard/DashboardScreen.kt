@@ -1,10 +1,16 @@
 package com.yourname.moneypilot.ui.features.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -14,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.components.DashboardCard
 import com.yourname.moneypilot.ui.theme.ExpenseRed
@@ -45,25 +52,17 @@ fun DashboardScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
 
             when (val state = uiState) {
-                is ScreenState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                is ScreenState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
-                is ScreenState.Success -> {
-                    DashboardContent(state.data)
-                }
-                is ScreenState.Error -> {
-                    Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                }
-                is ScreenState.Empty -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "Start by adding a transaction")
-                    }
+                is ScreenState.Success -> DashboardContent(state.data)
+                is ScreenState.Error -> Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                is ScreenState.Empty -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Start by adding a transaction")
                 }
             }
         }
@@ -115,37 +114,72 @@ fun DashboardContent(state: DashboardState) {
             )
         }
 
-        items(state.recentTransactions) { transaction ->
-            TransactionItem(transaction)
+        items(state.recentTransactions) { tx ->
+            TransactionItem(tx)
         }
     }
 }
 
 @Composable
-fun TransactionItem(transaction: com.yourname.moneypilot.data.local.database.entities.TransactionEntity) {
+private fun TransactionItem(tx: TransactionEntity) {
+    val title = tx.description.ifBlank { "Transaction" }
+
+    val (icon, iconBg) = when (tx.type) {
+        "INCOME" -> Icons.Filled.ArrowUpward to MaterialTheme.colorScheme.primaryContainer
+        "EXPENSE" -> Icons.Filled.ArrowDownward to MaterialTheme.colorScheme.errorContainer
+        else -> Icons.Filled.SwapHoriz to MaterialTheme.colorScheme.secondaryContainer
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(14.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(text = transaction.description, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = transaction.date.format(DateTimeFormatter.ofPattern("dd MMM, hh:mm a")),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(iconBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = icon, contentDescription = tx.type)
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+
+                    Text(
+                        text = tx.date.format(DateTimeFormatter.ofPattern("dd MMM, hh:mm a")),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            val sign = if (tx.type == "EXPENSE") "-" else "+"
             Text(
-                text = "${if (transaction.type == "EXPENSE") "-" else "+"}₹${transaction.amount}",
-                style = MaterialTheme.typography.titleMedium,
-                color = if (transaction.type == "EXPENSE") ExpenseRed else IncomeGreen,
+                text = "${sign}₹${tx.amount}",
+                style = MaterialTheme.typography.titleLarge,
+                color = if (tx.type == "EXPENSE") ExpenseRed else IncomeGreen,
                 fontWeight = FontWeight.Bold
             )
         }

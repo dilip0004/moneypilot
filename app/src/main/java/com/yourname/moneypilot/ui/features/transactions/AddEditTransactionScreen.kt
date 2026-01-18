@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.transactions
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -148,7 +150,8 @@ fun AddEditTransactionScreen(
                     .fillMaxSize()
                     .verticalScroll(scrollState)
                     .padding(16.dp)
-                    .padding(bottom = if (showCalculator) 300.dp else 0.dp)
+                    .padding(bottom = if (showCalculator) 300.dp else 0.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (!state.isTruthReviewed) {
                     Card(
@@ -166,7 +169,6 @@ fun AddEditTransactionScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 Surface(
@@ -192,8 +194,6 @@ fun AddEditTransactionScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
                 ExposedDropdownMenuBox(
                     expanded = showAccountDropdown,
                     onExpandedChange = { 
@@ -215,8 +215,6 @@ fun AddEditTransactionScreen(
                         }
                     }
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
 
                 if (state.type == "LOAN_REPAYMENT") {
                     ExposedDropdownMenuBox(
@@ -240,9 +238,7 @@ fun AddEditTransactionScreen(
                             }
                         }
                     }
-                }
-                
-                if (state.type == "GOAL_CONTRIBUTION") {
+                } else if (state.type == "GOAL_CONTRIBUTION") {
                     ExposedDropdownMenuBox(
                         expanded = showGoalDropdown,
                         onExpandedChange = { 
@@ -264,60 +260,57 @@ fun AddEditTransactionScreen(
                             }
                         }
                     }
-                }
-
-                if (state.type in listOf("EXPENSE", "INCOME")) {
-                    ExposedDropdownMenuBox(
-                        expanded = showCategoryDropdown,
-                        onExpandedChange = { 
-                            showCategoryDropdown = !showCategoryDropdown 
-                            if (showCategoryDropdown) { focusManager.clearFocus(); showCalculator = false }
-                        }
-                    ) {
-                        OutlinedTextField(
-                            value = state.categories.find { cat -> cat.id == state.categoryId }?.name ?: "Select Category",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Category") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth(),
-                            isError = state.categoryId == null
-                        )
-                        ExposedDropdownMenu(expanded = showCategoryDropdown, onDismissRequest = { showCategoryDropdown = false }) {
-                            state.categories.forEach { category ->
-                                DropdownMenuItem(text = { Text("${category.icon} ${category.name}") }, onClick = { viewModel.onEvent(AddEditTransactionEvent.CategoryChanged(category.id)); showCategoryDropdown = false })
-                            }
-                        }
-                    }
-
-                    if (state.subcategories.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         ExposedDropdownMenuBox(
-                            expanded = showSubcategoryDropdown,
+                            expanded = showCategoryDropdown,
                             onExpandedChange = { 
-                                showSubcategoryDropdown = !showSubcategoryDropdown 
-                                if (showSubcategoryDropdown) { focusManager.clearFocus(); showCalculator = false }
+                                showCategoryDropdown = !showCategoryDropdown 
+                                if (showCategoryDropdown) { focusManager.clearFocus(); showCalculator = false }
                             }
                         ) {
                             OutlinedTextField(
-                                value = state.subcategories.find { sub -> sub.id == state.subcategoryId }?.name ?: "Select Subcategory",
+                                value = state.categories.find { cat -> cat.id == state.categoryId }?.name ?: "Select Category",
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Subcategory") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showSubcategoryDropdown) },
+                                label = { Text("Category") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
-                                isError = state.subcategories.isNotEmpty() && state.subcategoryId == null
+                                isError = state.categoryId == null
                             )
-                            ExposedDropdownMenu(expanded = showSubcategoryDropdown, onDismissRequest = { showSubcategoryDropdown = false }) {
-                                state.subcategories.forEach { subItem ->
-                                    DropdownMenuItem(text = { Text(subItem.name) }, onClick = { viewModel.onEvent(AddEditTransactionEvent.SubcategoryChanged(subItem.id)); showSubcategoryDropdown = false })
+                            ExposedDropdownMenu(expanded = showCategoryDropdown, onDismissRequest = { showCategoryDropdown = false }) {
+                                state.categories.forEach { category ->
+                                    DropdownMenuItem(text = { Text("${category.icon} ${category.name}") }, onClick = { viewModel.onEvent(AddEditTransactionEvent.CategoryChanged(category.id)); showCategoryDropdown = false })
+                                }
+                            }
+                        }
+
+                        if (state.subcategories.isNotEmpty()) {
+                            ExposedDropdownMenuBox(
+                                expanded = showSubcategoryDropdown,
+                                onExpandedChange = { 
+                                    showSubcategoryDropdown = !showSubcategoryDropdown 
+                                    if (showSubcategoryDropdown) { focusManager.clearFocus(); showCalculator = false }
+                                }
+                            ) {
+                                OutlinedTextField(
+                                    value = state.subcategories.find { sub -> sub.id == state.subcategoryId }?.name ?: "Select Subcategory",
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Subcategory") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showSubcategoryDropdown) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                    isError = state.subcategories.isNotEmpty() && state.subcategoryId == null
+                                )
+                                ExposedDropdownMenu(expanded = showSubcategoryDropdown, onDismissRequest = { showSubcategoryDropdown = false }) {
+                                    state.subcategories.forEach { subItem ->
+                                        DropdownMenuItem(text = { Text(subItem.name) }, onClick = { viewModel.onEvent(AddEditTransactionEvent.SubcategoryChanged(subItem.id)); showSubcategoryDropdown = false })
+                                    }
                                 }
                             }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = state.description,
@@ -327,8 +320,6 @@ fun AddEditTransactionScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next, capitalization = KeyboardCapitalization.Sentences),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) })
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = state.amount,
@@ -344,8 +335,6 @@ fun AddEditTransactionScreen(
                     readOnly = true,
                     prefix = { Text("₹ ") }
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = state.type == "EXPENSE", onClick = { showCalculator = false; viewModel.onEvent(AddEditTransactionEvent.TypeChanged("EXPENSE")) }, label = { Text("Expense") })

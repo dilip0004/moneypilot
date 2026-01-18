@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.ui.features.dashboard.TransactionItem
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import java.time.LocalDate
@@ -85,7 +85,7 @@ fun CalendarScreen(
                 TransactionItem(transaction)
             }
         }
-        
+
         item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 }
@@ -114,7 +114,7 @@ fun CalendarGrid(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
 
         val totalGridCells = (daysInMonth + firstDayOfMonth + 6) / 7 * 7
@@ -158,7 +158,7 @@ fun CalendarCell(
         isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         else -> Color.Transparent
     }
-    
+
     val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
     Box(
@@ -183,6 +183,40 @@ fun CalendarCell(
                     if (summary.totalExpense > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(ExpenseRed))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TransactionItem(tx: TransactionEntity) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = tx.description.ifBlank { "Transaction" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                Text(
+                    text = tx.date.toLocalTime().toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            val sign = if (tx.type == "EXPENSE") "-" else "+"
+            Text(
+                text = "${sign}₹${tx.amount}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

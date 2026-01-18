@@ -74,7 +74,6 @@ class AddEditTransactionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Sequential initialization to ensure categories exist before loading
             categoryRepository.seedDefaults()
             loadData()
             checkExistingTransaction()
@@ -116,18 +115,11 @@ class AddEditTransactionViewModel @Inject constructor(
         _typeFlow.flatMapLatest { type ->
             categoryRepository.getCategoriesByType(if (type == "LOAN_REPAYMENT") "EXPENSE" else type)
         }.onEach { categories ->
-            val firstId = categories.firstOrNull()?.id
-            _state.update { state ->
-                val currentId = state.categoryId
-                val newId = if (categories.any { it.id == currentId }) currentId else firstId
-                state.copy(
-                    categories = categories,
-                    categoryId = newId
-                )
+            _state.update { currentState ->
+                val newCategoryId = categories.firstOrNull()?.id
+                currentState.copy(categories = categories, categoryId = newCategoryId, subcategories = emptyList())
             }
-            // Use the determined ID to load subcategories
-            val idToLoad = if (categories.any { it.id == _state.value.categoryId }) _state.value.categoryId else firstId
-            idToLoad?.let { loadSubcategories(it) }
+            _state.value.categoryId?.let { loadSubcategories(it) }
         }.launchIn(viewModelScope)
 
         goalRepository.getAllGoals().onEach { goals ->
@@ -168,9 +160,8 @@ class AddEditTransactionViewModel @Inject constructor(
 
     private fun loadSubcategories(categoryId: Long) {
         viewModelScope.launch {
-            categoryRepository.getSubcategories(categoryId).collect { subList ->
-                _state.update { it.copy(subcategories = subList) }
-            }
+            val subcategories = categoryRepository.getSubcategories(categoryId).first()
+            _state.update { it.copy(subcategories = subcategories) }
         }
     }
 
@@ -216,14 +207,13 @@ class AddEditTransactionViewModel @Inject constructor(
                     }
                 }
 
-                // IRREVERSIBILITY LOGIC: Reverse original impact if editing
                 originalTransaction?.let { old ->
                     reverseImpact(old)
                 }
 
                 val transaction = TransactionEntity(
                     id = currentTransactionId ?: 0L,
-                    accountId = currentState.accountId!!,
+                    accountId = requireNotNull(currentState.accountId),
                     categoryId = if (currentState.type == "GOAL_CONTRIBUTION" || currentState.type == "LOAN_REPAYMENT") null else currentState.categoryId,
                     subcategoryId = if (currentState.type == "GOAL_CONTRIBUTION" || currentState.type == "LOAN_REPAYMENT") null else currentState.subcategoryId,
                     goalId = currentState.goalId,
@@ -253,11 +243,11 @@ class AddEditTransactionViewModel @Inject constructor(
         accountRepository.updateBalance(transaction.accountId, reverseBalanceChange)
 
         if (transaction.type == "GOAL_CONTRIBUTION" && transaction.goalId != null) {
-            goalRepository.incrementCurrentAmount(transaction.goalId!!, -transaction.amount)
+            goalRepository.incrementCurrentAmount(requireNotNull(transaction.goalId), -transaction.amount)
         }
 
         if (transaction.type == "LOAN_REPAYMENT" && transaction.loanId != null) {
-            loanRepository.getLoanById(transaction.loanId!!)?.let {
+            loanRepository.getLoanById(requireNotNull(transaction.loanId))?.let {
                 loanRepository.updateLoan(it.copy(currentBalance = it.currentBalance + transaction.amount))
             }
         }
@@ -272,18 +262,18 @@ class AddEditTransactionViewModel @Inject constructor(
         accountRepository.updateBalance(transaction.accountId, balanceChange)
 
         if (transaction.type == "GOAL_CONTRIBUTION" && transaction.goalId != null) {
-            goalRepository.incrementCurrentAmount(transaction.goalId!!, transaction.amount)
+            goalRepository.incrementCurrentAmount(requireNotNull(transaction.goalId), transaction.amount)
         }
 
         if (transaction.type == "LOAN_REPAYMENT" && transaction.loanId != null) {
-            loanRepository.getLoanById(transaction.loanId!!)?.let {
+            loanRepository.getLoanById(requireNotNull(transaction.loanId))?.let {
                 val newBalance = (it.currentBalance - transaction.amount).coerceAtLeast(0.0)
                 loanRepository.updateLoan(it.copy(currentBalance = newBalance))
             }
         }
 
         if (transaction.type == "EXPENSE" && transaction.categoryId != null) {
-            updateBudgetSpent(transaction.categoryId!!, transaction.date)
+            updateBudgetSpent(requireNotNull(transaction.categoryId), transaction.date)
         }
     }
 

@@ -8,6 +8,8 @@ import javax.inject.Inject
 class AccountRepositoryImpl @Inject constructor(
     private val accountDao: AccountDao
 ) : AccountRepository {
+    override suspend fun getAllAccountsOnce() = accountDao.getAllAccountsOnce()
+
     override fun getAllAccounts(): Flow<List<AccountEntity>> = accountDao.getAllAccounts()
 
     override suspend fun getAccountById(id: Long): AccountEntity? = accountDao.getAccountById(id)

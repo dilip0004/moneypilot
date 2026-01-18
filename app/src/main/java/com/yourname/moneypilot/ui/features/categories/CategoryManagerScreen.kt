@@ -55,7 +55,7 @@ fun CategoryManagerScreen(
         AddSubcategoryDialog(
             onDismiss = { subcategoryTargetId = null },
             onConfirm = { name ->
-                viewModel.addSubcategory(subcategoryTargetId!!, name)
+                viewModel.addSubcategory(requireNotNull(subcategoryTargetId), name)
                 subcategoryTargetId = null
             }
         )

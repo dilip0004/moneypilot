@@ -18,7 +18,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-import com.yourname.moneypilot.ui.features.dashboard.TransactionItem
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import java.time.format.DateTimeFormatter
@@ -150,34 +149,70 @@ fun TransactionListItemWithMenu(
                     )
                 }
         ) {
-            TransactionItem(transaction.transaction)
+            TransactionItem(transaction)
         }
-        
+
         DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false }
         ) {
             DropdownMenuItem(
                 text = { Text("Edit") },
-                onClick = { 
+                onClick = {
                     showMenu = false
-                    onEdit() 
+                    onEdit()
                 }
             )
             DropdownMenuItem(
                 text = { Text("Duplicate") },
-                onClick = { 
+                onClick = {
                     showMenu = false
-                    onDuplicate() 
+                    onDuplicate()
                 }
             )
             DropdownMenuItem(
                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                onClick = { 
+                onClick = {
                     showMenu = false
-                    onDelete() 
+                    onDelete()
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun TransactionItem(tx: TransactionWithCategory, onClick: (() -> Unit)? = null, onLongPress: (() -> Unit)? = null) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onClick?.invoke() },
+                    onLongPress = { onLongPress?.invoke() }
+                )
+            },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val title = listOfNotNull(tx.category?.name, tx.subcategory?.name).joinToString(" • ").ifBlank { "Uncategorized" }
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            if (tx.transaction.description.isNotBlank()) {
+                Text(tx.transaction.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    tx.transaction.date.toLocalDate().toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val sign = if (tx.transaction.type == "EXPENSE") "-" else "+"
+                Text(
+                    "${sign}₹${tx.transaction.amount}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

@@ -5,14 +5,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.AccountEntity
@@ -27,9 +25,7 @@ fun AccountsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Accounts") })
-        },
+        topBar = { TopAppBar(title = { Text("Accounts") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddAccount) {
                 Icon(Icons.Default.Add, contentDescription = "Add Account")
@@ -38,32 +34,36 @@ fun AccountsScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (val state = uiState) {
-                is ScreenState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                is ScreenState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+                is ScreenState.Empty -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No accounts yet")
+                }
+                is ScreenState.Error -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Something went wrong")
                 }
                 is ScreenState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
-                    ) {
-                        items(state.data.accounts) { account ->
-                            AccountItem(
-                                account = account,
-                                onArchive = { viewModel.archiveAccount(account) }
-                            )
+                    val data = state.data
+                    Column {
+                        PeriodChips(
+                            period = data.period,
+                            onPeriod = viewModel::setPeriod
+                        )
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(data.accounts.filter { !it.isArchived }) { acc ->
+                                AccountCard(
+                                    account = acc,
+                                    period = data.period,
+                                    lastMonthSnapshot = data.lastMonthSnapshots[acc.id],
+                                    onArchive = { viewModel.archiveAccount(acc) }
+                                )
+                            }
                         }
                     }
-                }
-                is ScreenState.Empty -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No accounts found. Add one to get started!")
-                    }
-                }
-                is ScreenState.Error -> {
-                    Text("Error: ${state.message}")
                 }
             }
         }
@@ -71,33 +71,47 @@ fun AccountsScreen(
 }
 
 @Composable
-fun AccountItem(
+private fun PeriodChips(period: AccountsPeriod, onPeriod: (AccountsPeriod) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        FilterChip(
+            selected = period == AccountsPeriod.THIS_MONTH,
+            onClick = { onPeriod(AccountsPeriod.THIS_MONTH) },
+            label = { Text("This month") }
+        )
+        FilterChip(
+            selected = period == AccountsPeriod.LAST_MONTH,
+            onClick = { onPeriod(AccountsPeriod.LAST_MONTH) },
+            label = { Text("Last month") }
+        )
+    }
+}
+
+@Composable
+private fun AccountCard(
     account: AccountEntity,
+    period: AccountsPeriod,
+    lastMonthSnapshot: com.yourname.moneypilot.data.local.database.entities.MonthlyAccountSnapshotEntity?,
     onArchive: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(text = account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(text = account.type, style = MaterialTheme.typography.bodySmall)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "${account.currency} ${account.currentBalance}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                IconButton(onClick = onArchive) {
-                    Icon(Icons.Default.Delete, contentDescription = "Archive", tint = MaterialTheme.colorScheme.error)
+    Card(shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text(account.name, style = MaterialTheme.typography.titleMedium)
+                    Text(account.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                Text("₹${account.currentBalance}", style = MaterialTheme.typography.titleMedium)
+            }
+
+            if (period == AccountsPeriod.LAST_MONTH && lastMonthSnapshot != null) {
+                Divider()
+                Text("Last month summary", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Opening: ₹${lastMonthSnapshot.openingBalance}  •  Closing: ₹${lastMonthSnapshot.closingBalance}")
+                Text("Income: ₹${lastMonthSnapshot.incomeTotal}  •  Expense: ₹${lastMonthSnapshot.expenseTotal}")
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onArchive) { Text("Archive") }
             }
         }
     }
