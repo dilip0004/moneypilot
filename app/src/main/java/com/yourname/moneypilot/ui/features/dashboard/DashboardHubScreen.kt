@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -41,6 +42,16 @@ fun DashboardHubScreen(
     val hubState by viewModel.state.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Daily", "Calendar", "Monthly", "Total", "Note")
+
+    // --- Test tags (Phase 0 automation foundation) ---
+    // Kept as simple constants so they can be referenced by UI tests.
+    // These do not change runtime behavior.
+    val TAG_TAB_DAILY = "tx_tab_daily"
+    val TAG_TAB_CALENDAR = "tx_tab_calendar"
+    val TAG_TAB_MONTHLY = "tx_tab_monthly"
+    val TAG_TAB_TOTAL = "tx_tab_total"
+    val TAG_TAB_NOTE = "tx_tab_note"
+    val TAG_FAB_ADD = "tx_fab_add"
 
     Scaffold(
         topBar = {
@@ -107,7 +118,18 @@ fun DashboardHubScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Visible
                                     ) 
-                                }
+                                },
+                                // Stable tag for UI tests ("tab_daily", "tab_calendar", ...)
+                                modifier = Modifier.testTag(
+                                    when (title.lowercase(Locale.getDefault())) {
+                                        "daily" -> "tab_daily"
+                                        "calendar" -> "tab_calendar"
+                                        "monthly" -> "tab_monthly"
+                                        "total" -> "tab_total"
+                                        "note" -> "tab_note"
+                                        else -> "tab_${title.lowercase(Locale.getDefault())}"
+                                    }
+                                )
                             )
                         }
                     }
@@ -132,6 +154,8 @@ fun DashboardHubScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
+                ,
+                modifier = Modifier.testTag("fab_add_transaction")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }

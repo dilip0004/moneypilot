@@ -11,32 +11,48 @@ import javax.inject.Inject
 class TransactionRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao
 ) : TransactionRepository {
-    override fun getAllTransactions(): Flow<List<TransactionEntity>> = 
-        transactionDao.getAllTransactionsWithCategory().map { list -> 
-            list.map { it.transaction } 
+
+    override fun getAllTransactions(): Flow<List<TransactionEntity>> =
+        transactionDao.getAllTransactionsWithCategory().map { list ->
+            list.map { it.transaction }
         }
 
     override fun getAllTransactionsWithCategory(): Flow<List<TransactionWithCategory>> =
         transactionDao.getAllTransactionsWithCategory()
 
-    override fun getTransactionsWithCategoryByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<TransactionWithCategory>> =
+    override fun getTransactionsWithCategoryByDateRange(
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): Flow<List<TransactionWithCategory>> =
         transactionDao.getTransactionsWithCategoryByDateRange(startDate, endDate)
 
-    override fun getTransactionsByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<TransactionEntity>> =
-        transactionDao.getTransactionsWithCategoryByDateRange(startDate, endDate).map { list -> 
-            list.map { it.transaction } 
+    override fun getTransactionsByDateRange(
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): Flow<List<TransactionEntity>> =
+        transactionDao.getTransactionsWithCategoryByDateRange(startDate, endDate).map { list ->
+            list.map { it.transaction }
         }
 
-    override suspend fun getTransactionById(id: Long): TransactionEntity? = 
+    override suspend fun getTransactionById(id: Long): TransactionEntity? =
         transactionDao.getTransactionById(id)
 
-    override suspend fun insertTransaction(transaction: TransactionEntity): Long = 
+    override suspend fun getAccountBalanceAt(accountId: Long, asOf: LocalDateTime): Double =
+        transactionDao.getBalanceAt(accountId, asOf)
+
+    override suspend fun getAccountIncomeInRange(accountId: Long, start: LocalDateTime, end: LocalDateTime): Double =
+        transactionDao.getIncomeInRange(accountId, start, end)
+
+    override suspend fun getAccountExpenseInRange(accountId: Long, start: LocalDateTime, end: LocalDateTime): Double =
+        transactionDao.getExpenseInRange(accountId, start, end)
+
+    override suspend fun insertTransaction(transaction: TransactionEntity): Long =
         transactionDao.insert(transaction)
 
-    override suspend fun updateTransaction(transaction: TransactionEntity) = 
+    override suspend fun updateTransaction(transaction: TransactionEntity) =
         transactionDao.update(transaction)
 
-    override suspend fun deleteTransaction(transaction: TransactionEntity) = 
+    override suspend fun deleteTransaction(transaction: TransactionEntity) =
         transactionDao.delete(transaction)
 
     override suspend fun getCategoryExpenseSum(categoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double =

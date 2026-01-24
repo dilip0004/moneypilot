@@ -28,6 +28,8 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoansScreen(
+    onLoanClick: (Long) -> Unit,
+
     onAddLoan: () -> Unit,
     viewModel: LoansViewModel = hiltViewModel()
 ) {

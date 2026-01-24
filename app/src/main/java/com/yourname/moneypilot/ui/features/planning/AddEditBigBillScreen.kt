@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,10 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.components.AppDatePickerField
 import kotlinx.coroutines.flow.collectLatest
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,40 +24,13 @@ fun AddEditBigBillScreen(
 ) {
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
-    
-    var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = state.dueDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-    )
 
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(true) {
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
                 is AddEditBigBillViewModel.UiEvent.SaveBigBill -> onPopBackStack()
-                is AddEditBigBillViewModel.UiEvent.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(message = event.message)
-                }
+                is AddEditBigBillViewModel.UiEvent.ShowSnackbar -> snackbarHostState.showSnackbar(event.message)
             }
-        }
-    }
-
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let {
-                        val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
-                        viewModel.onEvent(AddEditBigBillEvent.DateChanged(date))
-                    }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
         }
     }
 
@@ -107,28 +77,12 @@ fun AddEditBigBillScreen(
                 singleLine = true
             )
 
-            Surface(
-                onClick = { showDatePicker = true },
-                shape = MaterialTheme.shapes.extraSmall,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            AppDatePickerField(
+                label = "Due Date",
+                value = state.dueDate,
+                onChange = { viewModel.onEvent(AddEditBigBillEvent.DateChanged(it)) },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.CalendarMonth, null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text("Due Date", style = MaterialTheme.typography.labelSmall)
-                        Text(
-                            text = state.dueDate.format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy")),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
+            )
 
             OutlinedTextField(
                 value = state.notes,

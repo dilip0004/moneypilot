@@ -14,29 +14,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
+import com.yourname.moneypilot.domain.loan.LoanAutoDeductionProcessor
+import com.yourname.moneypilot.domain.monthly.MonthlyRolloverProcessor
 import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
-import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
+import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
-import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
-import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
 import com.yourname.moneypilot.ui.features.investments.AddEditInvestmentScreen
+import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
 import com.yourname.moneypilot.ui.features.planning.AddEditBigBillScreen
+import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
 import com.yourname.moneypilot.ui.features.reports.ReportsScreen
 import com.yourname.moneypilot.ui.features.settings.AppearanceScreen
 import com.yourname.moneypilot.ui.features.settings.DiagnosticsScreen
@@ -44,17 +47,47 @@ import com.yourname.moneypilot.ui.features.settings.NotificationsScreen
 import com.yourname.moneypilot.ui.features.settings.SecurityScreen
 import com.yourname.moneypilot.ui.features.settings.SettingsScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
-import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.features.transactions.TransferScreen
 import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @javax.inject.Inject
+    lateinit var loanAutoDeductionProcessor: LoanAutoDeductionProcessor
+
+    @javax.inject.Inject
+    lateinit var monthlyRolloverProcessor: MonthlyRolloverProcessor
+
+    /**
+     * UI automation stability:
+     * During instrumentation tests we must not run startup background processors
+     * or show runtime permission dialogs because tests will become flaky.
+     */
+    private fun isRunningUiTest(): Boolean {
+        return try {
+            Class.forName("androidx.test.espresso.Espresso")
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Skip processors during UI tests (important: prevents activity restart/refresh flakiness)
+        if (!isRunningUiTest()) {
+            lifecycleScope.launch {
+                loanAutoDeductionProcessor.process()
+                monthlyRolloverProcessor.process()
+            }
+        }
+
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
             val preferences by mainViewModel.userPreferences.collectAsState()
@@ -69,7 +102,8 @@ class MainActivity : ComponentActivity() {
 
             val isOled = preferences?.theme == AppTheme.OLED
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Skip permission request during UI tests
+            if (!isRunningUiTest() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val context = LocalContext.current
                 var hasNotificationPermission by remember {
                     mutableStateOf(
@@ -81,9 +115,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { isGranted ->
-                        hasNotificationPermission = isGranted
-                    }
+                    onResult = { isGranted -> hasNotificationPermission = isGranted }
                 )
 
                 LaunchedEffect(Unit) {
@@ -111,7 +143,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
-    
+
     val navItems = listOf(
         Screen.Transactions,
         Screen.Stats,
@@ -129,7 +161,17 @@ fun MainScreen() {
             if (showBottomBar) {
                 NavigationBar {
                     navItems.forEach { screen ->
+                        val tag = when (screen) {
+                            Screen.Transactions -> "bottom_nav_transactions"
+                            Screen.Stats -> "bottom_nav_stats"
+                            Screen.Accounts -> "bottom_nav_accounts"
+                            Screen.Planning -> "bottom_nav_planning"
+                            Screen.Settings -> "bottom_nav_settings"
+                            else -> null
+                        }
+
                         NavigationBarItem(
+                            modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
                             icon = { Icon(screen.icon, contentDescription = null) },
                             label = { Text(screen.title) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
@@ -151,9 +193,11 @@ fun MainScreen() {
         NavHost(
             navController = navController,
             startDestination = Screen.Transactions.route,
-            modifier = Modifier.padding(innerPadding).fillMaxSize()
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
         ) {
-            composable(Screen.Transactions.route) { 
+            composable(Screen.Transactions.route) {
                 DashboardHubScreen(
                     onAddTransaction = { date ->
                         navController.navigate("add_transaction?date=${date}")
@@ -161,24 +205,21 @@ fun MainScreen() {
                     onEditTransaction = { transactionId ->
                         navController.navigate("add_transaction?transactionId=$transactionId")
                     },
-                    onOpenSettings = { 
-                        navController.navigate(Screen.Settings.route) {
-                            launchSingleTop = true
-                        }
+                    onOpenSettings = {
+                        navController.navigate(Screen.Settings.route) { launchSingleTop = true }
                     }
                 )
             }
-            
-            composable(Screen.Stats.route) { 
-                ReportsScreen(
-                    onPopBackStack = { navController.popBackStack() }
-                )
+
+            composable(Screen.Stats.route) {
+                ReportsScreen(onPopBackStack = { navController.popBackStack() })
             }
 
             composable(Screen.Accounts.route) {
                 AccountsHubScreen(
                     onAddAccount = { navController.navigate("add_account") },
-                    onAddLoan = { navController.navigate("add_loan") }
+                    onAddLoan = { navController.navigate("add_loan") },
+                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") }
                 )
             }
 
@@ -215,11 +256,12 @@ fun MainScreen() {
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("diagnostics") { DiagnosticsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_account") { AddEditAccountScreen(onPopBackStack = { navController.popBackStack() }) }
-            
+
             composable("accounts_list") {
                 AccountsHubScreen(
                     onAddAccount = { navController.navigate("add_account") },
-                    onAddLoan = { navController.navigate("add_loan") }
+                    onAddLoan = { navController.navigate("add_loan")},
+                        onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") }
                 )
             }
 

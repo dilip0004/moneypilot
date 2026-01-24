@@ -38,6 +38,9 @@ interface LoanDao {
     @Query("SELECT * FROM loans ORDER BY startDate DESC")
     fun getAllLoans(): Flow<List<LoanEntity>>
 
+    @Query("SELECT * FROM loans")
+    suspend fun getAllLoansOnce(): List<LoanEntity>
+
     @Transaction
     @Query("SELECT * FROM loans ORDER BY startDate DESC")
     fun getAllLoansWithHistory(): Flow<List<LoanWithHistory>>

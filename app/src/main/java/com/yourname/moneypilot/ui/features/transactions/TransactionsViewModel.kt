@@ -96,7 +96,7 @@ class TransactionsViewModel @Inject constructor(
 
                 // Reverse Sync: Update budget if needed
                 if (transaction.type == "EXPENSE" && transaction.categoryId != null) {
-                    recalculateBudget(transaction.categoryId!!, transaction.date)
+                    recalculateBudget(requireNotNull(transaction.categoryId), transaction.date)
                 }
 
                 transactionRepository.deleteTransaction(transaction)
@@ -135,7 +135,7 @@ class TransactionsViewModel @Inject constructor(
             accountRepository.updateBalance(duplicated.accountId, balanceChange)
             
             if (duplicated.type == "EXPENSE" && duplicated.categoryId != null) {
-                recalculateBudget(duplicated.categoryId!!, duplicated.date)
+                recalculateBudget(requireNotNull(duplicated.categoryId), duplicated.date)
             }
         }
     }

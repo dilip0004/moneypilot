@@ -1,24 +1,18 @@
 package com.yourname.moneypilot.ui.features.goals
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.components.AppDatePickerField
 import kotlinx.coroutines.flow.collectLatest
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,44 +22,13 @@ fun AddEditGoalScreen(
 ) {
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
-    
-    var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = state.targetDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-    )
 
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(true) {
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
-                is AddEditGoalViewModel.UiEvent.SaveGoal -> {
-                    onPopBackStack()
-                }
-                is AddEditGoalViewModel.UiEvent.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(message = event.message)
-                }
+                is AddEditGoalViewModel.UiEvent.SaveGoal -> onPopBackStack()
+                is AddEditGoalViewModel.UiEvent.ShowSnackbar -> snackbarHostState.showSnackbar(event.message)
             }
-        }
-    }
-
-    if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val selectedDate = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDate()
-                        viewModel.onEvent(AddEditGoalEvent.DateChanged(selectedDate))
-                    }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
         }
     }
 
@@ -76,16 +39,14 @@ fun AddEditGoalScreen(
                 title = { Text(text = "Add Goal") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                viewModel.onEvent(AddEditGoalEvent.SaveGoal)
-            }) {
-                Icon(imageVector = Icons.Default.Save, contentDescription = "Save")
+            FloatingActionButton(onClick = { viewModel.onEvent(AddEditGoalEvent.SaveGoal) }) {
+                Icon(Icons.Default.Save, contentDescription = "Save")
             }
         }
     ) { padding ->
@@ -128,30 +89,13 @@ fun AddEditGoalScreen(
                 valueRange = 1f..5f,
                 steps = 3
             )
-            
-            // Target Date Selection Row
-            Surface(
-                onClick = { showDatePicker = true },
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+
+            AppDatePickerField(
+                label = "Target Date",
+                value = state.targetDate,
+                onChange = { viewModel.onEvent(AddEditGoalEvent.DateChanged(it)) },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text("Target Date", style = MaterialTheme.typography.labelSmall)
-                        Text(
-                            text = state.targetDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
+            )
         }
     }
 }
