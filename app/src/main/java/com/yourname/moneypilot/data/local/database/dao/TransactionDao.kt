@@ -5,6 +5,7 @@ import com.yourname.moneypilot.data.local.database.entities.AccountEntity
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
+import com.yourname.moneypilot.data.local.database.entities.GoalEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
@@ -26,6 +27,12 @@ data class TransactionWithCategory(
         entityColumn = "id"
     )
     val account: AccountEntity?
+    ,
+    @Relation(
+        parentColumn = "goal_id",
+        entityColumn = "id"
+    )
+    val goal: GoalEntity?
 )
 
 @Dao
@@ -99,6 +106,10 @@ interface TransactionDao {
         startDate: LocalDateTime,
         endDate: LocalDateTime
     ): Flow<List<TransactionWithCategory>>
+
+    @Transaction
+    @Query("SELECT * FROM transactions WHERE goal_id = :goalId ORDER BY date DESC, created_at DESC")
+    fun getTransactionsWithCategoryByGoal(goalId: Long): Flow<List<TransactionWithCategory>>
 
     @Query("SELECT * FROM transactions WHERE date BETWEEN :startDate AND :endDate")
     suspend fun getTransactionsByDateRangeOnce(

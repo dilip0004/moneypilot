@@ -36,7 +36,7 @@ class DailySummaryWorker @AssistedInject constructor(
             // Use the one-shot query to avoid Flow collection issues in background workers
             val transactions = transactionDao.getTransactionsByDateRangeOnce(startOfDay, endOfDay)
             
-            val totalSpent = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+            val totalSpent = transactions.filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }.sumOf { it.amount }
             val totalEarned = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
 
             sendNotification(totalSpent, totalEarned)

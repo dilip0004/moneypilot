@@ -23,8 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.components.DashboardCard
-import com.yourname.moneypilot.ui.theme.ExpenseRed
-import com.yourname.moneypilot.ui.theme.IncomeGreen
+// use MaterialTheme.colorScheme.income / expense
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -92,15 +91,15 @@ fun DashboardContent(state: DashboardState) {
                         title = "Income",
                         amount = "+₹${summary.totalIncome}",
                         modifier = Modifier.weight(1f),
-                        containerColor = IncomeGreen.copy(alpha = 0.1f),
-                        contentColor = IncomeGreen
+                        containerColor = MaterialTheme.colorScheme.income.copy(alpha = 0.1f),
+                        contentColor = MaterialTheme.colorScheme.income
                     )
                     DashboardCard(
                         title = "Expenses",
                         amount = "-₹${summary.totalExpense}",
                         modifier = Modifier.weight(1f),
-                        containerColor = ExpenseRed.copy(alpha = 0.1f),
-                        contentColor = ExpenseRed
+                        containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f),
+                        contentColor = MaterialTheme.colorScheme.expense
                     )
                 }
             }
@@ -179,7 +178,7 @@ private fun TransactionItem(tx: TransactionEntity) {
             Text(
                 text = "${sign}₹${tx.amount}",
                 style = MaterialTheme.typography.titleLarge,
-                color = if (tx.type == "EXPENSE") ExpenseRed else IncomeGreen,
+                color = if (tx.type == "EXPENSE") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income,
                 fontWeight = FontWeight.Bold
             )
         }

@@ -25,8 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
-import com.yourname.moneypilot.ui.theme.ExpenseRed
-import com.yourname.moneypilot.ui.theme.IncomeGreen
+// use MaterialTheme.colorScheme.income / expense
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -196,7 +195,7 @@ fun ReportsScreen(
                                         text = "₹ $amountStr",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary
+                                        color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.income else if (data.reportType == ReportType.EXPENSE) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.primary
                                     )
                                     
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -231,7 +230,7 @@ fun ReportsScreen(
                                             } else {
                                                 TrendLineGraphCompact(
                                                     data = data.chartData,
-                                                    color = if (data.reportType == ReportType.INCOME) IncomeGreen else if (data.reportType == ReportType.EXPENSE) ExpenseRed else MaterialTheme.colorScheme.primary,
+                                                    color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.income else if (data.reportType == ReportType.EXPENSE) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.primary,
                                                     timeRange = data.timeRange
                                                 )
                                             }

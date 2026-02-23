@@ -8,6 +8,8 @@ import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import javax.inject.Inject
 
 data class GoalsState(
@@ -34,5 +36,9 @@ class GoalsViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun getTransactionsForGoal(goalId: Long): Flow<List<TransactionWithCategory>> {
+        return goalRepository.getTransactionsForGoal(goalId)
     }
 }

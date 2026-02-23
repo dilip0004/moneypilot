@@ -44,6 +44,7 @@ sealed class AddEditTransactionEvent {
     data class PasteSms(val text: String) : AddEditTransactionEvent()
     object AcceptTruth : AddEditTransactionEvent()
     object SaveTransaction : AddEditTransactionEvent()
+    object SaveAndAddAnother : AddEditTransactionEvent()
 }
 
 @HiltViewModel
@@ -155,6 +156,7 @@ class AddEditTransactionViewModel @Inject constructor(
             is AddEditTransactionEvent.PasteSms -> processSms(event.text)
             is AddEditTransactionEvent.AcceptTruth -> _state.update { it.copy(isTruthReviewed = true) }
             is AddEditTransactionEvent.SaveTransaction -> saveTransaction()
+            is AddEditTransactionEvent.SaveAndAddAnother -> saveTransaction(stayOnScreen = true)
         }
     }
 
@@ -177,7 +179,7 @@ class AddEditTransactionViewModel @Inject constructor(
         _typeFlow.value = parsed.type
     }
 
-    private fun saveTransaction() {
+    private fun saveTransaction(stayOnScreen: Boolean = false) {
         viewModelScope.launch {
             try {
                 val currentState = _state.value
@@ -211,6 +213,8 @@ class AddEditTransactionViewModel @Inject constructor(
                     reverseImpact(old)
                 }
 
+                val now = java.time.LocalDateTime.now()
+
                 val transaction = TransactionEntity(
                     id = currentTransactionId ?: 0L,
                     accountId = requireNotNull(currentState.accountId),
@@ -221,13 +225,36 @@ class AddEditTransactionViewModel @Inject constructor(
                     type = currentState.type,
                     amount = amountValue,
                     description = currentState.description,
-                    date = currentState.date
+                    date = currentState.date,
+                    createdAt = originalTransaction?.createdAt ?: now,
+                    updatedAt = now
                 )
 
-                transactionRepository.insertTransaction(transaction)
+                if (currentTransactionId != null && currentTransactionId != -1L) {
+                    // editing existing transaction: update to preserve createdAt and avoid replacing created_at
+                    transactionRepository.updateTransaction(transaction)
+                } else {
+                    transactionRepository.insertTransaction(transaction)
+                }
                 applyImpact(transaction)
 
-                _eventFlow.emit(UiEvent.SaveTransaction)
+                if (stayOnScreen) {
+                    // Reset form for a new entry while preserving accounts list and default selection
+                    currentTransactionId = null
+                    originalTransaction = null
+                    val preservedAccounts = currentState.accounts
+                    val defaultAccountId = currentState.accountId
+                        ?: preservedAccounts.find { acc -> acc.isPrimary }?.id ?: preservedAccounts.firstOrNull()?.id
+                    _state.update {
+                        AddEditTransactionState(
+                            accounts = preservedAccounts,
+                            accountId = defaultAccountId
+                        )
+                    }
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Transaction saved"))
+                } else {
+                    _eventFlow.emit(UiEvent.SaveTransaction)
+                }
             } catch (e: Exception) {
                 _eventFlow.emit(UiEvent.ShowSnackbar("Save failed: ${e.message}"))
             }

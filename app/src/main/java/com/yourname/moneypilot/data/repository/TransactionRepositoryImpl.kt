@@ -20,6 +20,9 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun getAllTransactionsWithCategory(): Flow<List<TransactionWithCategory>> =
         transactionDao.getAllTransactionsWithCategory()
 
+    override fun getTransactionsForGoal(goalId: Long): Flow<List<TransactionWithCategory>> =
+        transactionDao.getTransactionsWithCategoryByGoal(goalId)
+
     override fun getTransactionsWithCategoryByDateRange(
         startDate: LocalDateTime,
         endDate: LocalDateTime

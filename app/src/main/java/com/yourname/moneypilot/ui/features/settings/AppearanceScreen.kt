@@ -116,6 +116,14 @@ fun AppearanceScreen(
                     onCheckedChange = { viewModel.updateDynamicColor(it) }
                 )
             }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("True Black (pure black surfaces)")
+                Spacer(modifier = Modifier.weight(1f))
+                Switch(
+                    checked = preferences?.useTrueBlack ?: false,
+                    onCheckedChange = { viewModel.updateTrueBlack(it) }
+                )
+            }
         }
     }
 }

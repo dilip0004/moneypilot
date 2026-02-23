@@ -25,8 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
-import com.yourname.moneypilot.ui.theme.ExpenseRed
-import com.yourname.moneypilot.ui.theme.IncomeGreen
+// use MaterialTheme.colorScheme.income / expense
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.*
@@ -141,8 +140,8 @@ fun DashboardHubScreen(
                             .padding(vertical = 6.dp, horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem(label = "Income", value = "₹ ${hubState.monthlyIncome}", color = IncomeGreen)
-                        SummaryItem(label = "Expenses", value = "₹ ${hubState.monthlyExpense}", color = ExpenseRed)
+                        SummaryItem(label = "Income", value = "₹ ${hubState.monthlyIncome}", color = MaterialTheme.colorScheme.income)
+                        SummaryItem(label = "Expenses", value = "₹ ${hubState.monthlyExpense}", color = MaterialTheme.colorScheme.expense)
                         SummaryItem(label = "Total", value = "₹ ${hubState.monthlyIncome - hubState.monthlyExpense}", color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
@@ -198,8 +197,8 @@ fun MonthlySummaryTab(state: DashboardHubState) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Cash Flow", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow("Total Income", "₹ ${state.monthlyIncome}", IncomeGreen)
-                    FlowRow("Total Expense", "₹ ${state.monthlyExpense}", ExpenseRed)
+                    FlowRow("Total Income", "₹ ${state.monthlyIncome}", MaterialTheme.colorScheme.income)
+                    FlowRow("Total Expense", "₹ ${state.monthlyExpense}", MaterialTheme.colorScheme.expense)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     FlowRow("Net Surplus", "₹ ${state.monthlyIncome - state.monthlyExpense}", MaterialTheme.colorScheme.primary)
                 }

@@ -28,7 +28,8 @@ data class UserPreferences(
     val useBiometrics: Boolean,
     val budgetAlertThreshold: Int,
     val dailySummaryEnabled: Boolean,
-    val dailySummaryTime: String
+    val dailySummaryTime: String,
+    val useTrueBlack: Boolean = false
 )
 
 @Singleton
@@ -43,6 +44,7 @@ class UserPreferencesRepository @Inject constructor(
         val KEYBOARD_BOX_COLOR = intPreferencesKey("keyboard_box_color")
         val USE_DYNAMIC_COLOR = booleanPreferencesKey("use_dynamic_color")
         val USE_BIOMETRICS = booleanPreferencesKey("use_biometrics")
+        val USE_TRUE_BLACK = booleanPreferencesKey("use_true_black")
         val BUDGET_ALERT_THRESHOLD = stringPreferencesKey("budget_alert_threshold")
         val DAILY_SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
         val DAILY_SUMMARY_TIME = stringPreferencesKey("daily_summary_time")
@@ -66,11 +68,12 @@ class UserPreferencesRepository @Inject constructor(
             
             val useDynamicColor = preferences[PreferencesKeys.USE_DYNAMIC_COLOR] ?: true
             val useBiometrics = preferences[PreferencesKeys.USE_BIOMETRICS] ?: false
+            val useTrueBlack = preferences[PreferencesKeys.USE_TRUE_BLACK] ?: false
             val threshold = preferences[PreferencesKeys.BUDGET_ALERT_THRESHOLD]?.toIntOrNull() ?: 90
             val summaryEnabled = preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] ?: true
             val summaryTime = preferences[PreferencesKeys.DAILY_SUMMARY_TIME] ?: "22:00"
-            
-            UserPreferences(currency, theme, primaryColor, kbBgColor, kbBoxColor, useDynamicColor, useBiometrics, threshold, summaryEnabled, summaryTime)
+
+            UserPreferences(currency, theme, primaryColor, kbBgColor, kbBoxColor, useDynamicColor, useBiometrics, threshold, summaryEnabled, summaryTime, useTrueBlack)
         }
 
     suspend fun updateCurrency(currency: String) {
@@ -119,6 +122,12 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun updateDailySummaryTime(time: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.DAILY_SUMMARY_TIME] = time
+        }
+    }
+
+    suspend fun updateUseTrueBlack(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.USE_TRUE_BLACK] = enabled
         }
     }
 }

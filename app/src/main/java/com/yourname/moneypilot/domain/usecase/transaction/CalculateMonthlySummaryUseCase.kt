@@ -22,15 +22,15 @@ class CalculateMonthlySummaryUseCase @Inject constructor(
         
         return transactionRepository.getTransactionsByDateRange(startDate, endDate).map { transactions ->
             val income = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
-            val expense = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+            val expense = transactions.filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }.sumOf { it.amount }
             
             val dailyMap = transactions
-                .filter { it.type == "EXPENSE" }
+                .filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }
                 .groupBy { it.date.dayOfMonth }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
 
             val categoryMap = transactions
-                .filter { it.type == "EXPENSE" }
+                .filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }
                 .groupBy { it.categoryId }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
                 

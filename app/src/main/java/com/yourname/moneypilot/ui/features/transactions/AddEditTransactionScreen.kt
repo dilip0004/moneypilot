@@ -79,9 +79,9 @@ fun AddEditTransactionScreen(
                 TextButton(onClick = {
                     showDatePicker = false
                     showTimePicker = true
-                }) { Text("Next") }
+                }) { Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.next)) }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.cancel)) } }
         ) {
             DatePicker(state = datePickerState)
         }
@@ -99,7 +99,7 @@ fun AddEditTransactionScreen(
                     val selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
                     viewModel.onEvent(AddEditTransactionEvent.DateChanged(LocalDateTime.of(selectedDate, selectedTime)))
                     showTimePicker = false
-                }) { Text("OK") }
+                }) { Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.ok)) }
             },
             dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } },
             text = { TimePicker(state = timePickerState) }
@@ -125,6 +125,9 @@ fun AddEditTransactionScreen(
                             contentDescription = "Magic Paste",
                             tint = MaterialTheme.colorScheme.primary
                         )
+                    }
+                    IconButton(onClick = { viewModel.onEvent(AddEditTransactionEvent.SaveAndAddAnother) }) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = "Save & Add Another")
                     }
                     IconButton(onClick = {
                         showCalculator = false
@@ -172,7 +175,7 @@ fun AddEditTransactionScreen(
                         ) {
                             Text("Data parsed from SMS. Review details.", style = MaterialTheme.typography.bodySmall)
                             Button(onClick = { viewModel.onEvent(AddEditTransactionEvent.AcceptTruth) }) {
-                                Text("Accept")
+                                Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.accept))
                             }
                         }
                     }
@@ -198,7 +201,7 @@ fun AddEditTransactionScreen(
                         Icon(Icons.Default.CalendarMonth, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Transaction Date & Time", style = MaterialTheme.typography.labelSmall)
+                            Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.transaction_date_time), style = MaterialTheme.typography.labelSmall)
                             Text(
                                 text = state.date.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy - HH:mm")),
                                 style = MaterialTheme.typography.bodyLarge,

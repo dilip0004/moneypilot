@@ -17,11 +17,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
+import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-import com.yourname.moneypilot.ui.theme.ExpenseRed
-import com.yourname.moneypilot.ui.theme.IncomeGreen
+// use MaterialTheme.colorScheme.income / expense
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,7 +127,7 @@ fun TransactionHistoryContent(
                     Text(
                         text = "Total: ₹${grouped.dailyTotal}",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (grouped.dailyTotal >= 0) IncomeGreen else ExpenseRed
+                        color = if (grouped.dailyTotal >= 0) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense
                     )
                 }
             }
@@ -163,7 +164,7 @@ fun TransactionListItemWithMenu(
                     )
                 }
         ) {
-            TransactionItem(transaction)
+            CompactTransactionItem(transaction)
         }
 
         DropdownMenu(
@@ -195,41 +196,4 @@ fun TransactionListItemWithMenu(
     }
 }
 
-@Composable
-private fun TransactionItem(tx: TransactionWithCategory) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val title = listOfNotNull(tx.category?.name, tx.subcategory?.name)
-                .joinToString(" • ")
-                .ifBlank { "Uncategorized" }
-
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1)
-
-            if (tx.transaction.description.isNotBlank()) {
-                Text(
-                    tx.transaction.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    tx.transaction.date.toLocalDate().toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val sign = if (tx.transaction.type == "EXPENSE") "-" else "+"
-                Text(
-                    "${sign}₹${tx.transaction.amount}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
+// Using shared CompactTransactionItem composable from ui.common

@@ -19,8 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.InvestmentEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-import com.yourname.moneypilot.ui.theme.IncomeGreen
-import com.yourname.moneypilot.ui.theme.ExpenseRed
+// use MaterialTheme.colorScheme.income / expense
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,13 +100,13 @@ fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
                 Icon(
                     imageVector = if (isProfit) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
                     contentDescription = null,
-                    tint = if (isProfit) IncomeGreen else ExpenseRed,
+                    tint = if (isProfit) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${if (isProfit) "+" else ""}₹$gain ($gainPct%)",
-                    color = if (isProfit) IncomeGreen else ExpenseRed,
+                    color = if (isProfit) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
@@ -144,7 +143,7 @@ fun InvestmentItem(investment: InvestmentEntity) {
                 Text(text = "₹ $totalHoldings", fontWeight = FontWeight.ExtraBold)
                 Text(
                     text = "${if (isProfit) "+" else ""}₹${totalGain.toInt()}",
-                    color = if (isProfit) IncomeGreen else ExpenseRed,
+                    color = if (isProfit) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
