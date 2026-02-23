@@ -28,7 +28,8 @@ private val OLEDColorScheme = darkColorScheme(
     surface = Color.Black,
     onBackground = Color.White,
     onSurface = Color.White,
-    surfaceVariant = Color(0xFF1C1C1E),
+    // Use pure black for surfaceVariant as well so surfaces render fully black on OLED
+    surfaceVariant = Color.Black,
     onSurfaceVariant = Color(0xFF8E8E93)
 )
 

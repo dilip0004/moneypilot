@@ -1,7 +1,7 @@
 package com.yourname.moneypilot.ui.features.calendar
 
 import androidx.lifecycle.viewModelScope
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import com.yourname.moneypilot.data.repository.TransactionRepository
 import com.yourname.moneypilot.domain.usecase.transaction.GetDailyFinancialSummaryUseCase
 import com.yourname.moneypilot.domain.usecase.transaction.DailySummary
@@ -23,7 +23,7 @@ data class CalendarState(
     val currentMonth: YearMonth = YearMonth.now(),
     val dailySummaries: Map<LocalDate, DailySummary> = emptyMap(),
     val selectedDate: LocalDate = LocalDate.now(),
-    val selectedDateTransactions: List<TransactionEntity> = emptyList()
+    val selectedDateTransactions: List<TransactionWithCategory> = emptyList()
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -54,10 +54,10 @@ class CalendarViewModel @Inject constructor(
                 _currentMonth.flatMapLatest { month ->
                     val start = month.atDay(1).atStartOfDay()
                     val end = month.atEndOfMonth().atTime(23, 59, 59)
-                    transactionRepository.getTransactionsByDateRange(start, end)
+                    transactionRepository.getTransactionsWithCategoryByDateRange(start, end)
                 }
             ) { month, selectedDate, summaries, allTransactions ->
-                val dayTransactions = allTransactions.filter { it.date.toLocalDate() == selectedDate }
+                val dayTransactions = allTransactions.filter { it.transaction.date.toLocalDate() == selectedDate }
                 CalendarState(
                     currentMonth = month,
                     dailySummaries = summaries,

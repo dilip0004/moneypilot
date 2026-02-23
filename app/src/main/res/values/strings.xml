@@ -1,4 +1,12 @@
 <resources>
     <string name="app_name">MoneyPilot</string>
     <string name="widget_description">Quick add transaction from your home screen</string>
+    <string name="add_transaction">Add Transaction</string>
+    <string name="save">Save</string>
+    <string name="save_add_another">Save &amp; Add Another</string>
+    <string name="next">Next</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="accept">Accept</string>
+    <string name="transaction_date_time">Transaction Date &amp; Time</string>
 </resources>

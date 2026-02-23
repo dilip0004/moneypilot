@@ -101,6 +101,7 @@ class MainActivity : ComponentActivity() {
             }
 
             val isOled = preferences?.theme == AppTheme.OLED
+            val useTrueBlackPref = preferences?.useTrueBlack == true
 
             // Skip permission request during UI tests
             if (!isRunningUiTest() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -125,10 +126,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MoneyPilotTheme(
-                darkTheme = darkTheme,
-                trueBlack = isOled
-            ) {
+                val trueBlack = useTrueBlackPref || isOled
+
+                MoneyPilotTheme(
+                    darkTheme = darkTheme,
+                    trueBlack = trueBlack
+                ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

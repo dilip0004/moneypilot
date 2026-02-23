@@ -64,8 +64,9 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
             .build()
         workManager.enqueueUniquePeriodicWork("DailyUpdateWork", ExistingPeriodicWorkPolicy.KEEP, dailyRequest)
 
-        // 2. Budget Rollover Task
-        val monthlyRequest = PeriodicWorkRequestBuilder<MonthlyRolloverWorker>(1, TimeUnit.DAYS)
+        // 2. Budget Rollover Task - run roughly once every 30 days instead of daily
+        val monthlyRequest = PeriodicWorkRequestBuilder<MonthlyRolloverWorker>(30, TimeUnit.DAYS)
+            .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
             .build()
         workManager.enqueueUniquePeriodicWork("MonthlyRolloverWork", ExistingPeriodicWorkPolicy.KEEP, monthlyRequest)
 

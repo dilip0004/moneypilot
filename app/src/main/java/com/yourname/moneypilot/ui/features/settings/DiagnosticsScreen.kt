@@ -20,8 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.ui.theme.IncomeGreen
-import com.yourname.moneypilot.ui.theme.ExpenseRed
+// use MaterialTheme.colorScheme.income / expense
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,8 +86,8 @@ fun DiagnosticsScreen(
 fun TestCaseItem(test: TestCase) {
     val statusColor by animateColorAsState(
         targetValue = when (test.status) {
-            TestStatus.PASSED -> IncomeGreen
-            TestStatus.FAILED -> ExpenseRed
+            TestStatus.PASSED -> MaterialTheme.colorScheme.income
+            TestStatus.FAILED -> MaterialTheme.colorScheme.expense
             TestStatus.RUNNING -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
         },
@@ -114,10 +113,10 @@ fun TestCaseItem(test: TestCase) {
                     style = MaterialTheme.typography.bodySmall
                 )
                 if (test.status == TestStatus.FAILED && test.errorMessage != null) {
-                    Text(
+                        Text(
                         text = "Error: ${test.errorMessage}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = ExpenseRed,
+                        color = MaterialTheme.colorScheme.expense,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -125,8 +124,8 @@ fun TestCaseItem(test: TestCase) {
             
             when (test.status) {
                 TestStatus.RUNNING -> CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                TestStatus.PASSED -> Icon(Icons.Default.CheckCircle, null, tint = IncomeGreen)
-                TestStatus.FAILED -> Icon(Icons.Default.Error, null, tint = ExpenseRed)
+                TestStatus.PASSED -> Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.income)
+                TestStatus.FAILED -> Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.expense)
                 else -> Icon(Icons.Default.Refresh, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
             }
         }

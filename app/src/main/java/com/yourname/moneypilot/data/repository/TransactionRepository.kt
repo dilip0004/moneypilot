@@ -10,6 +10,7 @@ interface TransactionRepository {
     fun getAllTransactionsWithCategory(): Flow<List<TransactionWithCategory>>
     fun getTransactionsWithCategoryByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<TransactionWithCategory>>
     fun getTransactionsByDateRange(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<TransactionEntity>>
+    fun getTransactionsForGoal(goalId: Long): Flow<List<TransactionWithCategory>>
     suspend fun getTransactionById(id: Long): TransactionEntity?
     suspend fun getAccountBalanceAt(accountId: Long, asOf: java.time.LocalDateTime): Double
     suspend fun getAccountIncomeInRange(accountId: Long, start: java.time.LocalDateTime, end: java.time.LocalDateTime): Double

@@ -21,8 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-import com.yourname.moneypilot.ui.theme.ExpenseRed
-import com.yourname.moneypilot.ui.theme.IncomeGreen
+// use MaterialTheme.colorScheme.expense / income
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,20 +93,20 @@ fun LoanSummaryHeader(borrowed: Double, lent: Double) {
     ) {
         Card(
             modifier = Modifier.weight(1f),
-            colors = CardDefaults.cardColors(containerColor = ExpenseRed.copy(alpha = 0.1f))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Borrowed", style = MaterialTheme.typography.labelSmall, color = ExpenseRed)
-                Text("₹ $borrowed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = ExpenseRed)
+                Text("Borrowed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.expense)
+                Text("₹ $borrowed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.expense)
             }
         }
         Card(
             modifier = Modifier.weight(1f),
-            colors = CardDefaults.cardColors(containerColor = IncomeGreen.copy(alpha = 0.1f))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.income.copy(alpha = 0.1f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Lent", style = MaterialTheme.typography.labelSmall, color = IncomeGreen)
-                Text("₹ $lent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = IncomeGreen)
+                Text("Lent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.income)
+                Text("₹ $lent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.income)
             }
         }
     }
@@ -139,8 +138,8 @@ fun LoanItem(
                     Text(text = "from ${loan.lender}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Badge(
-                    containerColor = if (loan.type == "BORROWED") ExpenseRed.copy(alpha = 0.2f) else IncomeGreen.copy(alpha = 0.2f),
-                    contentColor = if (loan.type == "BORROWED") ExpenseRed else IncomeGreen
+                    containerColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense.copy(alpha = 0.2f) else MaterialTheme.colorScheme.income.copy(alpha = 0.2f),
+                    contentColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income
                 ) {
                     Text(loan.type, modifier = Modifier.padding(horizontal = 4.dp))
                 }
@@ -148,10 +147,10 @@ fun LoanItem(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            LinearProgressIndicator(
+                LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(6.dp),
-                color = if (loan.type == "BORROWED") ExpenseRed else IncomeGreen,
+                color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income,
                 strokeCap = StrokeCap.Round
             )
             
@@ -199,7 +198,7 @@ fun LoanItem(
                                     text = "₹ ${record.amount}",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = IncomeGreen
+                                    color = MaterialTheme.colorScheme.income
                                 )
                             }
                         }

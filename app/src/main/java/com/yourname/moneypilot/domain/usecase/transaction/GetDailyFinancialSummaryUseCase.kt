@@ -26,7 +26,7 @@ class GetDailyFinancialSummaryUseCase @Inject constructor(
                     DailySummary(
                         date = date,
                         totalIncome = dailyTransactions.filter { it.type == "INCOME" }.sumOf { it.amount },
-                        totalExpense = dailyTransactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+                        totalExpense = dailyTransactions.filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" }.sumOf { it.amount }
                     )
                 }
         }

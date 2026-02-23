@@ -11,7 +11,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
+import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,8 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.ui.theme.ExpenseRed
-import com.yourname.moneypilot.ui.theme.IncomeGreen
+// use MaterialTheme.colorScheme.income / expense
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -45,8 +45,16 @@ fun CalendarScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // Monthly totals row
+        item {
+            val monthlyIncome = calendarState.dailySummaries.values.sumOf { it.totalIncome }
+            val monthlyExpense = calendarState.dailySummaries.values.sumOf { it.totalExpense }
+            val monthlyNet = monthlyIncome - monthlyExpense
+
+            TotalsRow(income = monthlyIncome, expense = monthlyExpense, total = monthlyNet)
+        }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -71,6 +79,15 @@ fun CalendarScreen(
             )
         }
 
+        // Selected date totals
+        item {
+            val selSummary = calendarState.dailySummaries[calendarState.selectedDate]
+            val income = selSummary?.totalIncome ?: 0.0
+            val expense = selSummary?.totalExpense ?: 0.0
+            val total = income - expense
+            TotalsRow(income = income, expense = expense, total = total)
+        }
+
         if (calendarState.selectedDateTransactions.isEmpty()) {
             item {
                 Box(
@@ -82,7 +99,14 @@ fun CalendarScreen(
             }
         } else {
             items(calendarState.selectedDateTransactions) { transaction ->
-                TransactionItem(transaction)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        CompactTransactionItem(tx = transaction, timePattern = "h:mm a")
+                    }
+                }
             }
         }
 
@@ -125,7 +149,7 @@ fun CalendarGrid(
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(7),
-            modifier = Modifier.height(280.dp),
+            modifier = Modifier.height(200.dp),
             userScrollEnabled = false
         ) {
             items(gridItems) { date ->
@@ -160,7 +184,6 @@ fun CalendarCell(
     }
 
     val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-
     Box(
         modifier = Modifier
             .aspectRatio(1f)
@@ -179,44 +202,21 @@ fun CalendarCell(
             )
             if (summary != null && !isSelected) {
                 Row {
-                    if (summary.totalIncome > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(IncomeGreen))
-                    if (summary.totalExpense > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(ExpenseRed))
+                    if (summary.totalIncome > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.income))
+                    if (summary.totalExpense > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.expense))
                 }
             }
         }
     }
 }
 
+
+
 @Composable
-private fun TransactionItem(tx: TransactionEntity) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = tx.description.ifBlank { "Transaction" },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-                Text(
-                    text = tx.date.toLocalTime().toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            val sign = if (tx.type == "EXPENSE") "-" else "+"
-            Text(
-                text = "${sign}₹${tx.amount}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
+fun TotalsRow(income: Double, expense: Double, total: Double) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(text = "Income: ₹${income.toInt()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.income)
+        Text(text = "Expense: ₹${expense.toInt()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.expense)
+        Text(text = "Total: ₹${total.toInt()}", style = MaterialTheme.typography.bodyMedium, color = if (total >= 0) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense)
     }
 }

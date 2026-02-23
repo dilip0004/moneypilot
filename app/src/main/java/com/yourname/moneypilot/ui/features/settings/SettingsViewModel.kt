@@ -70,7 +70,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun updateTrueBlack(enabled: Boolean) {
-        if (enabled) updateTheme(AppTheme.OLED)
-        else updateTheme(AppTheme.DARK)
+        viewModelScope.launch {
+            preferencesRepository.updateUseTrueBlack(enabled)
+        }
     }
 }
