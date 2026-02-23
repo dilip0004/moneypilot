@@ -5,30 +5,37 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.AccountEntity
+import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.data.repository.AccountRepository
-import com.yourname.moneypilot.domain.usecase.transaction.PerformTransferUseCase
+import com.yourname.moneypilot.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
 
 data class TransferState(
+    val accounts: List<AccountEntity> = emptyList(),
     val fromAccountId: Long? = null,
     val toAccountId: Long? = null,
     val amount: String = "",
-    val description: String = "",
-    val date: LocalDateTime = LocalDateTime.now(),
-    val accounts: List<AccountEntity> = emptyList()
+    val description: String = ""
 )
+
+sealed class TransferEvent {
+    data class FromAccountChanged(val accountId: Long) : TransferEvent()
+    data class ToAccountChanged(val accountId: Long) : TransferEvent()
+    data class EnteredAmount(val amount: String) : TransferEvent()
+    data class EnteredDescription(val description: String) : TransferEvent()
+    object PerformTransfer : TransferEvent()
+}
 
 @HiltViewModel
 class TransferViewModel @Inject constructor(
-    private val accountRepository: AccountRepository,
-    private val performTransferUseCase: PerformTransferUseCase
+    private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository
 ) : ViewModel() {
 
     private val _state = mutableStateOf(TransferState())
@@ -47,64 +54,73 @@ class TransferViewModel @Inject constructor(
     }
 
     private fun loadAccounts() {
-        accountRepository.getAllAccounts().onEach { accounts ->
-            _state.value = _state.value.copy(
-                accounts = accounts,
-                fromAccountId = _state.value.fromAccountId ?: accounts.firstOrNull()?.id,
-                toAccountId = _state.value.toAccountId ?: accounts.getOrNull(1)?.id
-            )
-        }.launchIn(viewModelScope)
+        viewModelScope.launch {
+            val accounts = accountRepository.getAllAccounts().first()
+            _state.value = _state.value.copy(accounts = accounts)
+        }
     }
 
     fun onEvent(event: TransferEvent) {
         when (event) {
-            is TransferEvent.FromAccountChanged -> _state.value = _state.value.copy(fromAccountId = event.value)
-            is TransferEvent.ToAccountChanged -> _state.value = _state.value.copy(toAccountId = event.value)
-            is TransferEvent.EnteredAmount -> _state.value = _state.value.copy(amount = event.value)
-            is TransferEvent.EnteredDescription -> _state.value = _state.value.copy(description = event.value)
+            is TransferEvent.FromAccountChanged -> _state.value = _state.value.copy(fromAccountId = event.accountId)
+            is TransferEvent.ToAccountChanged -> _state.value = _state.value.copy(toAccountId = event.accountId)
+            is TransferEvent.EnteredAmount -> _state.value = _state.value.copy(amount = event.amount)
+            is TransferEvent.EnteredDescription -> _state.value = _state.value.copy(description = event.description)
             is TransferEvent.PerformTransfer -> performTransfer()
         }
     }
 
     private fun performTransfer() {
         viewModelScope.launch {
-            val fromId = _state.value.fromAccountId
-            val toId = _state.value.toAccountId
-            val amount = _state.value.amount.toDoubleOrNull() ?: 0.0
+            val fromAccountId = _state.value.fromAccountId
+            val toAccountId = _state.value.toAccountId
+            val amount = _state.value.amount.toDoubleOrNull()
 
-            if (fromId == null || toId == null) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Please select both accounts"))
-                return@launch
-            }
-            if (fromId == toId) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Source and destination accounts must be different"))
-                return@launch
-            }
-            if (amount <= 0) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid amount"))
+            if (fromAccountId == null || toAccountId == null) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Please select both accounts."))
                 return@launch
             }
 
-            try {
-                performTransferUseCase(
-                    fromAccountId = fromId,
-                    toAccountId = toId,
-                    amount = amount,
-                    description = _state.value.description,
-                    date = _state.value.date
-                )
-                _eventFlow.emit(UiEvent.TransferSuccess)
-            } catch (e: Exception) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Transfer failed: ${e.message}"))
+            if (fromAccountId == toAccountId) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Cannot transfer to the same account."))
+                return@launch
             }
+
+            if (amount == null || amount <= 0) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid amount."))
+                return@launch
+            }
+
+            val now = LocalDateTime.now()
+
+            val withdrawal = TransactionEntity(
+                accountId = fromAccountId,
+                type = "EXPENSE", // Internal transfer, but logged as expense for the source
+                amount = amount,
+                description = "Transfer to ${getAccountName(toAccountId)}",
+                date = now
+            )
+
+            val deposit = TransactionEntity(
+                accountId = toAccountId,
+                type = "INCOME", // And as income for the destination
+                amount = amount,
+                description = "Transfer from ${getAccountName(fromAccountId)}",
+                date = now
+            )
+
+            transactionRepository.insertTransaction(withdrawal)
+            transactionRepository.insertTransaction(deposit)
+            
+            // Update account balances
+            accountRepository.updateBalance(fromAccountId, -amount)
+            accountRepository.updateBalance(toAccountId, amount)
+
+            _eventFlow.emit(UiEvent.TransferSuccess)
         }
     }
-}
 
-sealed class TransferEvent {
-    data class FromAccountChanged(val value: Long) : TransferEvent()
-    data class ToAccountChanged(val value: Long) : TransferEvent()
-    data class EnteredAmount(val value: String) : TransferEvent()
-    data class EnteredDescription(val value: String) : TransferEvent()
-    object PerformTransfer : TransferEvent()
+    private fun getAccountName(accountId: Long): String {
+        return _state.value.accounts.find { it.id == accountId }?.name ?: "Unknown Account"
+    }
 }
