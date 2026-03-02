@@ -8,7 +8,8 @@ import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.yourname.moneypilot.data.local.database.dao.TransactionDao
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
+import com.yourname.moneypilot.data.repository.TransactionRepository
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -20,7 +21,7 @@ import java.time.LocalTime
 class DailySummaryWorker @AssistedInject constructor(
     @Assisted private val context: Context,
     @Assisted workerParams: WorkerParameters,
-    private val transactionDao: TransactionDao,
+    private val transactionRepository: TransactionRepository,
     private val preferencesRepository: UserPreferencesRepository
 ) : CoroutineWorker(context, workerParams) {
 
@@ -33,11 +34,11 @@ class DailySummaryWorker @AssistedInject constructor(
             val startOfDay = today.atStartOfDay()
             val endOfDay = today.atTime(LocalTime.MAX)
 
-            // Use the one-shot query to avoid Flow collection issues in background workers
-            val transactions = transactionDao.getTransactionsByDateRangeOnce(startOfDay, endOfDay)
+            val transactionsWithDetails = transactionRepository.getTransactionsWithDetailsByDateRange(startOfDay, endOfDay).first()
+            val transactions = transactionsWithDetails.map { it.transaction }
             
-            val totalSpent = transactions.filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }.sumOf { it.amount }
-            val totalEarned = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
+            val totalSpent = transactions.filter { it.type == TransactionType.Expense }.sumOf { it.amount }
+            val totalEarned = transactions.filter { it.type == TransactionType.Income }.sumOf { it.amount }
 
             sendNotification(totalSpent, totalEarned)
             return Result.success()

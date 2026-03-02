@@ -7,7 +7,7 @@ import javax.inject.Inject
 class CreateTransactionUseCase @Inject constructor(
     private val transactionRepository: TransactionRepository
 ) {
-    suspend operator fun invoke(transaction: TransactionEntity): Long {
-        return transactionRepository.insertTransaction(transaction)
+    suspend operator fun invoke(transaction: TransactionEntity) {
+        transactionRepository.insertTransaction(transaction)
     }
 }

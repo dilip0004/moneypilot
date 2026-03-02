@@ -16,27 +16,25 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-// use MaterialTheme.colorScheme.income / expense
 import java.time.format.DateTimeFormatter
-import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
     showSearchBar: Boolean = true,
     onAddTransaction: () -> Unit,
-    onEditTransaction: (Long) -> Unit,
+    onEditTransaction: (String) -> Unit,
     viewModel: TransactionsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         floatingActionButton = {
-            if (showSearchBar) { // Only show FAB in the main Records hub
+            if (showSearchBar) { 
                 FloatingActionButton(
                     onClick = onAddTransaction,
                     modifier = Modifier.testTag("transactions_fab_add")
@@ -76,7 +74,6 @@ fun TransactionsScreen(
                         TransactionHistoryContent(
                             state = currentUiState.data,
                             onEdit = onEditTransaction,
-                            onDuplicate = { viewModel.duplicateTransaction(it) },
                             onDelete = { viewModel.deleteTransaction(it) }
                         )
                     }
@@ -97,8 +94,7 @@ fun TransactionsScreen(
 @Composable
 fun TransactionHistoryContent(
     state: TransactionsState,
-    onEdit: (Long) -> Unit,
-    onDuplicate: (TransactionEntity) -> Unit,
+    onEdit: (String) -> Unit,
     onDelete: (TransactionEntity) -> Unit
 ) {
     LazyColumn(
@@ -127,16 +123,15 @@ fun TransactionHistoryContent(
                     Text(
                         text = "Total: ₹${grouped.dailyTotal}",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (grouped.dailyTotal >= 0) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense
+                        // color = if (grouped.dailyTotal >= 0) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense
                     )
                 }
             }
-            items(grouped.transactions) { transaction ->
+            items(grouped.transactions) { transactionWithDetails ->
                 TransactionListItemWithMenu(
-                    transaction = transaction,
-                    onEdit = { onEdit(transaction.transaction.id) },
-                    onDuplicate = { onDuplicate(transaction.transaction) },
-                    onDelete = { onDelete(transaction.transaction) }
+                    transactionWithDetails = transactionWithDetails,
+                    onEdit = { onEdit(transactionWithDetails.transaction.id) },
+                    onDelete = { onDelete(transactionWithDetails.transaction) }
                 )
             }
         }
@@ -145,9 +140,8 @@ fun TransactionHistoryContent(
 
 @Composable
 fun TransactionListItemWithMenu(
-    transaction: TransactionWithCategory,
+    transactionWithDetails: TransactionWithDetails,
     onEdit: () -> Unit,
-    onDuplicate: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -156,7 +150,7 @@ fun TransactionListItemWithMenu(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("tx_item_${transaction.transaction.id}")
+                .testTag("tx_item_${transactionWithDetails.transaction.id}")
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onLongPress = { showMenu = true },
@@ -164,7 +158,7 @@ fun TransactionListItemWithMenu(
                     )
                 }
         ) {
-            CompactTransactionItem(transaction)
+            CompactTransactionItem(transactionWithDetails)
         }
 
         DropdownMenu(
@@ -179,13 +173,6 @@ fun TransactionListItemWithMenu(
                 }
             )
             DropdownMenuItem(
-                text = { Text("Duplicate") },
-                onClick = {
-                    showMenu = false
-                    onDuplicate()
-                }
-            )
-            DropdownMenuItem(
                 text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                 onClick = {
                     showMenu = false
@@ -195,5 +182,3 @@ fun TransactionListItemWithMenu(
         }
     }
 }
-
-// Using shared CompactTransactionItem composable from ui.common

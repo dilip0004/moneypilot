@@ -1,6 +1,7 @@
 package com.yourname.moneypilot.domain.usecase.transaction
 
 import com.yourname.moneypilot.data.repository.TransactionRepository
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
@@ -20,17 +21,19 @@ class CalculateMonthlySummaryUseCase @Inject constructor(
         val startDate = LocalDateTime.of(year, month, 1, 0, 0)
         val endDate = startDate.plusMonths(1).minusNanos(1)
         
-        return transactionRepository.getTransactionsByDateRange(startDate, endDate).map { transactions ->
-            val income = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
-            val expense = transactions.filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }.sumOf { it.amount }
+        return transactionRepository.getTransactionsWithDetailsByDateRange(startDate, endDate).map { transactionsWithDetails ->
+            val transactions = transactionsWithDetails.map { it.transaction }
+            
+            val income = transactions.filter { it.type == TransactionType.Income }.sumOf { it.amount }
+            val expense = transactions.filter { it.type == TransactionType.Expense }.sumOf { it.amount }
             
             val dailyMap = transactions
-                .filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }
-                .groupBy { it.date.dayOfMonth }
+                .filter { it.type == TransactionType.Expense }
+                .groupBy { it.dateTime.dayOfMonth }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
 
             val categoryMap = transactions
-                .filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" || it.type == "LOAN_REPAYMENT" }
+                .filter { it.type == TransactionType.Expense }
                 .groupBy { it.categoryId }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
                 

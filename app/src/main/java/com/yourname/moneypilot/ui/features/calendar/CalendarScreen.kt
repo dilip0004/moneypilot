@@ -11,7 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,11 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-// use MaterialTheme.colorScheme.income / expense
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.util.*
 
 @Composable
 fun CalendarScreen(
@@ -36,7 +34,6 @@ fun CalendarScreen(
 ) {
     val calendarState by viewModel.state.collectAsState()
 
-    // Sync ViewModel with the month selected in Dashboard header
     LaunchedEffect(currentMonth) {
         viewModel.onMonthChange(currentMonth)
     }
@@ -47,7 +44,6 @@ fun CalendarScreen(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Monthly totals row
         item {
             val monthlyIncome = calendarState.dailySummaries.values.sumOf { it.totalIncome }
             val monthlyExpense = calendarState.dailySummaries.values.sumOf { it.totalExpense }
@@ -79,7 +75,6 @@ fun CalendarScreen(
             )
         }
 
-        // Selected date totals
         item {
             val selSummary = calendarState.dailySummaries[calendarState.selectedDate]
             val income = selSummary?.totalIncome ?: 0.0
@@ -98,13 +93,13 @@ fun CalendarScreen(
                 }
             }
         } else {
-            items(calendarState.selectedDateTransactions) { transaction ->
+            items(calendarState.selectedDateTransactions) { transactionWithDetails ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
-                        CompactTransactionItem(tx = transaction, timePattern = "h:mm a")
+                        CompactTransactionItem(txWithDetails = transactionWithDetails, timePattern = "h:mm a")
                     }
                 }
             }
@@ -202,21 +197,19 @@ fun CalendarCell(
             )
             if (summary != null && !isSelected) {
                 Row {
-                    if (summary.totalIncome > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.income))
-                    if (summary.totalExpense > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.expense))
+                   // if (summary.totalIncome > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.income))
+                   // if (summary.totalExpense > 0) Box(modifier = Modifier.size(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.expense))
                 }
             }
         }
     }
 }
 
-
-
 @Composable
 fun TotalsRow(income: Double, expense: Double, total: Double) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(text = "Income: ₹${income.toInt()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.income)
-        Text(text = "Expense: ₹${expense.toInt()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.expense)
-        Text(text = "Total: ₹${total.toInt()}", style = MaterialTheme.typography.bodyMedium, color = if (total >= 0) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense)
+        //Text(text = "Income: ₹${income.toInt()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.income)
+        //Text(text = "Expense: ₹${expense.toInt()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.expense)
+        //Text(text = "Total: ₹${total.toInt()}", style = MaterialTheme.typography.bodyMedium, color = if (total >= 0) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense)
     }
 }

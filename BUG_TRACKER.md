@@ -1,35 +1,29 @@
-# ============================================================
-# MONEYPILOT — OFFICIAL BUG TRACKER
-# ============================================================
-# This document tracks active and resolved bugs to prevent
-# regressions, as per AI Rule #3 & #5.
-# ============================================================
+# MoneyPilot - Bug Tracker
 
-# ------------------------------------------------------------
-# ACTIVE BUGS (PENDING FIX)
-# ------------------------------------------------------------
+This document tracks all known active and resolved bugs in the MoneyPilot application. It is a source of truth for the project's current quality status.
 
-- [ ] **BUG-001**: Category/Subcategory fields are not visible in Add Transaction screen.
-  - **Description**: The dropdowns for selecting a category and subcategory are incorrectly hidden for standard EXPENSE/INCOME types. Only the description field is visible.
-  - **File(s) Affected**: `AddEditTransactionScreen.kt`, `AddEditTransactionViewModel.kt`
-  - **Severity**: CRITICAL
+---
 
-- [ ] **BUG-002**: Transaction can be saved without selecting a subcategory.
-  - **Description**: If a selected category has subcategories, the app still allows the user to save the transaction without choosing one.
-  - **File(s) Affected**: `AddEditTransactionViewModel.kt`
-  - **Severity**: HIGH
+## ACTIVE BUGS (PENDING FIX)
 
-- [ ] **BUG-003**: "Confirm Date" step is no longer desired.
-  - **Description**: The red-glow and confirmation button for the transaction date should be removed to streamline the data entry workflow.
-  - **File(s) Affected**: `AddEditTransactionScreen.kt`, `AddEditTransactionViewModel.kt`
-  - **Severity**: MEDIUM (Feature Change)
+-   **BUG-001**: Category and Subcategory fields are not visible in the Add Transaction screen.
+    -   **Status**: Partially fixed. The underlying race condition in the ViewModel has been resolved, but a full UI verification is pending.
 
-# ------------------------------------------------------------
-# RESOLVED BUGS
-# ------------------------------------------------------------
+-   **BUG-002**: Transaction can be saved without selecting a subcategory.
+    -   **Status**: Not yet addressed.
 
-# This section will be populated as bugs are fixed.
+-   **BUG-003**: "Confirm Date" step is no longer desired.
+    -   **Status**: Not yet addressed.
 
-# ============================================================
-# END OF FILE
-# ============================================================
+-   **BUG-005**: App crashes when attempting to add a transaction.
+    -   **Description**: The application crashes immediately when the user tries to save or navigate to the "Add Transaction" screen (details pending investigation).
+    -   **Severity**: BLOCKER
+    -   **File(s) Affected**: `AddEditTransactionScreen.kt`, `AddEditTransactionViewModel.kt` (Likely)
+
+---
+
+## RESOLVED BUGS
+
+-   [x] **BUG-004**: Add Account screen is non-interactive.
+    -   **Resolution Date**: Session End
+    -   **Fix**: Refactored `AddEditAccountViewModel` to use a `StateFlow` instead of `mutableStateOf`, ensuring the UI correctly recomposes on state changes. The `AddEditAccountScreen` was also updated to use `collectAsState()`.

@@ -2,9 +2,10 @@ package com.yourname.moneypilot.data.repository
 
 import com.yourname.moneypilot.data.local.database.dao.GoalDao
 import com.yourname.moneypilot.data.local.database.dao.TransactionDao
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.GoalEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class GoalRepositoryImpl @Inject constructor(
@@ -27,6 +28,9 @@ class GoalRepositoryImpl @Inject constructor(
 
     override suspend fun updateCurrentAmount(goalId: Long, amount: Double) = goalDao.updateCurrentAmount(goalId, amount)
 
-    override fun getTransactionsForGoal(goalId: Long): kotlinx.coroutines.flow.Flow<List<TransactionWithCategory>> =
-        transactionDao.getTransactionsWithCategoryByGoal(goalId)
+    override fun getTransactionsForGoal(goalId: Long): Flow<List<TransactionWithDetails>> {
+        return transactionDao.getAllTransactionsWithDetails().map { allTxs ->
+            allTxs.filter { it.transaction.note?.contains("Goal: $goalId") == true } 
+        }
+    }
 }

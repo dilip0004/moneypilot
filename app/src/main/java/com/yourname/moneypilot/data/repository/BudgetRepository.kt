@@ -12,4 +12,5 @@ interface BudgetRepository {
     suspend fun updateBudget(budget: BudgetEntity)
     suspend fun deleteBudget(budget: BudgetEntity)
     suspend fun updateSpentAmount(budgetId: Long, amount: Double)
+    suspend fun rolloverBudgets(from: LocalDate, to: LocalDate)
 }

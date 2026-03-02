@@ -1,43 +1,32 @@
 package com.yourname.moneypilot.domain.usecase.transaction
 
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
-import com.yourname.moneypilot.data.repository.AccountRepository
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.data.repository.TransactionRepository
 import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
 
 class PerformTransferUseCase @Inject constructor(
-    private val transactionRepository: TransactionRepository,
-    private val accountRepository: AccountRepository
+    private val transactionRepository: TransactionRepository
 ) {
     suspend operator fun invoke(
-        fromAccountId: Long,
-        toAccountId: Long,
+        fromWalletId: Long,
+        toWalletId: Long,
         amount: Double,
-        description: String,
+        note: String?,
         date: LocalDateTime
     ) {
-        // Create the transfer transaction record
-        val transaction = TransactionEntity(
-            accountId = fromAccountId,
-            transferToAccountId = toAccountId,
-            type = "TRANSFER",
+        val transfer = TransactionEntity(
+            id = UUID.randomUUID().toString(),
+            dateTime = date,
             amount = amount,
-            description = description,
-            date = date
+            type = TransactionType.Transfer,
+            walletFromId = fromWalletId,
+            walletToId = toWalletId,
+            transactionSourceType = "MANUAL_TRANSFER",
+            note = note
         )
-        transactionRepository.insertTransaction(transaction)
-
-        // Update from account balance
-        val fromAccount = accountRepository.getAccountById(fromAccountId)
-        fromAccount?.let {
-            accountRepository.updateAccount(it.copy(currentBalance = it.currentBalance - amount))
-        }
-
-        // Update to account balance
-        val toAccount = accountRepository.getAccountById(toAccountId)
-        toAccount?.let {
-            accountRepository.updateAccount(it.copy(currentBalance = it.currentBalance + amount))
-        }
+        transactionRepository.createTransfer(transfer)
     }
 }

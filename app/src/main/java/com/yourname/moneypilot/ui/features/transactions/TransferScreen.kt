@@ -23,8 +23,8 @@ fun TransferScreen(
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var fromAccountExpanded by remember { mutableStateOf(false) }
-    var toAccountExpanded by remember { mutableStateOf(false) }
+    var fromWalletExpanded by remember { mutableStateOf(false) }
+    var toWalletExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -55,29 +55,29 @@ fun TransferScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // From Account Dropdown
+            // From Wallet Dropdown
             ExposedDropdownMenuBox(
-                expanded = fromAccountExpanded,
-                onExpandedChange = { fromAccountExpanded = !fromAccountExpanded }
+                expanded = fromWalletExpanded,
+                onExpandedChange = { fromWalletExpanded = !fromWalletExpanded }
             ) {
                 OutlinedTextField(
-                    value = state.accounts.find { it.id == state.fromAccountId }?.name ?: "",
+                    value = state.wallets.find { it.id == state.fromWalletId }?.name ?: "",
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("From Account") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fromAccountExpanded) },
+                    label = { Text("From Wallet") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fromWalletExpanded) },
                     modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
                 ExposedDropdownMenu(
-                    expanded = fromAccountExpanded,
-                    onDismissRequest = { fromAccountExpanded = false }
+                    expanded = fromWalletExpanded,
+                    onDismissRequest = { fromWalletExpanded = false }
                 ) {
-                    state.accounts.forEach { account ->
+                    state.wallets.forEach { wallet ->
                         DropdownMenuItem(
-                            text = { Text(account.name) },
+                            text = { Text(wallet.name) },
                             onClick = {
-                                viewModel.onEvent(TransferEvent.FromAccountChanged(account.id))
-                                fromAccountExpanded = false
+                                viewModel.onEvent(TransferEvent.FromWalletChanged(wallet.id))
+                                fromWalletExpanded = false
                             }
                         )
                     }
@@ -90,29 +90,29 @@ fun TransferScreen(
                 modifier = Modifier.align(Alignment.CenterHorizontally).size(32.dp)
             )
 
-            // To Account Dropdown
+            // To Wallet Dropdown
             ExposedDropdownMenuBox(
-                expanded = toAccountExpanded,
-                onExpandedChange = { toAccountExpanded = !toAccountExpanded }
+                expanded = toWalletExpanded,
+                onExpandedChange = { toWalletExpanded = !toWalletExpanded }
             ) {
                 OutlinedTextField(
-                    value = state.accounts.find { it.id == state.toAccountId }?.name ?: "",
+                    value = state.wallets.find { it.id == state.toWalletId }?.name ?: "",
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text("To Account") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = toAccountExpanded) },
+                    label = { Text("To Wallet") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = toWalletExpanded) },
                     modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
                 ExposedDropdownMenu(
-                    expanded = toAccountExpanded,
-                    onDismissRequest = { toAccountExpanded = false }
+                    expanded = toWalletExpanded,
+                    onDismissRequest = { toWalletExpanded = false }
                 ) {
-                    state.accounts.forEach { account ->
+                    state.wallets.forEach { wallet ->
                         DropdownMenuItem(
-                            text = { Text(account.name) },
+                            text = { Text(wallet.name) },
                             onClick = {
-                                viewModel.onEvent(TransferEvent.ToAccountChanged(account.id))
-                                toAccountExpanded = false
+                                viewModel.onEvent(TransferEvent.ToWalletChanged(wallet.id))
+                                toWalletExpanded = false
                             }
                         )
                     }

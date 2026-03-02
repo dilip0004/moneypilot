@@ -99,7 +99,7 @@ class AddEditLoanViewModel @Inject constructor(
                         currentBalance = amount, // Initial balance is the total amount
                         monthlyPayment = _state.value.monthlyPayment.toDoubleOrNull() ?: 0.0,
                         type = _state.value.type,
-                        accountId = null // Can be linked later
+                        linkedWalletId = null // Can be linked later
                     )
                 )
                 _eventFlow.emit(UiEvent.SaveLoan)

@@ -8,15 +8,28 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 import com.yourname.moneypilot.data.local.database.util.LocalDateTimeSerializer
 import java.time.LocalDateTime
+import java.util.UUID
+
+enum class TransactionType {
+    Income,
+    Expense,
+    Transfer
+}
 
 @Entity(
     tableName = "transactions",
     foreignKeys = [
         ForeignKey(
-            entity = AccountEntity::class,
+            entity = WalletEntity::class,
             parentColumns = ["id"],
-            childColumns = ["account_id"],
-            onDelete = ForeignKey.CASCADE
+            childColumns = ["wallet_from_id"],
+            onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = WalletEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["wallet_to_id"],
+            onDelete = ForeignKey.SET_NULL
         ),
         ForeignKey(
             entity = CategoryEntity::class,
@@ -25,81 +38,57 @@ import java.time.LocalDateTime
             onDelete = ForeignKey.SET_NULL
         ),
         ForeignKey(
-            entity = SubcategoryEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["subcategory_id"],
-            onDelete = ForeignKey.SET_NULL
-        ),
-        ForeignKey(
-            entity = GoalEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["goal_id"],
-            onDelete = ForeignKey.SET_NULL
-        ),
-        ForeignKey(
             entity = LoanEntity::class,
             parentColumns = ["id"],
             childColumns = ["loan_id"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.SET_NULL
         )
     ],
     indices = [
-        Index("account_id"),
+        Index("wallet_from_id"),
+        Index("wallet_to_id"),
         Index("category_id"),
-        Index("subcategory_id"),
-        Index("goal_id"),
         Index("loan_id"),
-        Index("date"),
+        Index("dateTime"),
         Index("type")
     ]
 )
 @Serializable
 data class TransactionEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    @PrimaryKey
+    @ColumnInfo(name = "id")
+    val id: String = UUID.randomUUID().toString(),
 
-    @ColumnInfo(name = "account_id")
-    val accountId: Long,
-
-    @ColumnInfo(name = "category_id")
-    val categoryId: Long? = null,
-
-    @ColumnInfo(name = "subcategory_id")
-    val subcategoryId: Long? = null,
-
-    @ColumnInfo(name = "goal_id")
-    val goalId: Long? = null,
-
-    @ColumnInfo(name = "loan_id")
-    val loanId: Long? = null,
-
-    @ColumnInfo(name = "type")
-    val type: String, // "INCOME", "EXPENSE", "TRANSFER", "GOAL_CONTRIBUTION", "LOAN_REPAYMENT"
+    @Serializable(with = LocalDateTimeSerializer::class)
+    @ColumnInfo(name = "dateTime")
+    val dateTime: LocalDateTime,
 
     @ColumnInfo(name = "amount")
     val amount: Double,
 
-    @ColumnInfo(name = "description")
-    val description: String,
+    @ColumnInfo(name = "type")
+    val type: TransactionType,
 
-    @Serializable(with = LocalDateTimeSerializer::class)
-    @ColumnInfo(name = "date")
-    val date: LocalDateTime,
+    @ColumnInfo(name = "category_id")
+    val categoryId: Long? = null,
 
-    @ColumnInfo(name = "is_recurring")
-    val isRecurring: Boolean = false,
+    @ColumnInfo(name = "loan_id")
+    val loanId: Long? = null,
 
-    @ColumnInfo(name = "recurring_pattern")
-    val recurringPattern: String? = null, // "DAILY", "WEEKLY", "MONTHLY", "YEARLY"
+    @ColumnInfo(name = "wallet_from_id")
+    val walletFromId: Long? = null,
 
-    @ColumnInfo(name = "transfer_to_account_id")
-    val transferToAccountId: Long? = null,
+    @ColumnInfo(name = "wallet_to_id")
+    val walletToId: Long? = null,
 
-    @ColumnInfo(name = "attachment_path")
-    val attachmentPath: String? = null,
+    @ColumnInfo(name = "transaction_source_type")
+    val transactionSourceType: String,
 
     @ColumnInfo(name = "note")
     val note: String? = null,
+
+    @ColumnInfo(name = "soft_deleted", defaultValue = "0")
+    val softDeleted: Boolean = false,
 
     @Serializable(with = LocalDateTimeSerializer::class)
     @ColumnInfo(name = "created_at")

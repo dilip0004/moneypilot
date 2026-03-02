@@ -11,8 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.sp
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
-import androidx.compose.runtime.getValue
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -140,15 +139,16 @@ fun GoalRecentEntries(goalId: Long, viewModel: GoalsViewModel) {
     if (entries.isNotEmpty()) {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             Text(text = "Recent entries", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
-            entries.take(3).forEach { tx ->
+            entries.take(3).forEach { txWithDetails ->
                 Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
                     Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        val title = if (tx.transaction.type == "GOAL_CONTRIBUTION" && tx.goal != null) tx.goal.name else listOfNotNull(tx.category?.name, tx.subcategory?.name).joinToString(" • ").ifBlank { "Uncategorized" }
+                        val tx = txWithDetails.transaction
+                        val title = txWithDetails.category?.name ?: tx.note ?: "Uncategorized"
                         Column {
                             Text(title, style = MaterialTheme.typography.bodyMedium)
-                            Text(tx.transaction.date.toLocalDate().toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(tx.dateTime.toLocalDate().toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(text = "₹${tx.transaction.amount}", style = MaterialTheme.typography.bodyLarge, fontSize = 16.sp)
+                        Text(text = "₹${tx.amount}", style = MaterialTheme.typography.bodyLarge, fontSize = 16.sp)
                     }
                 }
             }

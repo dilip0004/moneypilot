@@ -27,6 +27,8 @@ import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
 import com.yourname.moneypilot.domain.loan.LoanAutoDeductionProcessor
 import com.yourname.moneypilot.domain.monthly.MonthlyRolloverProcessor
+import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCase
+import com.yourname.moneypilot.ui.features.accounts.AccountDetailsScreen
 import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
@@ -40,6 +42,7 @@ import com.yourname.moneypilot.ui.features.investments.AddEditInvestmentScreen
 import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
 import com.yourname.moneypilot.ui.features.planning.AddEditBigBillScreen
 import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
+import com.yourname.moneypilot.ui.features.reconciliation.ReconciliationScreen
 import com.yourname.moneypilot.ui.features.reports.ReportsScreen
 import com.yourname.moneypilot.ui.features.settings.AppearanceScreen
 import com.yourname.moneypilot.ui.features.settings.DiagnosticsScreen
@@ -53,6 +56,7 @@ import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -62,12 +66,10 @@ class MainActivity : ComponentActivity() {
 
     @javax.inject.Inject
     lateinit var monthlyRolloverProcessor: MonthlyRolloverProcessor
+    
+    @javax.inject.Inject
+    lateinit var verifyLedgerIntegrityUseCase: VerifyLedgerIntegrityUseCase
 
-    /**
-     * UI automation stability:
-     * During instrumentation tests we must not run startup background processors
-     * or show runtime permission dialogs because tests will become flaky.
-     */
     private fun isRunningUiTest(): Boolean {
         return try {
             Class.forName("androidx.test.espresso.Espresso")
@@ -80,11 +82,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Skip processors during UI tests (important: prevents activity restart/refresh flakiness)
         if (!isRunningUiTest()) {
             lifecycleScope.launch {
                 loanAutoDeductionProcessor.process()
                 monthlyRolloverProcessor.process()
+                val mismatches = verifyLedgerIntegrityUseCase()
+                if (mismatches.isNotEmpty()) {
+                    Timber.e("LEDGER INTEGRITY CHECK FAILED: ${mismatches.size} mismatches found.")
+                    mismatches.forEach { Timber.e("Mismatch -> ${it}") }
+                }
             }
         }
 
@@ -103,7 +109,6 @@ class MainActivity : ComponentActivity() {
             val isOled = preferences?.theme == AppTheme.OLED
             val useTrueBlackPref = preferences?.useTrueBlack == true
 
-            // Skip permission request during UI tests
             if (!isRunningUiTest() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val context = LocalContext.current
                 var hasNotificationPermission by remember {
@@ -222,7 +227,8 @@ fun MainScreen() {
                 AccountsHubScreen(
                     onAddAccount = { navController.navigate("add_account") },
                     onAddLoan = { navController.navigate("add_loan") },
-                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") }
+                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
+                    onAccountClick = { walletId -> navController.navigate("account_details/$walletId") } 
                 )
             }
 
@@ -246,7 +252,8 @@ fun MainScreen() {
                     onNavigateToSecurity = { navController.navigate("security") },
                     onNavigateToNotifications = { navController.navigate("notifications") },
                     onNavigateToBackup = { navController.navigate("backup") },
-                    onNavigateToDiagnostics = { navController.navigate("diagnostics") }
+                    onNavigateToDiagnostics = { navController.navigate("diagnostics") },
+                    onNavigateToReconciliation = { navController.navigate("reconciliation") }
                 )
             }
 
@@ -257,14 +264,16 @@ fun MainScreen() {
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("diagnostics") { DiagnosticsScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("diagnostics") { DiagnosticsScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToReconciliation = { navController.navigate("reconciliation") }) }
             composable("add_account") { AddEditAccountScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("reconciliation") { ReconciliationScreen(onPopBackStack = { navController.popBackStack() }) }
 
             composable("accounts_list") {
                 AccountsHubScreen(
                     onAddAccount = { navController.navigate("add_account") },
                     onAddLoan = { navController.navigate("add_loan")},
-                        onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") }
+                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
+                    onAccountClick = { walletId -> navController.navigate("account_details/$walletId") } 
                 )
             }
 
@@ -273,10 +282,17 @@ fun MainScreen() {
             }
 
             composable(
+                route = "account_details/{walletId}", 
+                arguments = listOf(navArgument("walletId") { type = NavType.LongType })
+            ) {
+                AccountDetailsScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable(
                 route = "add_transaction?date={date}&transactionId={transactionId}",
                 arguments = listOf(
                     navArgument("date") { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("transactionId") { type = NavType.LongType; defaultValue = -1L }
+                    navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null }
                 )
             ) {
                 AddEditTransactionScreen(

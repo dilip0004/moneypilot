@@ -20,12 +20,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-// use MaterialTheme.colorScheme.income / expense
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsScreen(
     onPopBackStack: () -> Unit,
+    onNavigateToReconciliation: () -> Unit, // Added
     viewModel: DiagnosticsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -61,6 +61,10 @@ fun DiagnosticsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
+                    Button(onClick = onNavigateToReconciliation, modifier = Modifier.fillMaxWidth()) {
+                        Text("Run Ledger Integrity Check")
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         "System Integrity Audit",
                         style = MaterialTheme.typography.titleMedium,
@@ -86,9 +90,9 @@ fun DiagnosticsScreen(
 fun TestCaseItem(test: TestCase) {
     val statusColor by animateColorAsState(
         targetValue = when (test.status) {
-            TestStatus.PASSED -> MaterialTheme.colorScheme.income
-            TestStatus.FAILED -> MaterialTheme.colorScheme.expense
-            TestStatus.RUNNING -> MaterialTheme.colorScheme.primary
+            TestStatus.PASSED -> MaterialTheme.colorScheme.primary
+            TestStatus.FAILED -> MaterialTheme.colorScheme.error
+            TestStatus.RUNNING -> MaterialTheme.colorScheme.secondary
             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
         },
         label = "status_color"
@@ -116,7 +120,7 @@ fun TestCaseItem(test: TestCase) {
                         Text(
                         text = "Error: ${test.errorMessage}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.expense,
+                        color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -124,8 +128,8 @@ fun TestCaseItem(test: TestCase) {
             
             when (test.status) {
                 TestStatus.RUNNING -> CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                TestStatus.PASSED -> Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.income)
-                TestStatus.FAILED -> Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.expense)
+                TestStatus.PASSED -> Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                TestStatus.FAILED -> Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error)
                 else -> Icon(Icons.Default.Refresh, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
             }
         }

@@ -21,7 +21,7 @@ import javax.inject.Inject
 @Serializable
 data class MoneyPilotBackup(
     val version: Int,
-    val accounts: List<AccountEntity>,
+    val wallets: List<WalletEntity>, // Changed from accounts/AccountEntity
     val categories: List<CategoryEntity>,
     val subcategories: List<SubcategoryEntity>,
     val transactions: List<TransactionEntity>,
@@ -49,16 +49,16 @@ class BackupRepository @Inject constructor(
 
     suspend fun createJsonBackup(): String {
         val backup = MoneyPilotBackup(
-            version = 7,
-            accounts = database.accountDao().getAllAccountsList(),
+            version = 11,
+            wallets = database.walletDao().getAllWalletsList(),
             categories = database.categoryDao().getAllCategoriesList(),
             subcategories = database.categoryDao().getAllSubcategoriesList(),
-            transactions = database.transactionDao().getAllTransactionsList(),
+            transactions = database.transactionDao().getAllTransactionsForBackup(),
             budgets = database.budgetDao().getAllBudgetsList(),
             goals = database.goalDao().getAllGoalsList(),
             loans = database.loanDao().getAllLoansList(),
             investments = database.investmentDao().getAllInvestmentsList(),
-            distributionRules = database.distributionRuleDao().getAllRulesList(),
+            distributionRules = database.distributionRuleDao().getAllRules(),
             bigBills = database.bigBillDao().getAllBigBillsList()
         )
         return json.encodeToString(backup)
@@ -70,11 +70,9 @@ class BackupRepository @Inject constructor(
             val backup = json.decodeFromString<MoneyPilotBackup>(content)
             
             database.withTransaction {
-                // Wipe existing data safely
                 clearAllData()
                 
-                // Restore in correct order to respect dependencies
-                database.accountDao().insertAll(backup.accounts)
+                database.walletDao().insertAll(backup.wallets)
                 database.categoryDao().insertAllCategories(backup.categories)
                 database.categoryDao().insertAllSubcategories(backup.subcategories)
                 database.transactionDao().insertAll(backup.transactions)
@@ -104,16 +102,15 @@ class BackupRepository @Inject constructor(
         return stringBuilder.toString()
     }
 
-    private fun clearAllData() {
-        database.query("DELETE FROM accounts", null).close()
-        database.query("DELETE FROM categories", null).close()
-        database.query("DELETE FROM subcategories", null).close()
-        database.query("DELETE FROM transactions", null).close()
-        database.query("DELETE FROM budgets", null).close()
-        database.query("DELETE FROM goals", null).close()
-        database.query("DELETE FROM loans", null).close()
-        database.query("DELETE FROM investments", null).close()
-        database.query("DELETE FROM distribution_rules", null).close()
-        database.query("DELETE FROM big_bills", null).close()
+    private suspend fun clearAllData() {
+        database.walletDao().deleteAll()
+        database.categoryDao().deleteAll()
+        database.transactionDao().deleteAll()
+        database.budgetDao().deleteAll()
+        database.goalDao().deleteAll()
+        database.loanDao().deleteAll()
+        database.investmentDao().deleteAll()
+        database.distributionRuleDao().deleteAll()
+        database.bigBillDao().deleteAll()
     }
 }

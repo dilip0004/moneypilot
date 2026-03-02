@@ -1,6 +1,5 @@
 package com.yourname.moneypilot.ui.features.transactions
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -14,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +20,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -41,16 +40,13 @@ fun AddEditTransactionScreen(
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
-    val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
     var showCalculator by remember { mutableStateOf(false) }
-    var showAccountDropdown by remember { mutableStateOf(false) }
+    var showWalletDropdown by remember { mutableStateOf(false) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var showSubcategoryDropdown by remember { mutableStateOf(false) }
-    var showGoalDropdown by remember { mutableStateOf(false) }
-    var showLoanDropdown by remember { mutableStateOf(false) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -79,9 +75,11 @@ fun AddEditTransactionScreen(
                 TextButton(onClick = {
                     showDatePicker = false
                     showTimePicker = true
-                }) { Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.next)) }
+                }) { Text("Next") }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.cancel)) } }
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
         ) {
             DatePicker(state = datePickerState)
         }
@@ -99,7 +97,7 @@ fun AddEditTransactionScreen(
                     val selectedTime = LocalTime.of(timePickerState.hour, timePickerState.minute)
                     viewModel.onEvent(AddEditTransactionEvent.DateChanged(LocalDateTime.of(selectedDate, selectedTime)))
                     showTimePicker = false
-                }) { Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.ok)) }
+                }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } },
             text = { TimePicker(state = timePickerState) }
@@ -117,18 +115,6 @@ fun AddEditTransactionScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        clipboardManager.getText()?.text?.let { viewModel.onEvent(AddEditTransactionEvent.PasteSms(it)) }
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.AutoFixHigh,
-                            contentDescription = "Magic Paste",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    IconButton(onClick = { viewModel.onEvent(AddEditTransactionEvent.SaveAndAddAnother) }) {
-                        Icon(imageVector = Icons.Default.Add, contentDescription = "Save & Add Another")
-                    }
                     IconButton(onClick = {
                         showCalculator = false
                         onNavigateToTransfer()
@@ -163,24 +149,6 @@ fun AddEditTransactionScreen(
                     .padding(bottom = if (showCalculator) 300.dp else 0.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (!state.isTruthReviewed) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Data parsed from SMS. Review details.", style = MaterialTheme.typography.bodySmall)
-                            Button(onClick = { viewModel.onEvent(AddEditTransactionEvent.AcceptTruth) }) {
-                                Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.accept))
-                            }
-                        }
-                    }
-                }
-
                 // Date & Time field
                 Surface(
                     onClick = {
@@ -201,7 +169,7 @@ fun AddEditTransactionScreen(
                         Icon(Icons.Default.CalendarMonth, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(androidx.compose.ui.res.stringResource(com.yourname.moneypilot.R.string.transaction_date_time), style = MaterialTheme.typography.labelSmall)
+                            Text("Date & Time", style = MaterialTheme.typography.labelSmall)
                             Text(
                                 text = state.date.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy - HH:mm")),
                                 style = MaterialTheme.typography.bodyLarge,
@@ -212,101 +180,42 @@ fun AddEditTransactionScreen(
                 }
 
                 ExposedDropdownMenuBox(
-                    expanded = showAccountDropdown,
+                    expanded = showWalletDropdown,
                     onExpandedChange = {
-                        showAccountDropdown = !showAccountDropdown
-                        if (showAccountDropdown) {
+                        showWalletDropdown = !showWalletDropdown
+                        if (showWalletDropdown) {
                             focusManager.clearFocus(); showCalculator = false
                         }
                     }
                 ) {
                     OutlinedTextField(
-                        value = state.accounts.find { acc -> acc.id == state.accountId }?.name ?: "Select Account",
+                        value = state.wallets.find { it.id == state.walletFromId }?.name ?: "Select Wallet",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Wallet / Account") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showAccountDropdown) },
+                        label = { Text("Wallet") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showWalletDropdown) },
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth()
                             .testTag("add_tx_account")
                     )
                     ExposedDropdownMenu(
-                        expanded = showAccountDropdown,
-                        onDismissRequest = { showAccountDropdown = false }
+                        expanded = showWalletDropdown,
+                        onDismissRequest = { showWalletDropdown = false }
                     ) {
-                        state.accounts.forEach { account ->
+                        state.wallets.forEach { wallet ->
                             DropdownMenuItem(
-                                modifier = Modifier.testTag("dropdown_item"),
-                                text = { Text(account.name) },
+                                text = { Text(wallet.name) },
                                 onClick = {
-                                    viewModel.onEvent(AddEditTransactionEvent.AccountChanged(account.id))
-                                    showAccountDropdown = false
+                                    viewModel.onEvent(AddEditTransactionEvent.WalletChanged(wallet.id))
+                                    showWalletDropdown = false
                                 }
                             )
                         }
                     }
                 }
 
-                if (state.type == "LOAN_REPAYMENT") {
-                    ExposedDropdownMenuBox(
-                        expanded = showLoanDropdown,
-                        onExpandedChange = {
-                            showLoanDropdown = !showLoanDropdown
-                            if (showLoanDropdown) { focusManager.clearFocus(); showCalculator = false }
-                        }
-                    ) {
-                        OutlinedTextField(
-                            value = state.loans.find { l -> l.id == state.loanId }?.name ?: "Select Loan",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Loan to Repay") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showLoanDropdown) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(expanded = showLoanDropdown, onDismissRequest = { showLoanDropdown = false }) {
-                            state.loans.forEach { loan ->
-                                DropdownMenuItem(
-                                    modifier = Modifier.testTag("dropdown_item"),
-                                    text = { Text(loan.name) },
-                                    onClick = {
-                                        viewModel.onEvent(AddEditTransactionEvent.LoanChanged(loan.id))
-                                        showLoanDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                } else if (state.type == "GOAL_CONTRIBUTION") {
-                    ExposedDropdownMenuBox(
-                        expanded = showGoalDropdown,
-                        onExpandedChange = {
-                            showGoalDropdown = !showGoalDropdown
-                            if (showGoalDropdown) { focusManager.clearFocus(); showCalculator = false }
-                        }
-                    ) {
-                        OutlinedTextField(
-                            value = state.goals.find { g -> g.id == state.goalId }?.name ?: "Select Goal",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Savings Goal") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showGoalDropdown) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(expanded = showGoalDropdown, onDismissRequest = { showGoalDropdown = false }) {
-                            state.goals.forEach { goal ->
-                                DropdownMenuItem(
-                                    modifier = Modifier.testTag("dropdown_item"),
-                                    text = { Text(goal.name) },
-                                    onClick = {
-                                        viewModel.onEvent(AddEditTransactionEvent.GoalChanged(goal.id))
-                                        showGoalDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                } else {
+                if (state.type != TransactionType.Transfer) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         ExposedDropdownMenuBox(
                             expanded = showCategoryDropdown,
@@ -330,7 +239,6 @@ fun AddEditTransactionScreen(
                             ExposedDropdownMenu(expanded = showCategoryDropdown, onDismissRequest = { showCategoryDropdown = false }) {
                                 state.categories.forEach { category ->
                                     DropdownMenuItem(
-                                        modifier = Modifier.testTag("dropdown_item"),
                                         text = { Text("${category.icon} ${category.name}") },
                                         onClick = {
                                             viewModel.onEvent(AddEditTransactionEvent.CategoryChanged(category.id))
@@ -364,7 +272,6 @@ fun AddEditTransactionScreen(
                                 ExposedDropdownMenu(expanded = showSubcategoryDropdown, onDismissRequest = { showSubcategoryDropdown = false }) {
                                     state.subcategories.forEach { subItem ->
                                         DropdownMenuItem(
-                                            modifier = Modifier.testTag("dropdown_item"),
                                             text = { Text(subItem.name) },
                                             onClick = {
                                                 viewModel.onEvent(AddEditTransactionEvent.SubcategoryChanged(subItem.id))
@@ -382,33 +289,25 @@ fun AddEditTransactionScreen(
                     value = state.description,
                     onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredDescription(it)) },
                     label = { Text("Description") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("add_tx_description")
-                        .onFocusChanged { if (it.isFocused) showCalculator = false },
+                    modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) showCalculator = false },
                     keyboardOptions = KeyboardOptions(
                         imeAction = ImeAction.Next,
                         capitalization = KeyboardCapitalization.Sentences
                     ),
-                    keyboardActions = KeyboardActions(onNext = {
-                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
-                    })
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) })
                 )
 
                 OutlinedTextField(
                     value = state.amount,
                     onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredAmount(it)) },
                     label = { Text("Amount") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("add_tx_amount")
-                        .onFocusChanged {
-                            if (it.isFocused) {
-                                focusManager.clearFocus()
-                                showCalculator = true
-                                coroutineScope.launch { scrollState.animateScrollTo(scrollState.maxValue) }
-                            }
-                        },
+                    modifier = Modifier.fillMaxWidth().onFocusChanged {
+                        if (it.isFocused) {
+                            focusManager.clearFocus()
+                            showCalculator = true
+                            coroutineScope.launch { scrollState.animateScrollTo(scrollState.maxValue) }
+                        }
+                    },
                     readOnly = true,
                     prefix = { Text("₹ ") }
                 )
@@ -418,24 +317,14 @@ fun AddEditTransactionScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilterChip(
-                        selected = state.type == "EXPENSE",
-                        onClick = { showCalculator = false; viewModel.onEvent(AddEditTransactionEvent.TypeChanged("EXPENSE")) },
+                        selected = state.type == TransactionType.Expense,
+                        onClick = { viewModel.onEvent(AddEditTransactionEvent.TypeChanged(TransactionType.Expense)) },
                         label = { Text("Expense") }
                     )
                     FilterChip(
-                        selected = state.type == "INCOME",
-                        onClick = { showCalculator = false; viewModel.onEvent(AddEditTransactionEvent.TypeChanged("INCOME")) },
+                        selected = state.type == TransactionType.Income,
+                        onClick = { viewModel.onEvent(AddEditTransactionEvent.TypeChanged(TransactionType.Income)) },
                         label = { Text("Income") }
-                    )
-                    FilterChip(
-                        selected = state.type == "GOAL_CONTRIBUTION",
-                        onClick = { showCalculator = false; viewModel.onEvent(AddEditTransactionEvent.TypeChanged("GOAL_CONTRIBUTION")) },
-                        label = { Text("Goal") }
-                    )
-                    FilterChip(
-                        selected = state.type == "LOAN_REPAYMENT",
-                        onClick = { showCalculator = false; viewModel.onEvent(AddEditTransactionEvent.TypeChanged("LOAN_REPAYMENT")) },
-                        label = { Text("Repay") }
                     )
                 }
 

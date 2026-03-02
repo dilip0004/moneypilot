@@ -1,85 +1,32 @@
 package com.yourname.moneypilot.data.local.database.dao
 
 import androidx.room.*
-import com.yourname.moneypilot.data.local.database.entities.AccountEntity
-import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
-import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
-import com.yourname.moneypilot.data.local.database.entities.GoalEntity
+import com.yourname.moneypilot.data.local.database.entities.*
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
-data class TransactionWithCategory(
+data class TransactionWithDetails(
     @Embedded
     val transaction: TransactionEntity,
-    @Relation(
-        parentColumn = "category_id",
-        entityColumn = "id"
-    )
+
+    @Relation(parentColumn = "category_id", entityColumn = "id")
     val category: CategoryEntity?,
-    @Relation(
-        parentColumn = "subcategory_id",
-        entityColumn = "id"
-    )
-    val subcategory: SubcategoryEntity?,
-    @Relation(
-        parentColumn = "account_id",
-        entityColumn = "id"
-    )
-    val account: AccountEntity?
-    ,
-    @Relation(
-        parentColumn = "goal_id",
-        entityColumn = "id"
-    )
-    val goal: GoalEntity?
+
+    @Relation(parentColumn = "wallet_from_id", entityColumn = "id")
+    val walletFrom: WalletEntity?,
+
+    @Relation(parentColumn = "wallet_to_id", entityColumn = "id")
+    val walletTo: WalletEntity?
 )
 
 @Dao
 interface TransactionDao {
 
-    @Query(
-        """
-        SELECT COALESCE(SUM(
-            CASE
-                WHEN type IN ('INCOME','TRANSFER_IN') THEN amount
-                WHEN type IN ('EXPENSE','TRANSFER_OUT','LOAN_REPAYMENT','GOAL_CONTRIBUTION') THEN -amount
-                ELSE 0
-            END
-        ), 0)
-        FROM transactions
-        WHERE account_id = :accountId AND date <= :asOf
-        """
-    )
-    suspend fun getBalanceAt(accountId: Long, asOf: LocalDateTime): Double
-
-    @Query(
-        """
-        SELECT COALESCE(SUM(amount), 0)
-        FROM transactions
-        WHERE account_id = :accountId
-          AND type IN ('INCOME','TRANSFER_IN')
-          AND date BETWEEN :start AND :end
-        """
-    )
-    suspend fun getIncomeInRange(accountId: Long, start: LocalDateTime, end: LocalDateTime): Double
-
-    @Query(
-        """
-        SELECT COALESCE(SUM(amount), 0)
-        FROM transactions
-        WHERE account_id = :accountId
-          AND type IN ('EXPENSE','TRANSFER_OUT','LOAN_REPAYMENT','GOAL_CONTRIBUTION')
-          AND date BETWEEN :start AND :end
-        """
-    )
-    suspend fun getExpenseInRange(accountId: Long, start: LocalDateTime, end: LocalDateTime): Double
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(transaction: TransactionEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(transaction: TransactionEntity): Long
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(transactions: List<TransactionEntity>): List<Long>
+    suspend fun insertAll(transactions: List<TransactionEntity>)
 
     @Update
     suspend fun update(transaction: TransactionEntity)
@@ -87,45 +34,42 @@ interface TransactionDao {
     @Delete
     suspend fun delete(transaction: TransactionEntity)
 
-    @Query("DELETE FROM transactions WHERE id = :transactionId")
-    suspend fun deleteById(transactionId: Long)
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
 
-    @Query("SELECT * FROM transactions WHERE id = :transactionId")
-    suspend fun getTransactionById(transactionId: Long): TransactionEntity?
+    @Query("UPDATE transactions SET soft_deleted = 1 WHERE id = :transactionId")
+    suspend fun softDeleteById(transactionId: String)
+
+    @Query("SELECT * FROM transactions WHERE id = :transactionId AND soft_deleted = 0")
+    suspend fun getTransactionById(transactionId: String): TransactionEntity?
 
     @Query("SELECT * FROM transactions")
-    suspend fun getAllTransactionsList(): List<TransactionEntity>
+    suspend fun getAllTransactionsForBackup(): List<TransactionEntity>
+    
+    @Query("SELECT * FROM transactions WHERE wallet_from_id = :walletId OR wallet_to_id = :walletId")
+    suspend fun getTransactionsForWallet(walletId: Long): List<TransactionEntity>
 
     @Transaction
-    @Query("SELECT * FROM transactions ORDER BY date DESC, created_at DESC")
-    fun getAllTransactionsWithCategory(): Flow<List<TransactionWithCategory>>
+    @Query("SELECT * FROM transactions WHERE soft_deleted = 0 ORDER BY dateTime DESC")
+    fun getAllTransactionsWithDetails(): Flow<List<TransactionWithDetails>>
 
     @Transaction
-    @Query("SELECT * FROM transactions WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC, created_at DESC")
-    fun getTransactionsWithCategoryByDateRange(
+    @Query("SELECT * FROM transactions WHERE dateTime BETWEEN :startDate AND :endDate AND soft_deleted = 0 ORDER BY dateTime DESC")
+    fun getTransactionsWithDetailsByDateRange(
         startDate: LocalDateTime,
         endDate: LocalDateTime
-    ): Flow<List<TransactionWithCategory>>
-
-    @Transaction
-    @Query("SELECT * FROM transactions WHERE goal_id = :goalId ORDER BY date DESC, created_at DESC")
-    fun getTransactionsWithCategoryByGoal(goalId: Long): Flow<List<TransactionWithCategory>>
-
-    @Query("SELECT * FROM transactions WHERE date BETWEEN :startDate AND :endDate")
-    suspend fun getTransactionsByDateRangeOnce(
-        startDate: LocalDateTime,
-        endDate: LocalDateTime
-    ): List<TransactionEntity>
+    ): Flow<List<TransactionWithDetails>>
 
     @Query(
         """
         SELECT SUM(amount) FROM transactions
         WHERE type = :type
-        AND date BETWEEN :startDate AND :endDate
+        AND dateTime BETWEEN :startDate AND :endDate
+        AND soft_deleted = 0
         """
     )
     suspend fun getTotalSumByType(
-        type: String,
+        type: TransactionType,
         startDate: LocalDateTime,
         endDate: LocalDateTime
     ): Double?
@@ -134,8 +78,9 @@ interface TransactionDao {
         """
         SELECT SUM(amount) FROM transactions
         WHERE category_id = :categoryId
-        AND type = 'EXPENSE'
-        AND date BETWEEN :startDate AND :endDate
+        AND type = 'Expense'
+        AND dateTime BETWEEN :startDate AND :endDate
+        AND soft_deleted = 0
         """
     )
     suspend fun getCategoryExpenseSum(
@@ -144,9 +89,6 @@ interface TransactionDao {
         endDate: LocalDateTime
     ): Double?
 
-    @Query("SELECT COUNT(*) FROM transactions")
+    @Query("SELECT COUNT(*) FROM transactions WHERE soft_deleted = 0")
     suspend fun getTransactionCount(): Int
-
-    @Query("SELECT * FROM transactions WHERE is_recurring = 1")
-    fun getRecurringTransactions(): Flow<List<TransactionEntity>>
 }

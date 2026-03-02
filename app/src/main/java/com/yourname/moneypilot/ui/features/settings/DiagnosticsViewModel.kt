@@ -33,7 +33,7 @@ data class DiagnosticsState(
 @HiltViewModel
 class DiagnosticsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
-    private val accountRepository: AccountRepository,
+    private val walletRepository: WalletRepository, // Updated
     private val loanRepository: LoanRepository,
     private val goalRepository: GoalRepository
 ) : ViewModel() {
@@ -84,21 +84,18 @@ class DiagnosticsViewModel @Inject constructor(
                     else "Amount mismatch: expected 500.0, got ${parsed.amount}"
                 }
                 "balance_sync" -> {
-                    // Internal check of repo methods
-                    accountRepository.getAllAccounts().first()
+                    walletRepository.getAllWallets().first()
                     null
                 }
                 "loan_repayment" -> {
-                    // Verify calculation math
                     loanRepository.getAllLoans().first()
                     null
                 }
                 "db_integrity" -> {
-                    transactionRepository.getAllTransactions().first()
+                    transactionRepository.getAllTransactionsWithDetails().first()
                     null
                 }
                 "serialization" -> {
-                    // Check if serializers are registered
                     null
                 }
                 else -> null

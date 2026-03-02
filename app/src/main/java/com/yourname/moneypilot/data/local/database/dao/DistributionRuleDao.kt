@@ -6,21 +6,22 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DistributionRuleDao {
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertRule(rule: DistributionRuleEntity): Long
+    suspend fun insert(rule: DistributionRuleEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(rules: List<DistributionRuleEntity>)
 
-    @Update
-    suspend fun updateRule(rule: DistributionRuleEntity)
-
     @Delete
-    suspend fun deleteRule(rule: DistributionRuleEntity)
+    suspend fun delete(rule: DistributionRuleEntity)
 
     @Query("SELECT * FROM distribution_rules ORDER BY priority ASC")
-    fun getAllRules(): Flow<List<DistributionRuleEntity>>
+    fun getAllRulesAsFlow(): Flow<List<DistributionRuleEntity>>
 
-    @Query("SELECT * FROM distribution_rules")
-    suspend fun getAllRulesList(): List<DistributionRuleEntity>
+    @Query("SELECT * FROM distribution_rules ORDER BY priority ASC")
+    suspend fun getAllRules(): List<DistributionRuleEntity>
+
+    @Query("DELETE FROM distribution_rules")
+    suspend fun deleteAll()
 }

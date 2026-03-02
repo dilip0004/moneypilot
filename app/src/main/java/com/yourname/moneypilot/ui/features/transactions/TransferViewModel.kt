@@ -4,29 +4,31 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.yourname.moneypilot.data.local.database.entities.AccountEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
-import com.yourname.moneypilot.data.repository.AccountRepository
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
+import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.data.repository.TransactionRepository
+import com.yourname.moneypilot.data.repository.WalletRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
 
 data class TransferState(
-    val accounts: List<AccountEntity> = emptyList(),
-    val fromAccountId: Long? = null,
-    val toAccountId: Long? = null,
+    val wallets: List<WalletEntity> = emptyList(),
+    val fromWalletId: Long? = null,
+    val toWalletId: Long? = null,
     val amount: String = "",
     val description: String = ""
 )
 
 sealed class TransferEvent {
-    data class FromAccountChanged(val accountId: Long) : TransferEvent()
-    data class ToAccountChanged(val accountId: Long) : TransferEvent()
+    data class FromWalletChanged(val walletId: Long) : TransferEvent()
+    data class ToWalletChanged(val walletId: Long) : TransferEvent()
     data class EnteredAmount(val amount: String) : TransferEvent()
     data class EnteredDescription(val description: String) : TransferEvent()
     object PerformTransfer : TransferEvent()
@@ -35,7 +37,7 @@ sealed class TransferEvent {
 @HiltViewModel
 class TransferViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
-    private val accountRepository: AccountRepository
+    private val walletRepository: WalletRepository
 ) : ViewModel() {
 
     private val _state = mutableStateOf(TransferState())
@@ -50,20 +52,19 @@ class TransferViewModel @Inject constructor(
     }
 
     init {
-        loadAccounts()
+        loadWallets()
     }
 
-    private fun loadAccounts() {
+    private fun loadWallets() {
         viewModelScope.launch {
-            val accounts = accountRepository.getAllAccounts().first()
-            _state.value = _state.value.copy(accounts = accounts)
+            _state.value = _state.value.copy(wallets = walletRepository.getAllWallets().first())
         }
     }
 
     fun onEvent(event: TransferEvent) {
         when (event) {
-            is TransferEvent.FromAccountChanged -> _state.value = _state.value.copy(fromAccountId = event.accountId)
-            is TransferEvent.ToAccountChanged -> _state.value = _state.value.copy(toAccountId = event.accountId)
+            is TransferEvent.FromWalletChanged -> _state.value = _state.value.copy(fromWalletId = event.walletId)
+            is TransferEvent.ToWalletChanged -> _state.value = _state.value.copy(toWalletId = event.walletId)
             is TransferEvent.EnteredAmount -> _state.value = _state.value.copy(amount = event.amount)
             is TransferEvent.EnteredDescription -> _state.value = _state.value.copy(description = event.description)
             is TransferEvent.PerformTransfer -> performTransfer()
@@ -72,17 +73,17 @@ class TransferViewModel @Inject constructor(
 
     private fun performTransfer() {
         viewModelScope.launch {
-            val fromAccountId = _state.value.fromAccountId
-            val toAccountId = _state.value.toAccountId
+            val fromWalletId = _state.value.fromWalletId
+            val toWalletId = _state.value.toWalletId
             val amount = _state.value.amount.toDoubleOrNull()
 
-            if (fromAccountId == null || toAccountId == null) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Please select both accounts."))
+            if (fromWalletId == null || toWalletId == null) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Please select both wallets."))
                 return@launch
             }
 
-            if (fromAccountId == toAccountId) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Cannot transfer to the same account."))
+            if (fromWalletId == toWalletId) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Cannot transfer to the same wallet."))
                 return@launch
             }
 
@@ -91,36 +92,23 @@ class TransferViewModel @Inject constructor(
                 return@launch
             }
 
-            val now = LocalDateTime.now()
-
-            val withdrawal = TransactionEntity(
-                accountId = fromAccountId,
-                type = "EXPENSE", // Internal transfer, but logged as expense for the source
+            val transfer = TransactionEntity(
+                id = UUID.randomUUID().toString(),
+                dateTime = LocalDateTime.now(),
                 amount = amount,
-                description = "Transfer to ${getAccountName(toAccountId)}",
-                date = now
+                type = TransactionType.Transfer,
+                walletFromId = fromWalletId,
+                walletToId = toWalletId,
+                transactionSourceType = "MANUAL_TRANSFER",
+                note = _state.value.description
             )
 
-            val deposit = TransactionEntity(
-                accountId = toAccountId,
-                type = "INCOME", // And as income for the destination
-                amount = amount,
-                description = "Transfer from ${getAccountName(fromAccountId)}",
-                date = now
-            )
-
-            transactionRepository.insertTransaction(withdrawal)
-            transactionRepository.insertTransaction(deposit)
-            
-            // Update account balances
-            accountRepository.updateBalance(fromAccountId, -amount)
-            accountRepository.updateBalance(toAccountId, amount)
-
-            _eventFlow.emit(UiEvent.TransferSuccess)
+            try {
+                transactionRepository.createTransfer(transfer)
+                _eventFlow.emit(UiEvent.TransferSuccess)
+            } catch (e: Exception) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Transfer failed: ${e.message}"))
+            }
         }
-    }
-
-    private fun getAccountName(accountId: Long): String {
-        return _state.value.accounts.find { it.id == accountId }?.name ?: "Unknown Account"
     }
 }

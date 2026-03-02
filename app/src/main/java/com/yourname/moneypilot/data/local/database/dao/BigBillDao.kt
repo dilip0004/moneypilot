@@ -18,6 +18,9 @@ interface BigBillDao {
     @Delete
     suspend fun delete(bigBill: BigBillEntity)
 
+    @Query("DELETE FROM big_bills")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM big_bills ORDER BY dueDate ASC")
     fun getAllBigBills(): Flow<List<BigBillEntity>>
 

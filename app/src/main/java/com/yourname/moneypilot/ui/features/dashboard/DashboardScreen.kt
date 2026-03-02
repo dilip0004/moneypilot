@@ -20,7 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.components.DashboardCard
 // use MaterialTheme.colorScheme.income / expense
@@ -91,15 +92,15 @@ fun DashboardContent(state: DashboardState) {
                         title = "Income",
                         amount = "+₹${summary.totalIncome}",
                         modifier = Modifier.weight(1f),
-                        containerColor = MaterialTheme.colorScheme.income.copy(alpha = 0.1f),
-                        contentColor = MaterialTheme.colorScheme.income
+                        //containerColor = MaterialTheme.colorScheme.income.copy(alpha = 0.1f),
+                        //contentColor = MaterialTheme.colorScheme.income
                     )
                     DashboardCard(
                         title = "Expenses",
                         amount = "-₹${summary.totalExpense}",
                         modifier = Modifier.weight(1f),
-                        containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f),
-                        contentColor = MaterialTheme.colorScheme.expense
+                        //containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f),
+                        //contentColor = MaterialTheme.colorScheme.expense
                     )
                 }
             }
@@ -120,13 +121,14 @@ fun DashboardContent(state: DashboardState) {
 }
 
 @Composable
-private fun TransactionItem(tx: TransactionEntity) {
-    val title = tx.description.ifBlank { "Transaction" }
+private fun TransactionItem(txWithDetails: TransactionWithDetails) {
+    val tx = txWithDetails.transaction
+    val title = tx.note?.ifBlank { tx.type.name } ?: tx.type.name
 
     val (icon, iconBg) = when (tx.type) {
-        "INCOME" -> Icons.Filled.ArrowUpward to MaterialTheme.colorScheme.primaryContainer
-        "EXPENSE" -> Icons.Filled.ArrowDownward to MaterialTheme.colorScheme.errorContainer
-        else -> Icons.Filled.SwapHoriz to MaterialTheme.colorScheme.secondaryContainer
+        TransactionType.Income -> Icons.Filled.ArrowUpward to MaterialTheme.colorScheme.primaryContainer
+        TransactionType.Expense -> Icons.Filled.ArrowDownward to MaterialTheme.colorScheme.errorContainer
+        TransactionType.Transfer -> Icons.Filled.SwapHoriz to MaterialTheme.colorScheme.secondaryContainer
     }
 
     Card(
@@ -151,7 +153,7 @@ private fun TransactionItem(tx: TransactionEntity) {
                         .background(iconBg),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVector = icon, contentDescription = tx.type)
+                    Icon(imageVector = icon, contentDescription = tx.type.name)
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -165,7 +167,7 @@ private fun TransactionItem(tx: TransactionEntity) {
                     )
 
                     Text(
-                        text = tx.date.format(DateTimeFormatter.ofPattern("dd MMM, hh:mm a")),
+                        text = tx.dateTime.format(DateTimeFormatter.ofPattern("dd MMM, hh:mm a")),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -174,11 +176,11 @@ private fun TransactionItem(tx: TransactionEntity) {
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            val sign = if (tx.type == "EXPENSE") "-" else "+"
+            val sign = if (tx.type == TransactionType.Expense) "-" else "+"
             Text(
                 text = "${sign}₹${tx.amount}",
                 style = MaterialTheme.typography.titleLarge,
-                color = if (tx.type == "EXPENSE") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income,
+                //color = if (tx.type == TransactionType.Expense) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income,
                 fontWeight = FontWeight.Bold
             )
         }

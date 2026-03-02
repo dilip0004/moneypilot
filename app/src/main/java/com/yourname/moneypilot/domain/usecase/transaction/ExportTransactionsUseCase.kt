@@ -12,16 +12,17 @@ class ExportTransactionsUseCase @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     suspend operator fun invoke(): File? {
-        val transactions = transactionRepository.getAllTransactions().first()
-        if (transactions.isEmpty()) return null
+        val transactionsWithDetails = transactionRepository.getAllTransactionsWithDetails().first()
+        if (transactionsWithDetails.isEmpty()) return null
         
         val fileName = "MoneyPilot_Export_${System.currentTimeMillis()}.csv"
         val file = File(context.cacheDir, fileName)
         
         file.bufferedWriter().use { out ->
-            out.write("ID,Date,Description,Amount,Type,AccountID,CategoryID\n")
-            transactions.forEach {
-                out.write("${it.id},${it.date},${it.description},${it.amount},${it.type},${it.accountId},${it.categoryId}\n")
+            out.write("ID,DateTime,Note,Amount,Type,WalletFromID,CategoryID\n")
+            transactionsWithDetails.forEach { 
+                val tx = it.transaction
+                out.write("${tx.id},${tx.dateTime},${tx.note ?: ""},${tx.amount},${tx.type},${tx.walletFromId},${tx.categoryId}\n")
             }
         }
         return file

@@ -9,18 +9,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun CompactTransactionItem(
-    tx: TransactionWithCategory,
+    txWithDetails: TransactionWithDetails,
     timePattern: String = "HH:mm"
 ) {
+    val tx = txWithDetails.transaction
     Column(modifier = Modifier.padding(vertical = 0.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        val title = listOfNotNull(tx.category?.name, tx.subcategory?.name)
-            .joinToString(" • ")
-            .ifBlank { tx.goal?.name ?: "Uncategorized" }
+        val title = txWithDetails.category?.name ?: tx.note ?: "Uncategorized"
 
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -31,17 +31,17 @@ fun CompactTransactionItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            val sign = if (tx.transaction.type == "EXPENSE") "-" else "+"
+            val sign = if (tx.type == TransactionType.Expense) "-" else "+"
             Text(
-                "${sign}₹${tx.transaction.amount}",
+                "${sign}₹${tx.amount}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (tx.transaction.type == "EXPENSE") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                color = if (tx.type == TransactionType.Expense) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             )
         }
 
-        val timeStr = tx.transaction.date.toLocalTime().format(DateTimeFormatter.ofPattern(timePattern))
-        val desc = tx.transaction.description.trim()
+        val timeStr = tx.dateTime.toLocalTime().format(DateTimeFormatter.ofPattern(timePattern))
+        val desc = tx.note?.trim() ?: ""
         val secondLine = if (desc.isNotEmpty()) "$timeStr • $desc" else timeStr
 
         Text(

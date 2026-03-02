@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.domain.usecase.transaction
 
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.data.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,13 +21,14 @@ class GetDailyFinancialSummaryUseCase @Inject constructor(
         val startDate = LocalDateTime.of(year, month, 1, 0, 0)
         val endDate = startDate.plusMonths(1).minusNanos(1)
 
-        return transactionRepository.getTransactionsByDateRange(startDate, endDate).map { transactions ->
-            transactions.groupBy { it.date.toLocalDate() }
+        return transactionRepository.getTransactionsWithDetailsByDateRange(startDate, endDate).map { transactionsWithDetails ->
+            transactionsWithDetails.map { it.transaction }
+                .groupBy { it.dateTime.toLocalDate() }
                 .mapValues { (date, dailyTransactions) ->
                     DailySummary(
                         date = date,
-                        totalIncome = dailyTransactions.filter { it.type == "INCOME" }.sumOf { it.amount },
-                        totalExpense = dailyTransactions.filter { it.type == "EXPENSE" || it.type == "GOAL_CONTRIBUTION" }.sumOf { it.amount }
+                        totalIncome = dailyTransactions.filter { it.type == TransactionType.Income }.sumOf { it.amount },
+                        totalExpense = dailyTransactions.filter { it.type == TransactionType.Expense }.sumOf { it.amount }
                     )
                 }
         }

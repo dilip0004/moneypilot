@@ -40,6 +40,7 @@ class CategoryRepositoryImpl @Inject constructor(
                 Pair(CategoryEntity(name = "Bills & Utilities", type = "EXPENSE", color = 0, icon = "💡", budgetLimit = null, parentId = null), listOf("Electricity", "Water", "Internet", "Mobile Recharge")),
                 Pair(CategoryEntity(name = "Health & Wellness", type = "EXPENSE", color = 0, icon = "💊", budgetLimit = null, parentId = null), listOf("Doctor", "Pharmacy", "Gym", "Personal Care")),
                 Pair(CategoryEntity(name = "Entertainment", type = "EXPENSE", color = 0, icon = "🎬", budgetLimit = null, parentId = null), listOf("Movies", "Subscriptions", "Hobbies", "Gaming")),
+                Pair(CategoryEntity(name = "Fees & Charges", type = "EXPENSE", color = 0, icon = "💳", budgetLimit = null, parentId = null), listOf("Interest", "Bank Fees", "Late Fees")),
                 Pair(CategoryEntity(name = "Income", type = "INCOME", color = 0, icon = "💰", budgetLimit = null, parentId = null), listOf("Salary", "Freelance", "Gifts", "Investment Profit"))
             )
 

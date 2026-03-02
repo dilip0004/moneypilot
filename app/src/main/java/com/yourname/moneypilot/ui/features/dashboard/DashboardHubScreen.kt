@@ -22,10 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
 import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
-// use MaterialTheme.colorScheme.income / expense
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.*
@@ -34,7 +32,7 @@ import java.util.*
 @Composable
 fun DashboardHubScreen(
     onAddTransaction: (LocalDate) -> Unit,
-    onEditTransaction: (Long) -> Unit,
+    onEditTransaction: (String) -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: DashboardHubViewModel = hiltViewModel()
 ) {
@@ -42,9 +40,6 @@ fun DashboardHubScreen(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Daily", "Calendar", "Monthly", "Total", "Note")
 
-    // --- Test tags (Phase 0 automation foundation) ---
-    // Kept as simple constants so they can be referenced by UI tests.
-    // These do not change runtime behavior.
     val TAG_TAB_DAILY = "tx_tab_daily"
     val TAG_TAB_CALENDAR = "tx_tab_calendar"
     val TAG_TAB_MONTHLY = "tx_tab_monthly"
@@ -56,7 +51,6 @@ fun DashboardHubScreen(
         topBar = {
             Surface(tonalElevation = 2.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
-                    // Header Area
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -83,10 +77,8 @@ fun DashboardHubScreen(
                         IconButton(onClick = { /* Search logic */ }, modifier = Modifier.size(40.dp)) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
-                        // BUG 1: Removed onOpenSettings (Tune/Filter icon) from top right
                     }
 
-                    // Compact Scrollable Tab Row to prevent text wrap
                     ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = Color.Transparent,
@@ -118,7 +110,6 @@ fun DashboardHubScreen(
                                         overflow = TextOverflow.Visible
                                     ) 
                                 },
-                                // Stable tag for UI tests ("tab_daily", "tab_calendar", ...)
                                 modifier = Modifier.testTag(
                                     when (title.lowercase(Locale.getDefault())) {
                                         "daily" -> "tab_daily"
@@ -133,15 +124,14 @@ fun DashboardHubScreen(
                         }
                     }
 
-                    // Summary Bar
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp, horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem(label = "Income", value = "₹ ${hubState.monthlyIncome}", color = MaterialTheme.colorScheme.income)
-                        SummaryItem(label = "Expenses", value = "₹ ${hubState.monthlyExpense}", color = MaterialTheme.colorScheme.expense)
+                        SummaryItem(label = "Income", value = "₹ ${hubState.monthlyIncome}", color = MaterialTheme.colorScheme.primary)
+                        SummaryItem(label = "Expenses", value = "₹ ${hubState.monthlyExpense}", color = MaterialTheme.colorScheme.error)
                         SummaryItem(label = "Total", value = "₹ ${hubState.monthlyIncome - hubState.monthlyExpense}", color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
@@ -197,10 +187,10 @@ fun MonthlySummaryTab(state: DashboardHubState) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Cash Flow", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow("Total Income", "₹ ${state.monthlyIncome}", MaterialTheme.colorScheme.income)
-                    FlowRow("Total Expense", "₹ ${state.monthlyExpense}", MaterialTheme.colorScheme.expense)
+                    FlowRow("Total Income", "₹ ${state.monthlyIncome}", MaterialTheme.colorScheme.primary)
+                    FlowRow("Total Expense", "₹ ${state.monthlyExpense}", MaterialTheme.colorScheme.error)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    FlowRow("Net Surplus", "₹ ${state.monthlyIncome - state.monthlyExpense}", MaterialTheme.colorScheme.primary)
+                    FlowRow("Net Surplus", "₹ ${state.monthlyIncome - state.monthlyExpense}", MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -220,7 +210,7 @@ fun TotalNetWorthTab(state: DashboardHubState) {
         item { Spacer(modifier = Modifier.height(8.dp)) }
         item { Text("Your Wallets", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         
-        items(state.accounts) { account ->
+        items(state.wallets) { wallet ->
             Card(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -231,19 +221,19 @@ fun TotalNetWorthTab(state: DashboardHubState) {
                         Surface(
                             modifier = Modifier.size(40.dp),
                             shape = CircleShape,
-                            color = Color(account.color).copy(alpha = 0.2f)
+                            color = Color(wallet.color).copy(alpha = 0.2f)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(account.icon, fontSize = 20.sp)
+                                Text(wallet.icon, fontSize = 20.sp)
                             }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(account.name, fontWeight = FontWeight.Bold)
-                            Text(account.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(wallet.name, fontWeight = FontWeight.Bold)
+                            Text(wallet.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Text("₹ ${account.currentBalance}", fontWeight = FontWeight.ExtraBold)
+                    Text("₹ ${wallet.currentBalance}", fontWeight = FontWeight.ExtraBold)
                 }
             }
         }

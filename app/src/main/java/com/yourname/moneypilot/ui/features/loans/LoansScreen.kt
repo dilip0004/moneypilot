@@ -21,14 +21,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-// use MaterialTheme.colorScheme.expense / income
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoansScreen(
     onLoanClick: (Long) -> Unit,
-
     onAddLoan: () -> Unit,
     viewModel: LoansViewModel = hiltViewModel()
 ) {
@@ -62,14 +60,13 @@ fun LoansScreen(
                         }
                         
                         items(state.data.loans) { loan ->
-                            // Expanded state managed per item
                             var isExpanded by remember { mutableStateOf(false) }
                             
                             LoanItem(
                                 loan = loan,
                                 isExpanded = isExpanded,
                                 onClick = { isExpanded = !isExpanded },
-                                repayments = emptyList() // Logic to fetch history per loan id
+                                repayments = emptyList() 
                             )
                         }
                     }
@@ -93,20 +90,20 @@ fun LoanSummaryHeader(borrowed: Double, lent: Double) {
     ) {
         Card(
             modifier = Modifier.weight(1f),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f))
+            // colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Borrowed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.expense)
-                Text("₹ $borrowed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.expense)
+                // Text("Borrowed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.expense)
+                // Text("₹ $borrowed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.expense)
             }
         }
         Card(
             modifier = Modifier.weight(1f),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.income.copy(alpha = 0.1f))
+            // colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.income.copy(alpha = 0.1f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Lent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.income)
-                Text("₹ $lent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.income)
+                // Text("Lent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.income)
+                // Text("₹ $lent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.income)
             }
         }
     }
@@ -138,8 +135,8 @@ fun LoanItem(
                     Text(text = "from ${loan.lender}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Badge(
-                    containerColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense.copy(alpha = 0.2f) else MaterialTheme.colorScheme.income.copy(alpha = 0.2f),
-                    contentColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income
+                    // containerColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense.copy(alpha = 0.2f) else MaterialTheme.colorScheme.income.copy(alpha = 0.2f),
+                    // contentColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income
                 ) {
                     Text(loan.type, modifier = Modifier.padding(horizontal = 4.dp))
                 }
@@ -150,7 +147,7 @@ fun LoanItem(
                 LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(6.dp),
-                color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income,
+                // color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income,
                 strokeCap = StrokeCap.Round
             )
             
@@ -191,14 +188,14 @@ fun LoanItem(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = record.date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
+                                    text = record.dateTime.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 Text(
                                     text = "₹ ${record.amount}",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.income
+                                    // color = MaterialTheme.colorScheme.income
                                 )
                             }
                         }

@@ -8,7 +8,6 @@ import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
-import com.yourname.moneypilot.worker.DailyUpdateWorker
 import com.yourname.moneypilot.worker.MonthlyRolloverWorker
 import com.yourname.moneypilot.worker.NotificationScheduler
 import dagger.hilt.android.HiltAndroidApp
@@ -58,19 +57,13 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
     private fun scheduleBackgroundTasks() {
         val workManager = WorkManager.getInstance(this)
 
-        // 1. Recurring Transactions Task
-        val dailyRequest = PeriodicWorkRequestBuilder<DailyUpdateWorker>(1, TimeUnit.DAYS)
-            .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
-            .build()
-        workManager.enqueueUniquePeriodicWork("DailyUpdateWork", ExistingPeriodicWorkPolicy.KEEP, dailyRequest)
-
-        // 2. Budget Rollover Task - run roughly once every 30 days instead of daily
+        // Budget Rollover Task - run roughly once every 30 days instead of daily
         val monthlyRequest = PeriodicWorkRequestBuilder<MonthlyRolloverWorker>(30, TimeUnit.DAYS)
             .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
             .build()
         workManager.enqueueUniquePeriodicWork("MonthlyRolloverWork", ExistingPeriodicWorkPolicy.KEEP, monthlyRequest)
 
-        // 3. Daily Summary Notification (preference-aware)
+        // Daily Summary Notification (preference-aware)
         CoroutineScope(Dispatchers.IO).launch {
             val preferences = preferencesRepository.userPreferencesFlow.first()
             notificationScheduler.scheduleDailySummary(preferences)

@@ -1,8 +1,11 @@
 package com.yourname.moneypilot.ui.features.reports
 
 import androidx.lifecycle.viewModelScope
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithCategory
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
+import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.data.repository.TransactionRepository
+import com.yourname.moneypilot.domain.usecase.analytics.CalculateKeyAnalyticsUseCase
+import com.yourname.moneypilot.domain.usecase.analytics.KeyAnalytics
 import com.yourname.moneypilot.ui.common.BaseViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,7 +14,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.util.TreeMap
 import javax.inject.Inject
@@ -24,18 +26,16 @@ data class ReportState(
     val timeRange: TimeRange = TimeRange.MONTHLY,
     val reportType: ReportType = ReportType.EXPENSE,
     val totalAmount: Double = 0.0,
-    val secondaryAmount: Double = 0.0, 
+    val secondaryAmount: Double = 0.0,
     val categoryBreakdown: List<CategoryRank> = emptyList(),
-    val chartData: Map<Int, Double> = emptyMap(), 
+    val chartData: Map<Int, Double> = emptyMap(),
     val selectedDate: LocalDate = LocalDate.now(),
     val rangeStart: LocalDate = LocalDate.now(),
     val rangeEnd: LocalDate = LocalDate.now(),
     val weatherSummary: Map<WeatherState, Int> = emptyMap(),
     val weatherInsight: String = "",
-    val savingsPercentage: Float = 0f,
-    val dailyAverage: Double = 0.0,
-    val transactionCount: Int = 0,
-    val reflectionPrompts: List<String> = emptyList() // V2 Reflection triggers
+    val keyAnalytics: KeyAnalytics = KeyAnalytics(), // Added
+    val reflectionPrompts: List<String> = emptyList()
 )
 
 data class CategoryRank(
@@ -48,7 +48,8 @@ data class CategoryRank(
 
 @HiltViewModel
 class ReportsViewModel @Inject constructor(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val calculateKeyAnalyticsUseCase: CalculateKeyAnalyticsUseCase // Added
 ) : BaseViewModel<ReportState>() {
 
     private val _reportState = MutableStateFlow(ReportState())
@@ -83,25 +84,22 @@ class ReportsViewModel @Inject constructor(
             val currentState = _reportState.value
             val (start, end) = calculateRange(currentState.selectedDate, currentState.timeRange)
             
-            // For historical comparison, we fetch current and previous periods
             val (prevStart, prevEnd) = calculatePreviousRange(currentState.selectedDate, currentState.timeRange)
 
-            val currentFlow = transactionRepository.getTransactionsWithCategoryByDateRange(start, end)
-            val prevFlow = transactionRepository.getTransactionsWithCategoryByDateRange(prevStart, prevEnd)
+            val currentFlow = transactionRepository.getTransactionsWithDetailsByDateRange(start, end)
+            val prevFlow = transactionRepository.getTransactionsWithDetailsByDateRange(prevStart, prevEnd)
 
             combine(currentFlow, prevFlow) { current, previous ->
                 Pair(current, previous)
             }.collect { (transactions, prevTransactions) ->
-                val nonTransferTransactions = transactions.filter { it.transaction.type != "TRANSFER" }
-                val prevNonTransfer = prevTransactions.filter { it.transaction.type != "TRANSFER" }
+                val nonTransferTransactions = transactions.filter { it.transaction.type != TransactionType.Transfer }
+                val prevNonTransfer = prevTransactions.filter { it.transaction.type != TransactionType.Transfer }
 
-                val incomeSum = nonTransferTransactions.filter { it.transaction.type == "INCOME" }.sumOf { it.transaction.amount }
-                val expenseSum = nonTransferTransactions.filter { it.transaction.type == "EXPENSE" }.sumOf { it.transaction.amount }
-                val prevExpenseSum = prevNonTransfer.filter { it.transaction.type == "EXPENSE" }.sumOf { it.transaction.amount }
+                val incomeSum = nonTransferTransactions.filter { it.transaction.type == TransactionType.Income }.sumOf { it.transaction.amount }
+                val expenseSum = nonTransferTransactions.filter { it.transaction.type == TransactionType.Expense }.sumOf { it.transaction.amount }
+                val prevExpenseSum = prevNonTransfer.filter { it.transaction.type == TransactionType.Expense }.sumOf { it.transaction.amount }
                 
-                val loanRepaymentSum = nonTransferTransactions.filter { it.transaction.type == "LOAN_REPAYMENT" }.sumOf { it.transaction.amount }
-                val goalContributionSum = nonTransferTransactions.filter { it.transaction.type == "GOAL_CONTRIBUTION" }.sumOf { it.transaction.amount }
-                val totalOutflow = expenseSum + loanRepaymentSum + goalContributionSum
+                val totalOutflow = expenseSum
 
                 val totalDisplay = when (currentState.reportType) {
                     ReportType.INCOME -> incomeSum
@@ -110,17 +108,13 @@ class ReportsViewModel @Inject constructor(
                 }
 
                 val listFiltered = when (currentState.reportType) {
-                    ReportType.INCOME -> nonTransferTransactions.filter { it.transaction.type == "INCOME" }
-                    ReportType.EXPENSE -> nonTransferTransactions.filter { it.transaction.type == "EXPENSE" }
-                    ReportType.CASH_FLOW -> nonTransferTransactions.filter { it.transaction.type != "INCOME" }
+                    ReportType.INCOME -> nonTransferTransactions.filter { it.transaction.type == TransactionType.Income }
+                    ReportType.EXPENSE -> nonTransferTransactions.filter { it.transaction.type == TransactionType.Expense }
+                    ReportType.CASH_FLOW -> nonTransferTransactions.filter { it.transaction.type != TransactionType.Income }
                 }
 
                 val ranks = listFiltered
-                    .groupBy { 
-                        if (it.transaction.type == "LOAN_REPAYMENT") -100L
-                        else if (it.transaction.type == "GOAL_CONTRIBUTION") -200L
-                        else it.transaction.categoryId 
-                    }
+                    .groupBy { it.transaction.categoryId }
                     .map { (id, items) ->
                         val sum = items.sumOf { it.transaction.amount }
                         val denom = when (currentState.reportType) {
@@ -129,17 +123,9 @@ class ReportsViewModel @Inject constructor(
                             ReportType.CASH_FLOW -> totalOutflow
                         }
                         CategoryRank(
-                            categoryId = if (id != null && id < 0L) null else id,
-                            name = when (id) {
-                                -100L -> "Loan Repayment"
-                                -200L -> "Savings Contribution"
-                                else -> items.first().category?.name ?: "Uncategorized"
-                            },
-                            icon = when (id) {
-                                -100L -> "💸"
-                                -200L -> "🎯"
-                                else -> items.first().category?.icon ?: "❓"
-                            },
+                            categoryId = id,
+                            name = items.first().category?.name ?: "Uncategorized",
+                            icon = items.first().category?.icon ?: "❓",
                             amount = sum,
                             percentage = if (denom > 0) (sum / denom).toFloat() else 0f
                         )
@@ -149,11 +135,7 @@ class ReportsViewModel @Inject constructor(
                 val prompts = generateReflectionPrompts(expenseSum, prevExpenseSum, ranks, currentState.timeRange)
                 val chartDataMap = generateSequentialChartData(listFiltered, currentState.timeRange, start.toLocalDate())
                 val weatherData = calculateWeather(nonTransferTransactions, start.toLocalDate(), end.toLocalDate())
-
-                val savingsPct = if (incomeSum > 0) ((incomeSum - totalOutflow) / incomeSum).toFloat() else 0f
-                val days = ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()) + 1
-                val dailyAvg = if (days > 0) expenseSum / days else 0.0
-                val count = nonTransferTransactions.size
+                val keyAnalytics = calculateKeyAnalyticsUseCase(nonTransferTransactions, ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()).toInt() + 1)
 
                 _reportState.update { it.copy(
                     totalAmount = totalDisplay,
@@ -164,9 +146,7 @@ class ReportsViewModel @Inject constructor(
                     rangeEnd = end.toLocalDate(),
                     weatherSummary = weatherData.first,
                     weatherInsight = weatherData.second,
-                    savingsPercentage = savingsPct,
-                    dailyAverage = dailyAvg,
-                    transactionCount = count,
+                    keyAnalytics = keyAnalytics,
                     reflectionPrompts = prompts
                 ) }
                 _uiState.value = ScreenState.Success(_reportState.value)
@@ -187,7 +167,6 @@ class ReportsViewModel @Inject constructor(
             TimeRange.YEARLY -> "last year"
         }
 
-        // 1. Total Spending Trigger
         if (prevTotal > 0) {
             val diff = ((currentTotal - prevTotal) / prevTotal) * 100
             if (diff > 10) {
@@ -197,14 +176,12 @@ class ReportsViewModel @Inject constructor(
             }
         }
 
-        // 2. Category Dominance Trigger
         ranks.firstOrNull()?.let { top ->
             if (top.percentage > 0.4f) {
                 prompts.add("${top.icon} ${top.name} is dominating your outflows at ${(top.percentage * 100).toInt()}%.")
             }
         }
 
-        // 3. Low Savings Trigger
         val income = _reportState.value.totalAmount
         if (income > 0 && currentTotal / income > 0.9) {
             prompts.add("Warning: High burn rate. You've consumed over 90% of your income this period.")
@@ -213,12 +190,12 @@ class ReportsViewModel @Inject constructor(
         return prompts
     }
 
-    private fun calculateWeather(transactions: List<TransactionWithCategory>, start: LocalDate, end: LocalDate): Pair<Map<WeatherState, Int>, String> {
-        val dailyNet = transactions.groupBy { it.transaction.date.toLocalDate() }
+    private fun calculateWeather(transactions: List<TransactionWithDetails>, start: LocalDate, end: LocalDate): Pair<Map<WeatherState, Int>, String> {
+        val dailyNet = transactions.groupBy { it.transaction.dateTime.toLocalDate() }
             .mapValues { entry ->
                 entry.value.sumOf { 
                     when (it.transaction.type) {
-                        "INCOME" -> it.transaction.amount
+                        TransactionType.Income -> it.transaction.amount
                         else -> -it.transaction.amount 
                     }
                 }
@@ -251,15 +228,15 @@ class ReportsViewModel @Inject constructor(
     }
 
     private fun generateSequentialChartData(
-        transactions: List<TransactionWithCategory>, 
+        transactions: List<TransactionWithDetails>, 
         range: TimeRange,
         startDate: LocalDate
     ): Map<Int, Double> {
         val rawMap = transactions.groupBy { 
             when (range) {
-                TimeRange.WEEKLY -> it.transaction.date.dayOfWeek.value
-                TimeRange.MONTHLY -> it.transaction.date.dayOfMonth
-                TimeRange.YEARLY -> it.transaction.date.monthValue
+                TimeRange.WEEKLY -> it.transaction.dateTime.dayOfWeek.value
+                TimeRange.MONTHLY -> it.transaction.dateTime.dayOfMonth
+                TimeRange.YEARLY -> it.transaction.dateTime.monthValue
             }
         }.mapValues { entry -> entry.value.sumOf { it.transaction.amount } }
 

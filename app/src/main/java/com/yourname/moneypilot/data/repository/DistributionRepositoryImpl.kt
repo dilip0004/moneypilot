@@ -8,11 +8,18 @@ import javax.inject.Inject
 class DistributionRepositoryImpl @Inject constructor(
     private val distributionRuleDao: DistributionRuleDao
 ) : DistributionRepository {
-    override fun getAllRules(): Flow<List<DistributionRuleEntity>> = distributionRuleDao.getAllRules()
 
-    override suspend fun insertRule(rule: DistributionRuleEntity): Long = distributionRuleDao.insertRule(rule)
+    override fun getAllRules(): Flow<List<DistributionRuleEntity>> = distributionRuleDao.getAllRulesAsFlow()
 
-    override suspend fun updateRule(rule: DistributionRuleEntity) = distributionRuleDao.updateRule(rule)
+    override suspend fun insertRule(rule: DistributionRuleEntity): Long {
+        return distributionRuleDao.insert(rule)
+    }
 
-    override suspend fun deleteRule(rule: DistributionRuleEntity) = distributionRuleDao.deleteRule(rule)
+    override suspend fun updateRule(rule: DistributionRuleEntity) {
+        distributionRuleDao.insert(rule) // Uses OnConflictStrategy.REPLACE
+    }
+
+    override suspend fun deleteRule(rule: DistributionRuleEntity) {
+        distributionRuleDao.delete(rule)
+    }
 }

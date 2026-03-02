@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
-// use MaterialTheme.colorScheme.income / expense
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -51,7 +50,6 @@ fun ReportsScreen(
         topBar = {
             Surface(tonalElevation = 2.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
-                    // Removed TopAppBar to fix the empty first line (Bug 3)
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
@@ -159,19 +157,19 @@ fun ReportsScreen(
                             ) {
                                 InsightTile(
                                     label = "Efficiency",
-                                    value = "${(data.savingsPercentage * 100).toInt()}%",
+                                    value = "${(data.keyAnalytics.efficiency?.times(100))?.toInt() ?: 0}%",
                                     subLabel = "Saved",
                                     modifier = Modifier.weight(1f)
                                 )
                                 InsightTile(
                                     label = "Velocity",
-                                    value = "₹${data.dailyAverage.toInt()}",
+                                    value = "₹${data.keyAnalytics.expenseVelocity?.toInt() ?: 0}",
                                     subLabel = "per day",
                                     modifier = Modifier.weight(1f)
                                 )
                                 InsightTile(
                                     label = "Frequency",
-                                    value = "${data.transactionCount}",
+                                    value = "${data.keyAnalytics.categoryDominance.size}",
                                     subLabel = "Entries",
                                     modifier = Modifier.weight(1f)
                                 )
@@ -195,7 +193,7 @@ fun ReportsScreen(
                                         text = "₹ $amountStr",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.income else if (data.reportType == ReportType.EXPENSE) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.primary
+                                        //color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.income else if (data.reportType == ReportType.EXPENSE) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.primary
                                     )
                                     
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -230,7 +228,7 @@ fun ReportsScreen(
                                             } else {
                                                 TrendLineGraphCompact(
                                                     data = data.chartData,
-                                                    color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.income else if (data.reportType == ReportType.EXPENSE) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.primary,
+                                                    color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                                     timeRange = data.timeRange
                                                 )
                                             }

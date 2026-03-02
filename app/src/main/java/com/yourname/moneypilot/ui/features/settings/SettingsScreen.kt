@@ -24,7 +24,8 @@ fun SettingsScreen(
     onNavigateToSecurity: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToBackup: () -> Unit,
-    onNavigateToDiagnostics: () -> Unit
+    onNavigateToDiagnostics: () -> Unit,
+    onNavigateToReconciliation: () -> Unit // Added
 ) {
     Scaffold(
         topBar = {

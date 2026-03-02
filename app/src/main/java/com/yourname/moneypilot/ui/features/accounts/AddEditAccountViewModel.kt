@@ -1,14 +1,16 @@
 package com.yourname.moneypilot.ui.features.accounts
 
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.yourname.moneypilot.data.local.database.entities.AccountEntity
-import com.yourname.moneypilot.data.repository.AccountRepository
+import com.yourname.moneypilot.data.local.database.entities.WalletEntity
+import com.yourname.moneypilot.data.repository.WalletRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,11 +27,11 @@ data class AddEditAccountState(
 
 @HiltViewModel
 class AddEditAccountViewModel @Inject constructor(
-    private val accountRepository: AccountRepository
+    private val walletRepository: WalletRepository
 ) : ViewModel() {
 
-    private val _state = mutableStateOf(AddEditAccountState())
-    val state: State<AddEditAccountState> = _state
+    private val _state = MutableStateFlow(AddEditAccountState())
+    val state: StateFlow<AddEditAccountState> = _state.asStateFlow()
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
     val eventFlow = _eventFlow.asSharedFlow()
@@ -41,11 +43,11 @@ class AddEditAccountViewModel @Inject constructor(
 
     fun onEvent(event: AddEditAccountEvent) {
         when (event) {
-            is AddEditAccountEvent.EnteredName -> _state.value = _state.value.copy(name = event.value)
-            is AddEditAccountEvent.TypeChanged -> _state.value = _state.value.copy(type = event.value)
-            is AddEditAccountEvent.EnteredBalance -> _state.value = _state.value.copy(initialBalance = event.value)
-            is AddEditAccountEvent.EnteredMinBalance -> _state.value = _state.value.copy(minBalance = event.value)
-            is AddEditAccountEvent.TogglePrimary -> _state.value = _state.value.copy(isPrimary = !state.value.isPrimary)
+            is AddEditAccountEvent.EnteredName -> _state.update { it.copy(name = event.value) }
+            is AddEditAccountEvent.TypeChanged -> _state.update { it.copy(type = event.value) }
+            is AddEditAccountEvent.EnteredBalance -> _state.update { it.copy(initialBalance = event.value) }
+            is AddEditAccountEvent.EnteredMinBalance -> _state.update { it.copy(minBalance = event.value) }
+            is AddEditAccountEvent.TogglePrimary -> _state.update { it.copy(isPrimary = !it.isPrimary) }
             is AddEditAccountEvent.SaveAccount -> saveAccount()
         }
     }
@@ -60,11 +62,8 @@ class AddEditAccountViewModel @Inject constructor(
                 val balance = _state.value.initialBalance.toDoubleOrNull() ?: 0.0
                 val minBal = _state.value.minBalance.toDoubleOrNull() ?: 0.0
                 
-                // If this is set as primary, we might need to unset others, 
-                // but for V1 we'll handle it simply at repository or just store it.
-                
-                accountRepository.insertAccount(
-                    AccountEntity(
+                walletRepository.insertWallet(
+                    WalletEntity(
                         name = _state.value.name,
                         type = _state.value.type,
                         initialBalance = balance,

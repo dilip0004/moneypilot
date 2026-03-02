@@ -28,6 +28,9 @@ interface LoanDao {
     @Delete
     suspend fun deleteLoan(loan: LoanEntity)
 
+    @Query("DELETE FROM loans")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM loans WHERE id = :loanId")
     suspend fun getLoanById(loanId: Long): LoanEntity?
 

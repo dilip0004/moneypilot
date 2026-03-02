@@ -18,6 +18,9 @@ interface InvestmentDao {
     @Delete
     suspend fun deleteInvestment(investment: InvestmentEntity)
 
+    @Query("DELETE FROM investments")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM investments")
     fun getAllInvestments(): Flow<List<InvestmentEntity>>
 
