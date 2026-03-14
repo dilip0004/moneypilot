@@ -18,6 +18,10 @@ interface CategoryRepository {
     suspend fun updateSubcategory(subcategory: SubcategoryEntity)
     suspend fun deleteSubcategory(subcategory: SubcategoryEntity)
     
+    // Safety checks
+    suspend fun getTransactionCountForCategory(categoryId: Long): Int
+    suspend fun getTransactionCountForSubcategory(subcategoryId: Long): Int
+    
     // Seeding
     suspend fun seedDefaults()
 }

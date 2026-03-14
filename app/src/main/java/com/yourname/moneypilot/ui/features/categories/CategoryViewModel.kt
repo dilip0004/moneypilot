@@ -7,13 +7,8 @@ import com.yourname.moneypilot.data.repository.CategoryRepository
 import com.yourname.moneypilot.ui.common.BaseViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +21,13 @@ data class CategoriesState(
 class CategoryViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository
 ) : BaseViewModel<CategoriesState>() {
+
+    private val _eventFlow = MutableSharedFlow<UiEvent>()
+    val eventFlow = _eventFlow.asSharedFlow()
+
+    sealed class UiEvent {
+        data class ShowSnackbar(val message: String) : UiEvent()
+    }
 
     init {
         seedAndLoad()
@@ -88,13 +90,23 @@ class CategoryViewModel @Inject constructor(
 
     fun deleteCategory(category: CategoryEntity) {
         viewModelScope.launch {
-            categoryRepository.deleteCategory(category)
+            val count = categoryRepository.getTransactionCountForCategory(category.id)
+            if (count > 0) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Cannot delete category used by $count transactions."))
+            } else {
+                categoryRepository.deleteCategory(category)
+            }
         }
     }
 
     fun deleteSubcategory(subcategory: SubcategoryEntity) {
         viewModelScope.launch {
-            categoryRepository.deleteSubcategory(subcategory)
+            val count = categoryRepository.getTransactionCountForSubcategory(subcategory.id)
+            if (count > 0) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Cannot delete subcategory used by $count transactions."))
+            } else {
+                categoryRepository.deleteSubcategory(subcategory)
+            }
         }
     }
 }

@@ -2,8 +2,24 @@ package com.yourname.moneypilot.data.local.database.dao
 
 import androidx.room.*
 import com.yourname.moneypilot.data.local.database.entities.BudgetEntity
+import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
+import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+
+data class BudgetWithDetails(
+    @Embedded val budget: BudgetEntity,
+    @Relation(
+        parentColumn = "category_id",
+        entityColumn = "id"
+    )
+    val category: CategoryEntity,
+    @Relation(
+        parentColumn = "subcategory_id",
+        entityColumn = "id"
+    )
+    val subcategory: SubcategoryEntity?
+)
 
 @Dao
 interface BudgetDao {
@@ -37,6 +53,10 @@ interface BudgetDao {
 
     @Query("SELECT * FROM budgets WHERE start_date <= :date AND end_date >= :date")
     fun getActiveBudgets(date: LocalDate): Flow<List<BudgetEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM budgets WHERE start_date <= :date AND end_date >= :date")
+    fun getActiveBudgetsWithDetails(date: LocalDate): Flow<List<BudgetWithDetails>>
 
     @Query("UPDATE budgets SET spent_amount = :spentAmount WHERE id = :budgetId")
     suspend fun updateSpentAmount(budgetId: Long, spentAmount: Double)

@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.accounts
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -102,6 +103,37 @@ fun AddEditAccountScreen(
                         onClick = { viewModel.onEvent(AddEditAccountEvent.TypeChanged(type)) },
                         label = { Text(type) }
                     )
+                }
+            }
+
+            // CREDIT CARD SPECIFIC FIELDS (TASK-28)
+            AnimatedVisibility(visible = state.type == "CREDIT") {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OutlinedTextField(
+                        value = state.creditLimit,
+                        onValueChange = { viewModel.onEvent(AddEditAccountEvent.EnteredCreditLimit(it)) },
+                        label = { Text("Credit Limit") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        prefix = { Text("₹ ") }
+                    )
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedTextField(
+                            value = state.billingStartDay,
+                            onValueChange = { viewModel.onEvent(AddEditAccountEvent.EnteredBillingStartDay(it)) },
+                            label = { Text("Billing Day (1-31)") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        OutlinedTextField(
+                            value = state.dueDate,
+                            onValueChange = { viewModel.onEvent(AddEditAccountEvent.EnteredDueDate(it)) },
+                            label = { Text("Due Day (1-31)") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
                 }
             }
         }

@@ -29,8 +29,8 @@ val md_theme_dark_surface = Color(0xFF000000)
 val md_theme_dark_onBackground = Color(0xFFE6E1E5)
 val md_theme_dark_onSurface = Color(0xFFE6E1E5)
 
-// Finance Specific Colors
-val IncomeGreen = Color(0xFF2E7D32)
-val ExpenseRed = Color(0xFFC62828)
-val BudgetBlue = Color(0xFF1565C0)
-val GoalOrange = Color(0xFFEF6C00)
+// Finance Specific Colors (Refined for High Visibility)
+val IncomeGreen = Color(0xFF00C853) // Bright Green for Inflow
+val ExpenseRed = Color(0xFFFF0000)  // Bright Red for Outflow
+val BudgetBlue = Color(0xFF0067FF)  // Deep Professional Blue
+val GoalOrange = Color(0xFFFF8C00)  // Rich Amber for Motivation

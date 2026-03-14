@@ -119,11 +119,20 @@ class AddEditBudgetViewModel @Inject constructor(
                     return@launch
                 }
 
-                val initialSpent = transactionRepository.getCategoryExpenseSum(
-                    categoryId = requireNotNull(_state.value.categoryId),
-                    startDate = _state.value.startDate.atStartOfDay(),
-                    endDate = _state.value.endDate.atTime(LocalTime.MAX)
-                )
+                // If subcategory is provided, query subcategory sum. Else, category sum.
+                val initialSpent = if (_state.value.subcategoryId != null) {
+                    transactionRepository.getSubcategoryExpenseSum(
+                        subcategoryId = requireNotNull(_state.value.subcategoryId),
+                        startDate = _state.value.startDate.atStartOfDay(),
+                        endDate = _state.value.endDate.atTime(LocalTime.MAX)
+                    )
+                } else {
+                    transactionRepository.getCategoryExpenseSum(
+                        categoryId = requireNotNull(_state.value.categoryId),
+                        startDate = _state.value.startDate.atStartOfDay(),
+                        endDate = _state.value.endDate.atTime(LocalTime.MAX)
+                    )
+                }
 
                 budgetRepository.insertBudget(
                     BudgetEntity(

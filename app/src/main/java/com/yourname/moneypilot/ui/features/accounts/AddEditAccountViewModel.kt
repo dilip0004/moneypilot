@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.accounts
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
@@ -22,12 +23,30 @@ data class AddEditAccountState(
     val isPrimary: Boolean = false,
     val currency: String = "INR",
     val color: Int = 0xFF0067FF.toInt(),
-    val icon: String = "account_balance"
+    val icon: String = "account_balance",
+    // New fields for billing cycle (TASK-28)
+    val billingStartDay: String = "",
+    val dueDate: String = "",
+    val creditLimit: String = ""
 )
+
+sealed class AddEditAccountEvent {
+    data class EnteredName(val value: String) : AddEditAccountEvent()
+    data class TypeChanged(val value: String) : AddEditAccountEvent()
+    data class EnteredBalance(val value: String) : AddEditAccountEvent()
+    data class EnteredMinBalance(val value: String) : AddEditAccountEvent()
+    object TogglePrimary : AddEditAccountEvent()
+    // New events for TASK-28
+    data class EnteredBillingStartDay(val value: String) : AddEditAccountEvent()
+    data class EnteredDueDate(val value: String) : AddEditAccountEvent()
+    data class EnteredCreditLimit(val value: String) : AddEditAccountEvent()
+    object SaveAccount : AddEditAccountEvent()
+}
 
 @HiltViewModel
 class AddEditAccountViewModel @Inject constructor(
-    private val walletRepository: WalletRepository
+    private val walletRepository: WalletRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AddEditAccountState())
@@ -36,9 +55,36 @@ class AddEditAccountViewModel @Inject constructor(
     private val _eventFlow = MutableSharedFlow<UiEvent>()
     val eventFlow = _eventFlow.asSharedFlow()
 
+    private var currentWalletId: Long? = null
+
     sealed class UiEvent {
         object SaveAccount : UiEvent()
         data class ShowSnackbar(val message: String) : UiEvent()
+    }
+
+    init {
+        // Load existing wallet if ID is provided in navigation
+        val walletId = savedStateHandle.get<Long>("walletId")
+        if (walletId != null && walletId != -1L) {
+            viewModelScope.launch {
+                walletRepository.getWalletById(walletId)?.let { wallet ->
+                    currentWalletId = wallet.id
+                    _state.update { it.copy(
+                        name = wallet.name,
+                        type = wallet.type,
+                        initialBalance = wallet.initialBalance.toString(),
+                        minBalance = wallet.minBalance.toString(),
+                        isPrimary = wallet.isPrimary,
+                        currency = wallet.currency,
+                        color = wallet.color,
+                        icon = wallet.icon,
+                        billingStartDay = wallet.billingStartDay?.toString() ?: "",
+                        dueDate = wallet.dueDate?.toString() ?: "",
+                        creditLimit = wallet.creditLimit?.toString() ?: ""
+                    ) }
+                }
+            }
+        }
     }
 
     fun onEvent(event: AddEditAccountEvent) {
@@ -48,6 +94,9 @@ class AddEditAccountViewModel @Inject constructor(
             is AddEditAccountEvent.EnteredBalance -> _state.update { it.copy(initialBalance = event.value) }
             is AddEditAccountEvent.EnteredMinBalance -> _state.update { it.copy(minBalance = event.value) }
             is AddEditAccountEvent.TogglePrimary -> _state.update { it.copy(isPrimary = !it.isPrimary) }
+            is AddEditAccountEvent.EnteredBillingStartDay -> _state.update { it.copy(billingStartDay = event.value) }
+            is AddEditAccountEvent.EnteredDueDate -> _state.update { it.copy(dueDate = event.value) }
+            is AddEditAccountEvent.EnteredCreditLimit -> _state.update { it.copy(creditLimit = event.value) }
             is AddEditAccountEvent.SaveAccount -> saveAccount()
         }
     }
@@ -55,39 +104,59 @@ class AddEditAccountViewModel @Inject constructor(
     private fun saveAccount() {
         viewModelScope.launch {
             try {
-                if (_state.value.name.isBlank()) {
+                val currentState = _state.value
+                if (currentState.name.isBlank()) {
                     _eventFlow.emit(UiEvent.ShowSnackbar("Account name cannot be empty"))
                     return@launch
                 }
-                val balance = _state.value.initialBalance.toDoubleOrNull() ?: 0.0
-                val minBal = _state.value.minBalance.toDoubleOrNull() ?: 0.0
+                val balance = currentState.initialBalance.toDoubleOrNull() ?: 0.0
+                val minBal = currentState.minBalance.toDoubleOrNull() ?: 0.0
                 
-                walletRepository.insertWallet(
-                    WalletEntity(
-                        name = _state.value.name,
-                        type = _state.value.type,
-                        initialBalance = balance,
-                        currentBalance = balance,
-                        minBalance = minBal,
-                        isPrimary = _state.value.isPrimary,
-                        currency = _state.value.currency,
-                        color = _state.value.color,
-                        icon = _state.value.icon
-                    )
+                val billingDay = currentState.billingStartDay.toIntOrNull()
+                val dueDay = currentState.dueDate.toIntOrNull()
+                val limit = currentState.creditLimit.toDoubleOrNull()
+
+                // Validation for credit card specific fields
+                if (currentState.type == "CREDIT") {
+                    if (billingDay == null || billingDay !in 1..31) {
+                        _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid billing start day (1-31)"))
+                        return@launch
+                    }
+                    if (dueDay == null || dueDay !in 1..31) {
+                        _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid due day (1-31)"))
+                        return@launch
+                    }
+                }
+
+                val wallet = WalletEntity(
+                    id = currentWalletId ?: 0L,
+                    name = currentState.name,
+                    type = if (currentState.type == "CREDIT") "CREDIT_CARD" else currentState.type,
+                    initialBalance = balance,
+                    currentBalance = if (currentWalletId == null) balance else {
+                        walletRepository.getWalletById(currentWalletId!!)?.currentBalance ?: balance
+                    },
+                    minBalance = minBal,
+                    isPrimary = currentState.isPrimary,
+                    currency = currentState.currency,
+                    color = currentState.color,
+                    icon = currentState.icon,
+                    billingStartDay = billingDay,
+                    billingEndDay = if (billingDay != null) if (billingDay == 1) 31 else billingDay - 1 else null,
+                    dueDate = dueDay,
+                    creditLimit = limit
                 )
+
+                if (currentWalletId == null) {
+                    walletRepository.insertWallet(wallet)
+                } else {
+                    walletRepository.updateWallet(wallet)
+                }
+                
                 _eventFlow.emit(UiEvent.SaveAccount)
             } catch (e: Exception) {
                 _eventFlow.emit(UiEvent.ShowSnackbar("Could not save account"))
             }
         }
     }
-}
-
-sealed class AddEditAccountEvent {
-    data class EnteredName(val value: String) : AddEditAccountEvent()
-    data class TypeChanged(val value: String) : AddEditAccountEvent()
-    data class EnteredBalance(val value: String) : AddEditAccountEvent()
-    data class EnteredMinBalance(val value: String) : AddEditAccountEvent()
-    object TogglePrimary : AddEditAccountEvent()
-    object SaveAccount : AddEditAccountEvent()
 }

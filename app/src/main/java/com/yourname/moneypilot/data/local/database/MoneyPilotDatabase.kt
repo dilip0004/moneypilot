@@ -30,7 +30,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LoanEntity::class,
         BigBillEntity::class
     ],
-    version = 11, // Incremented version for new migration
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class, TransactionTypeConverter::class)
@@ -105,9 +105,18 @@ object DatabaseMigrations {
 
     val MIGRATION_10_11: Migration = object : Migration(10, 11) {
         override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL("ALTER TABLE transactions ADD COLUMN loan_id INTEGER")
+            database.execSQL("CREATE TABLE IF NOT EXISTS `transactions_new` (`id` TEXT NOT NULL, `dateTime` TEXT NOT NULL, `amount` REAL NOT NULL, `type` TEXT NOT NULL, `category_id` INTEGER, `loan_id` INTEGER, `wallet_from_id` INTEGER, `wallet_to_id` INTEGER, `transaction_source_type` TEXT NOT NULL, `note` TEXT, `soft_deleted` INTEGER NOT NULL DEFAULT 0, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`wallet_from_id`) REFERENCES `wallets`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`wallet_to_id`) REFERENCES `wallets`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`loan_id`) REFERENCES `loans`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )")
+            database.execSQL("INSERT INTO transactions_new (id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) SELECT id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at FROM transactions")
+            database.execSQL("DROP TABLE transactions")
+            database.execSQL("ALTER TABLE transactions_new RENAME TO transactions")
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+    val MIGRATION_11_12: Migration = object : Migration(11, 12) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE transactions ADD COLUMN subcategory_id INTEGER")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
 }

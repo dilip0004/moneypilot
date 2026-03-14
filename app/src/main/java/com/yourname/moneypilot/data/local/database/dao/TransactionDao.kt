@@ -12,6 +12,9 @@ data class TransactionWithDetails(
     @Relation(parentColumn = "category_id", entityColumn = "id")
     val category: CategoryEntity?,
 
+    @Relation(parentColumn = "subcategory_id", entityColumn = "id")
+    val subcategory: SubcategoryEntity?,
+
     @Relation(parentColumn = "wallet_from_id", entityColumn = "id")
     val walletFrom: WalletEntity?,
 
@@ -49,6 +52,46 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE wallet_from_id = :walletId OR wallet_to_id = :walletId")
     suspend fun getTransactionsForWallet(walletId: Long): List<TransactionEntity>
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE wallet_from_id = :walletId OR wallet_to_id = :walletId")
+    suspend fun getTransactionCountForWallet(walletId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE category_id = :categoryId")
+    suspend fun getTransactionCountForCategory(categoryId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE subcategory_id = :subcategoryId")
+    suspend fun getTransactionCountForSubcategory(subcategoryId: Long): Int
+
+    @Transaction
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE (wallet_from_id = :walletId OR wallet_to_id = :walletId) 
+        AND dateTime BETWEEN :startDate AND :endDate 
+        AND soft_deleted = 0 
+        ORDER BY dateTime DESC
+    """)
+    fun getTransactionsWithDetailsForWallet(
+        walletId: Long, 
+        startDate: LocalDateTime, 
+        endDate: LocalDateTime
+    ): Flow<List<TransactionWithDetails>>
+
+    @Query("""
+        SELECT SUM(
+            CASE 
+                WHEN type = 'Income' AND wallet_to_id = :walletId THEN amount
+                WHEN type = 'Expense' AND wallet_from_id = :walletId THEN -amount
+                WHEN type = 'Transfer' AND wallet_from_id = :walletId THEN -amount
+                WHEN type = 'Transfer' AND wallet_to_id = :walletId THEN amount
+                ELSE 0
+            END
+        )
+        FROM transactions
+        WHERE (wallet_from_id = :walletId OR wallet_to_id = :walletId)
+        AND dateTime < :startDate
+        AND soft_deleted = 0
+    """)
+    suspend fun getSumBeforeDate(walletId: Long, startDate: LocalDateTime): Double?
+
     @Transaction
     @Query("SELECT * FROM transactions WHERE soft_deleted = 0 ORDER BY dateTime DESC")
     fun getAllTransactionsWithDetails(): Flow<List<TransactionWithDetails>>
@@ -85,6 +128,21 @@ interface TransactionDao {
     )
     suspend fun getCategoryExpenseSum(
         categoryId: Long,
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): Double?
+
+    @Query(
+        """
+        SELECT SUM(amount) FROM transactions
+        WHERE subcategory_id = :subcategoryId
+        AND type = 'Expense'
+        AND dateTime BETWEEN :startDate AND :endDate
+        AND soft_deleted = 0
+        """
+    )
+    suspend fun getSubcategoryExpenseSum(
+        subcategoryId: Long,
         startDate: LocalDateTime,
         endDate: LocalDateTime
     ): Double?

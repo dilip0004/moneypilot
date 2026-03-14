@@ -16,34 +16,43 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalTime
+import timber.log.Timber
 
 @HiltWorker
 class DailySummaryWorker @AssistedInject constructor(
     @Assisted private val context: Context,
     @Assisted workerParams: WorkerParameters,
     private val transactionRepository: TransactionRepository,
-    private val preferencesRepository: UserPreferencesRepository
+    private val preferencesRepository: UserPreferencesRepository,
+    private val notificationScheduler: NotificationScheduler // Injected to re-arm the next alarm
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        try {
+        return try {
             val preferences = preferencesRepository.userPreferencesFlow.first()
-            if (!preferences.dailySummaryEnabled) return Result.success()
-
-            val today = LocalDate.now()
-            val startOfDay = today.atStartOfDay()
-            val endOfDay = today.atTime(LocalTime.MAX)
-
-            val transactionsWithDetails = transactionRepository.getTransactionsWithDetailsByDateRange(startOfDay, endOfDay).first()
-            val transactions = transactionsWithDetails.map { it.transaction }
             
-            val totalSpent = transactions.filter { it.type == TransactionType.Expense }.sumOf { it.amount }
-            val totalEarned = transactions.filter { it.type == TransactionType.Income }.sumOf { it.amount }
+            // 1. Execute the actual work
+            if (preferences.dailySummaryEnabled) {
+                val today = LocalDate.now()
+                val startOfDay = today.atStartOfDay()
+                val endOfDay = today.atTime(LocalTime.MAX)
 
-            sendNotification(totalSpent, totalEarned)
-            return Result.success()
+                val transactionsWithDetails = transactionRepository.getTransactionsWithDetailsByDateRange(startOfDay, endOfDay).first()
+                val transactions = transactionsWithDetails.map { it.transaction }
+                
+                val totalSpent = transactions.filter { it.type == TransactionType.Expense }.sumOf { it.amount }
+                val totalEarned = transactions.filter { it.type == TransactionType.Income }.sumOf { it.amount }
+
+                sendNotification(totalSpent, totalEarned)
+            }
+
+            // 2. Re-arm the next daily alarm (Linear Chain Pattern)
+            notificationScheduler.scheduleDailySummary(preferences)
+            
+            Result.success()
         } catch (e: Exception) {
-            return Result.failure()
+            Timber.e(e, "DailySummaryWorker: Failed to process or re-arm")
+            Result.failure()
         }
     }
 

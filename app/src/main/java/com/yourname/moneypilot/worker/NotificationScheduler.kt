@@ -1,18 +1,15 @@
 package com.yourname.moneypilot.worker
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
-import androidx.work.*
+import android.content.Intent
 import com.yourname.moneypilot.data.local.preferences.UserPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
-import java.time.Duration
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
-import android.app.AlarmManager
-import android.app.PendingIntent
-import android.content.Intent
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,25 +17,26 @@ import javax.inject.Singleton
 class NotificationScheduler @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    /**
+     * Schedules the next exact alarm for the daily summary.
+     * Uses AlarmManager for precision (< 1 min delay) and WorkManager for task execution.
+     */
     fun scheduleDailySummary(preferences: UserPreferences) {
-        val workManager = WorkManager.getInstance(context)
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, DailySummaryAlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, 
+            0, 
+            intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         if (!preferences.dailySummaryEnabled) {
-            workManager.cancelUniqueWork("DailySummaryWork")
-            try {
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                val intent = Intent(context, DailySummaryAlarmReceiver::class.java)
-                val pending = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                alarmManager.cancel(pending)
-                Timber.d("Daily Summary alarm cancelled")
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to cancel Daily Summary alarm")
-            }
-            Timber.d("Daily Summary disabled and work cancelled")
+            alarmManager.cancel(pendingIntent)
+            Timber.d("Daily Summary disabled: Exact alarm cancelled.")
             return
         }
 
-        // Parse 24h time safely
         val timeParts = preferences.dailySummaryTime.split(":")
         val hour = timeParts.getOrNull(0)?.toIntOrNull() ?: 22
         val minute = timeParts.getOrNull(1)?.toIntOrNull() ?: 0
@@ -51,38 +49,23 @@ class NotificationScheduler @Inject constructor(
             executionTime = executionTime.plusDays(1)
         }
         
-        val initialDelayMillis = Duration.between(now, executionTime).toMillis()
+        val triggerAtMillis = executionTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-        val summaryRequest = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(initialDelayMillis, TimeUnit.MILLISECONDS)
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                    .setRequiresBatteryNotLow(false)
-                    .setRequiresCharging(false)
-                    .build()
-            )
-            .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.MINUTES)
-            .build()
-
-        // Use REPLACE to ensure the new schedule/delay is applied immediately
-        workManager.enqueueUniquePeriodicWork(
-            "DailySummaryWork",
-            ExistingPeriodicWorkPolicy.REPLACE,
-            summaryRequest
-        )
-        
-        // Also schedule an exact AlarmManager alarm as a fallback to improve delivery reliability
+        // Set exact alarm that works even in Doze mode
         try {
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, DailySummaryAlarmReceiver::class.java)
-            val pending = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, executionTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(), pending)
-            Timber.d("Daily Summary alarm scheduled for $executionTime (delay: ${initialDelayMillis / 1000}s)")
-        } catch (e: Exception) {
-            Timber.w(e, "Failed to schedule alarm fallback for Daily Summary")
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtMillis,
+                pendingIntent
+            )
+            Timber.d("Daily Summary precision alarm scheduled for $executionTime")
+        } catch (e: SecurityException) {
+            Timber.e(e, "Failed to schedule exact alarm. Falling back to non-exact.")
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtMillis,
+                pendingIntent
+            )
         }
-
-        Timber.d("Daily Summary scheduled for $executionTime (delay: ${initialDelayMillis / 1000}s)")
     }
 }

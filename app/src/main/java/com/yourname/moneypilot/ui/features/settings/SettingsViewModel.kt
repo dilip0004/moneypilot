@@ -53,6 +53,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun updateUseBiometrics(use: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateUseBiometrics(use)
+        }
+    }
+
     fun updateDailySummaryEnabled(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateDailySummaryEnabled(enabled)

@@ -22,10 +22,10 @@ fun AddEditBigBillScreen(
     onPopBackStack: () -> Unit,
     viewModel: AddEditBigBillViewModel = hiltViewModel()
 ) {
-    val state = viewModel.state.value
+    val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(true) {
+    LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
                 is AddEditBigBillViewModel.UiEvent.SaveBigBill -> onPopBackStack()

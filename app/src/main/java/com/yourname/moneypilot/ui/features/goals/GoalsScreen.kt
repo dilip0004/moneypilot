@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.goals
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,16 +8,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.unit.sp
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.GoalEntity
 import com.yourname.moneypilot.ui.common.ScreenState
 import java.time.format.DateTimeFormatter
@@ -55,14 +54,18 @@ fun GoalsScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        contentPadding = PaddingValues(bottom = 80.dp)
                     ) {
-                        items(state.data.goals) { goal ->
-                            GoalItem(
-                                goal = goal,
-                                onClick = { onEditGoal(goal.id) }
-                            )
-                            GoalRecentEntries(goal.id, viewModel)
+                        state.data.goals.forEach { goal ->
+                            item(key = "goal_${goal.id}") {
+                                GoalItem(
+                                    goal = goal,
+                                    onClick = { onEditGoal(goal.id) }
+                                )
+                            }
+                            item(key = "history_${goal.id}") {
+                                GoalRecentEntries(goal.id, viewModel)
+                            }
                         }
                     }
                 }
@@ -84,7 +87,11 @@ fun GoalItem(
     goal: GoalEntity,
     onClick: () -> Unit
 ) {
-    val progress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
+    val targetProgress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
+    val animatedProgress by animateFloatAsState(
+        targetValue = targetProgress.coerceAtMost(1f),
+        label = "goal_progress_animation"
+    )
     
     Card(
         modifier = Modifier
@@ -107,7 +114,7 @@ fun GoalItem(
                     )
                 }
                 Text(
-                    text = "${(progress * 100).toInt()}%",
+                    text = "${(targetProgress * 100).toInt()}%",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -116,7 +123,7 @@ fun GoalItem(
             Spacer(modifier = Modifier.height(12.dp))
             
             LinearProgressIndicator(
-                progress = { progress },
+                progress = { animatedProgress },
                 modifier = Modifier.fillMaxWidth().height(10.dp),
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
@@ -137,18 +144,22 @@ fun GoalRecentEntries(goalId: Long, viewModel: GoalsViewModel) {
     val entries by viewModel.getTransactionsForGoal(goalId).collectAsState(initial = emptyList())
 
     if (entries.isNotEmpty()) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(text = "Recent entries", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(text = "Recent contributions", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(8.dp))
             entries.take(3).forEach { txWithDetails ->
-                Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
-                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         val tx = txWithDetails.transaction
-                        val title = txWithDetails.category?.name ?: tx.note ?: "Uncategorized"
                         Column {
-                            Text(title, style = MaterialTheme.typography.bodyMedium)
+                            Text("Contribution", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                             Text(tx.dateTime.toLocalDate().toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(text = "₹${tx.amount}", style = MaterialTheme.typography.bodyLarge, fontSize = 16.sp)
+                        Text(text = "+ ₹${tx.amount}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     }
                 }
             }

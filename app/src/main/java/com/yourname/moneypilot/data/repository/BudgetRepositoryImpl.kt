@@ -2,6 +2,7 @@ package com.yourname.moneypilot.data.repository
 
 import androidx.room.Transaction
 import com.yourname.moneypilot.data.local.database.dao.BudgetDao
+import com.yourname.moneypilot.data.local.database.dao.BudgetWithDetails
 import com.yourname.moneypilot.data.local.database.dao.TransactionDao
 import com.yourname.moneypilot.data.local.database.entities.BudgetEntity
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +18,9 @@ class BudgetRepositoryImpl @Inject constructor(
     override fun getAllBudgets(): Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
 
     override fun getActiveBudgets(date: LocalDate): Flow<List<BudgetEntity>> = budgetDao.getActiveBudgets(date)
+
+    override fun getActiveBudgetsWithDetails(date: LocalDate): Flow<List<BudgetWithDetails>> = 
+        budgetDao.getActiveBudgetsWithDetails(date)
 
     override suspend fun getBudgetById(id: Long): BudgetEntity? = budgetDao.getBudgetById(id)
 
@@ -46,6 +50,25 @@ class BudgetRepositoryImpl @Inject constructor(
                 spentAmount = 0.0 // Reset spent amount for the new period
             )
             budgetDao.insert(newBudget)
+        }
+    }
+
+    @Transaction
+    override suspend fun refreshActiveBudgets(date: LocalDate) {
+        val activeBudgets = budgetDao.getActiveBudgets(date).first()
+        for (budget in activeBudgets) {
+            val start = budget.startDate.atStartOfDay()
+            val end = budget.endDate.atTime(LocalTime.MAX)
+            
+            val actualSpent = if (budget.subcategoryId != null) {
+                transactionDao.getSubcategoryExpenseSum(budget.subcategoryId, start, end) ?: 0.0
+            } else {
+                transactionDao.getCategoryExpenseSum(budget.categoryId, start, end) ?: 0.0
+            }
+            
+            if (budget.spentAmount != actualSpent) {
+                budgetDao.updateSpentAmount(budget.id, actualSpent)
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.*
 import com.yourname.moneypilot.data.repository.*
+import com.yourname.moneypilot.domain.usecase.transaction.SaveTransactionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -22,8 +23,7 @@ data class AddEditTransactionState(
     val date: LocalDateTime = LocalDateTime.now(),
     val wallets: List<WalletEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
-    val subcategories: List<SubcategoryEntity> = emptyList(),
-    val isDateConfirmed: Boolean = false
+    val subcategories: List<SubcategoryEntity> = emptyList()
 )
 
 sealed class AddEditTransactionEvent {
@@ -34,7 +34,6 @@ sealed class AddEditTransactionEvent {
     data class CategoryChanged(val value: Long) : AddEditTransactionEvent()
     data class SubcategoryChanged(val value: Long?) : AddEditTransactionEvent()
     data class DateChanged(val value: LocalDateTime) : AddEditTransactionEvent()
-    object ConfirmDate : AddEditTransactionEvent()
     object SaveTransaction : AddEditTransactionEvent()
 }
 
@@ -43,6 +42,7 @@ class AddEditTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val walletRepository: WalletRepository,
     private val categoryRepository: CategoryRepository,
+    private val saveTransactionUseCase: SaveTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -80,10 +80,11 @@ class AddEditTransactionViewModel @Inject constructor(
                         type = transaction.type,
                         walletFromId = transaction.walletFromId,
                         categoryId = transaction.categoryId,
-                        date = transaction.dateTime,
-                        isDateConfirmed = true
+                        subcategoryId = transaction.subcategoryId,
+                        date = transaction.dateTime
                     ) }
                     _typeFlow.value = transaction.type
+                    transaction.categoryId?.let { loadSubcategories(it) }
                 }
             }
         }
@@ -99,11 +100,10 @@ class AddEditTransactionViewModel @Inject constructor(
 
         viewModelScope.launch {
             _typeFlow.flatMapLatest { type ->
-                // The repository method expects a String for type, but we have an enum.
                 categoryRepository.getCategoriesByType(if (type == TransactionType.Transfer) "EXPENSE" else type.name.uppercase())
             }.collect { categories ->
-                val newCategoryId = categories.firstOrNull()?.id
-                _state.update { it.copy(categories = categories, categoryId = newCategoryId, subcategories = emptyList()) }
+                val newCategoryId = if (currentTransactionId != null) _state.value.categoryId else categories.firstOrNull()?.id
+                _state.update { it.copy(categories = categories, categoryId = newCategoryId) }
                 newCategoryId?.let { loadSubcategories(it) }
             }
         }
@@ -123,8 +123,7 @@ class AddEditTransactionViewModel @Inject constructor(
                 loadSubcategories(event.value)
             }
             is AddEditTransactionEvent.SubcategoryChanged -> _state.update { it.copy(subcategoryId = event.value) }
-            is AddEditTransactionEvent.DateChanged -> _state.update { it.copy(date = event.value, isDateConfirmed = true) }
-            is AddEditTransactionEvent.ConfirmDate -> _state.update { it.copy(isDateConfirmed = true) }
+            is AddEditTransactionEvent.DateChanged -> _state.update { it.copy(date = event.value) }
             is AddEditTransactionEvent.SaveTransaction -> saveTransaction()
         }
     }
@@ -154,15 +153,22 @@ class AddEditTransactionViewModel @Inject constructor(
                     return@launch
                 }
 
-                if (currentState.type != TransactionType.Transfer && currentState.categoryId == null) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Please select a category."))
-                    return@launch
+                if (currentState.type != TransactionType.Transfer) {
+                    if (currentState.categoryId == null) {
+                        _eventFlow.emit(UiEvent.ShowSnackbar("Please select a category."))
+                        return@launch
+                    }
+                    if (currentState.subcategories.isNotEmpty() && currentState.subcategoryId == null) {
+                        _eventFlow.emit(UiEvent.ShowSnackbar("Please select a subcategory."))
+                        return@launch
+                    }
                 }
 
                 val transaction = TransactionEntity(
                     id = currentTransactionId ?: UUID.randomUUID().toString(),
                     walletFromId = walletId,
                     categoryId = currentState.categoryId,
+                    subcategoryId = currentState.subcategoryId,
                     type = currentState.type,
                     amount = amountValue,
                     note = currentState.description,
@@ -170,7 +176,7 @@ class AddEditTransactionViewModel @Inject constructor(
                     transactionSourceType = "MANUAL"
                 )
                 
-                transactionRepository.insertTransaction(transaction)
+                saveTransactionUseCase(transaction, isEdit = currentTransactionId != null)
                 _eventFlow.emit(UiEvent.SaveTransaction)
             } catch (e: Exception) {
                 _eventFlow.emit(UiEvent.ShowSnackbar("Save failed: ${e.message}"))

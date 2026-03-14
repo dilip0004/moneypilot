@@ -1,13 +1,15 @@
 package com.yourname.moneypilot.data.repository
 
 import com.yourname.moneypilot.data.local.database.dao.CategoryDao
+import com.yourname.moneypilot.data.local.database.dao.TransactionDao
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class CategoryRepositoryImpl @Inject constructor(
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val transactionDao: TransactionDao
 ) : CategoryRepository {
     override fun getAllCategories(): Flow<List<CategoryEntity>> = categoryDao.getAllCategories()
 
@@ -28,6 +30,12 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun updateSubcategory(subcategory: SubcategoryEntity) = categoryDao.updateSubcategory(subcategory)
 
     override suspend fun deleteSubcategory(subcategory: SubcategoryEntity) = categoryDao.deleteSubcategory(subcategory)
+
+    override suspend fun getTransactionCountForCategory(categoryId: Long): Int = 
+        transactionDao.getTransactionCountForCategory(categoryId)
+
+    override suspend fun getTransactionCountForSubcategory(subcategoryId: Long): Int = 
+        transactionDao.getTransactionCountForSubcategory(subcategoryId)
 
     override suspend fun seedDefaults() {
         val count = categoryDao.getCategoryCount()

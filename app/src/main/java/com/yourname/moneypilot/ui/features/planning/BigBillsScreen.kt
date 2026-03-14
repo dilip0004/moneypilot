@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.BigBillEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-// use MaterialTheme.colorScheme.expense / income
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,21 +96,28 @@ fun BigBillList(
 
 @Composable
 fun PendingBillsHeader(amount: Double) {
+    val hasPending = amount > 0
+    val statusColor = if (hasPending) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f))
+        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f))
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Total Pending Bills", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.expense)
+            Text(
+                text = if (hasPending) "Total Pending Bills" else "All Bills Paid", 
+                style = MaterialTheme.typography.labelMedium, 
+                color = statusColor
+            )
             Text(
                 text = "₹ $amount",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.expense
+                color = statusColor
             )
         }
     }

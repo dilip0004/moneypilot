@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.transactions
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
+import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -38,6 +40,7 @@ fun AddEditTransactionScreen(
     viewModel: AddEditTransactionViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val financeColors = LocalFinanceColors.current
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
@@ -77,9 +80,7 @@ fun AddEditTransactionScreen(
                     showTimePicker = true
                 }) { Text("Next") }
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
-            }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
         ) {
             DatePicker(state = datePickerState)
         }
@@ -108,7 +109,7 @@ fun AddEditTransactionScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(text = "Add Transaction") },
+                title = { Text(text = "Transaction Details") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -169,7 +170,7 @@ fun AddEditTransactionScreen(
                         Icon(Icons.Default.CalendarMonth, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Date & Time", style = MaterialTheme.typography.labelSmall)
+                            Text("Transaction Date & Time", style = MaterialTheme.typography.labelSmall)
                             Text(
                                 text = state.date.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy - HH:mm")),
                                 style = MaterialTheme.typography.bodyLarge,
@@ -297,20 +298,25 @@ fun AddEditTransactionScreen(
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) })
                 )
 
-                OutlinedTextField(
-                    value = state.amount,
-                    onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredAmount(it)) },
-                    label = { Text("Amount") },
-                    modifier = Modifier.fillMaxWidth().onFocusChanged {
-                        if (it.isFocused) {
-                            focusManager.clearFocus()
-                            showCalculator = true
-                            coroutineScope.launch { scrollState.animateScrollTo(scrollState.maxValue) }
-                        }
-                    },
-                    readOnly = true,
-                    prefix = { Text("₹ ") }
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = state.amount,
+                        onValueChange = { },
+                        label = { Text("Amount") },
+                        modifier = Modifier.fillMaxWidth().testTag("add_tx_amount"),
+                        readOnly = true,
+                        prefix = { Text("₹ ") }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable {
+                                focusManager.clearFocus()
+                                showCalculator = true
+                                coroutineScope.launch { scrollState.animateScrollTo(scrollState.maxValue) }
+                            }
+                    )
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -319,12 +325,20 @@ fun AddEditTransactionScreen(
                     FilterChip(
                         selected = state.type == TransactionType.Expense,
                         onClick = { viewModel.onEvent(AddEditTransactionEvent.TypeChanged(TransactionType.Expense)) },
-                        label = { Text("Expense") }
+                        label = { Text("Expense") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = financeColors.expense.copy(alpha = 0.2f),
+                            selectedLabelColor = financeColors.expense
+                        )
                     )
                     FilterChip(
                         selected = state.type == TransactionType.Income,
                         onClick = { viewModel.onEvent(AddEditTransactionEvent.TypeChanged(TransactionType.Income)) },
-                        label = { Text("Income") }
+                        label = { Text("Income") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = financeColors.income.copy(alpha = 0.2f),
+                            selectedLabelColor = financeColors.income
+                        )
                     )
                 }
 

@@ -1,18 +1,21 @@
 package com.yourname.moneypilot.data.repository
 
 import androidx.room.Transaction
-import com.yourname.moneypilot.data.local.database.dao.TransactionDao
-import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
-import com.yourname.moneypilot.data.local.database.dao.WalletDao
+import com.yourname.moneypilot.data.local.database.dao.*
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
+import java.time.LocalTime
 import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao,
-    private val walletDao: WalletDao // Injected for atomic balance updates
+    private val walletDao: WalletDao,
+    private val goalDao: GoalDao,
+    private val loanDao: LoanDao,
+    private val budgetDao: BudgetDao // Injected for budget sync
 ) : TransactionRepository {
 
     override fun getAllTransactionsWithDetails(): Flow<List<TransactionWithDetails>> =
@@ -30,11 +33,23 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getTransactionsForWallet(walletId: Long): List<TransactionEntity> =
         transactionDao.getTransactionsForWallet(walletId)
 
+    override suspend fun getTransactionCountForWallet(walletId: Long): Int =
+        transactionDao.getTransactionCountForWallet(walletId)
+
+    override fun getTransactionsWithDetailsForWallet(
+        walletId: Long,
+        startDate: LocalDateTime,
+        endDate: LocalDateTime
+    ): Flow<List<TransactionWithDetails>> = 
+        transactionDao.getTransactionsWithDetailsForWallet(walletId, startDate, endDate)
+
+    override suspend fun getSumBeforeDate(walletId: Long, startDate: LocalDateTime): Double =
+        transactionDao.getSumBeforeDate(walletId, startDate) ?: 0.0
+
     @Transaction
     override suspend fun insertTransaction(transaction: TransactionEntity) {
         transactionDao.insert(transaction)
-        val balanceChange = if (transaction.type == TransactionType.Income) transaction.amount else -transaction.amount
-        transaction.walletFromId?.let { walletDao.updateBalance(it, balanceChange) }
+        applyFinancialImpact(transaction, 1.0)
     }
 
     @Transaction
@@ -49,20 +64,92 @@ class TransactionRepositoryImpl @Inject constructor(
 
     @Transaction
     override suspend fun updateTransaction(transaction: TransactionEntity) {
-        // More complex logic needed here to revert old transaction impact and apply new one
-        // For now, just a simple update.
+        val oldTx = transactionDao.getTransactionById(transaction.id)
+        if (oldTx != null) {
+            if (oldTx.type == TransactionType.Transfer) {
+                walletDao.updateBalance(oldTx.walletFromId!!, oldTx.amount)
+                walletDao.updateBalance(oldTx.walletToId!!, -oldTx.amount)
+            } else {
+                applyFinancialImpact(oldTx, -1.0)
+            }
+        }
+
         transactionDao.update(transaction)
+
+        if (transaction.type == TransactionType.Transfer) {
+            walletDao.updateBalance(transaction.walletFromId!!, -transaction.amount)
+            walletDao.updateBalance(transaction.walletToId!!, transaction.amount)
+        } else {
+            applyFinancialImpact(transaction, 1.0)
+        }
     }
 
     @Transaction
     override suspend fun deleteTransaction(transaction: TransactionEntity) {
-        val balanceChange = if (transaction.type == TransactionType.Income) -transaction.amount else transaction.amount
-        transaction.walletFromId?.let { walletDao.updateBalance(it, balanceChange) }
+        if (transaction.type == TransactionType.Transfer) {
+            walletDao.updateBalance(transaction.walletFromId!!, transaction.amount)
+            walletDao.updateBalance(transaction.walletToId!!, -transaction.amount)
+        } else {
+            applyFinancialImpact(transaction, -1.0)
+        }
         transactionDao.delete(transaction)
+    }
+
+    private suspend fun applyFinancialImpact(tx: TransactionEntity, multiplier: Double) {
+        val amount = tx.amount * multiplier
+        
+        // 1. Wallet Balance Impact
+        if (tx.walletFromId != null) {
+            val balanceChange = if (tx.type == TransactionType.Income) amount else -amount
+            walletDao.updateBalance(tx.walletFromId, balanceChange)
+        }
+
+        // 2. Loan Impact
+        if (tx.loanId != null) {
+            loanDao.getLoanById(tx.loanId)?.let { loan ->
+                val newOutstanding = (loan.currentBalance - amount).coerceAtLeast(0.0)
+                loanDao.updateLoan(loan.copy(currentBalance = newOutstanding))
+            }
+        }
+
+        // 3. Budget Sync (BUG-018 Fix)
+        // Only expenses impact budgets
+        if (tx.type == TransactionType.Expense && tx.categoryId != null) {
+            syncBudgets(tx)
+        }
+    }
+
+    /**
+     * Recalculates spent amount for any budgets affected by this transaction.
+     */
+    private suspend fun syncBudgets(tx: TransactionEntity) {
+        val date = tx.dateTime.toLocalDate()
+        
+        // Find active budgets for the category or subcategory
+        val activeBudgets = budgetDao.getActiveBudgets(date).first()
+        val affectedBudgets = activeBudgets.filter { 
+            it.categoryId == tx.categoryId || (tx.subcategoryId != null && it.subcategoryId == tx.subcategoryId)
+        }
+
+        for (budget in affectedBudgets) {
+            val start = budget.startDate.atStartOfDay()
+            val end = budget.endDate.atTime(LocalTime.MAX)
+            
+            val totalSpent = if (budget.subcategoryId != null) {
+                transactionDao.getSubcategoryExpenseSum(budget.subcategoryId, start, end) ?: 0.0
+            } else {
+                transactionDao.getCategoryExpenseSum(budget.categoryId, start, end) ?: 0.0
+            }
+            
+            budgetDao.updateSpentAmount(budget.id, totalSpent)
+        }
     }
 
     override suspend fun getCategoryExpenseSum(categoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double =
         transactionDao.getCategoryExpenseSum(categoryId, startDate, endDate) ?: 0.0
+
+    override suspend fun getSubcategoryExpenseSum(subcategoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double =
+        transactionDao.getSubcategoryExpenseSum(subcategoryId, startDate, endDate) ?: 0.0
 
     override suspend fun getTotalSumByType(type: TransactionType, startDate: LocalDateTime, endDate: LocalDateTime): Double? =
         transactionDao.getTotalSumByType(type, startDate, endDate)

@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import com.yourname.moneypilot.data.local.database.util.LocalDateTimeSerializer
 import java.time.LocalDateTime
@@ -38,6 +39,12 @@ enum class TransactionType {
             onDelete = ForeignKey.SET_NULL
         ),
         ForeignKey(
+            entity = SubcategoryEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["subcategory_id"],
+            onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
             entity = LoanEntity::class,
             parentColumns = ["id"],
             childColumns = ["loan_id"],
@@ -48,6 +55,7 @@ enum class TransactionType {
         Index("wallet_from_id"),
         Index("wallet_to_id"),
         Index("category_id"),
+        Index("subcategory_id"),
         Index("loan_id"),
         Index("dateTime"),
         Index("type")
@@ -71,6 +79,9 @@ data class TransactionEntity(
 
     @ColumnInfo(name = "category_id")
     val categoryId: Long? = null,
+
+    @ColumnInfo(name = "subcategory_id")
+    val subcategoryId: Long? = null,
 
     @ColumnInfo(name = "loan_id")
     val loanId: Long? = null,

@@ -20,6 +20,7 @@ import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,6 +98,8 @@ fun TransactionHistoryContent(
     onEdit: (String) -> Unit,
     onDelete: (TransactionEntity) -> Unit
 ) {
+    val financeColors = LocalFinanceColors.current
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -123,7 +126,7 @@ fun TransactionHistoryContent(
                     Text(
                         text = "Total: ₹${grouped.dailyTotal}",
                         style = MaterialTheme.typography.labelMedium,
-                        // color = if (grouped.dailyTotal >= 0) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense
+                        color = if (grouped.dailyTotal >= 0) financeColors.income else financeColors.expense
                     )
                 }
             }

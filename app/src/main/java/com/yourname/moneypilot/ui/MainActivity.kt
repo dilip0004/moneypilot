@@ -4,19 +4,26 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -31,6 +38,7 @@ import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCas
 import com.yourname.moneypilot.ui.features.accounts.AccountDetailsScreen
 import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
+import com.yourname.moneypilot.ui.features.accounts.WalletStatementScreen
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
 import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
@@ -57,9 +65,10 @@ import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.util.concurrent.Executor
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() { // Required for BiometricPrompt
 
     @javax.inject.Inject
     lateinit var loanAutoDeductionProcessor: LoanAutoDeductionProcessor
@@ -89,7 +98,6 @@ class MainActivity : ComponentActivity() {
                 val mismatches = verifyLedgerIntegrityUseCase()
                 if (mismatches.isNotEmpty()) {
                     Timber.e("LEDGER INTEGRITY CHECK FAILED: ${mismatches.size} mismatches found.")
-                    mismatches.forEach { Timber.e("Mismatch -> ${it}") }
                 }
             }
         }
@@ -97,6 +105,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
             val preferences by mainViewModel.userPreferences.collectAsState()
+            
+            var isUnlocked by remember { mutableStateOf(false) }
 
             val darkTheme = when (preferences?.theme) {
                 AppTheme.LIGHT -> false
@@ -109,6 +119,7 @@ class MainActivity : ComponentActivity() {
             val isOled = preferences?.theme == AppTheme.OLED
             val useTrueBlackPref = preferences?.useTrueBlack == true
 
+            // Permission Handling
             if (!isRunningUiTest() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val context = LocalContext.current
                 var hasNotificationPermission by remember {
@@ -131,20 +142,67 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-                val trueBlack = useTrueBlackPref || isOled
+            // Biometric Logic
+            LaunchedEffect(preferences) {
+                if (preferences?.useBiometrics == true && !isUnlocked) {
+                    authenticateUser { success ->
+                        isUnlocked = success
+                    }
+                } else {
+                    isUnlocked = true
+                }
+            }
 
-                MoneyPilotTheme(
-                    darkTheme = darkTheme,
-                    trueBlack = trueBlack
-                ) {
+            MoneyPilotTheme(
+                darkTheme = darkTheme,
+                trueBlack = useTrueBlackPref || isOled,
+                accentColor = Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt())
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    if (isUnlocked) {
+                        MainScreen()
+                    } else {
+                        // Secure splash or placeholder while waiting for biometric
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Secure Access Required", style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    private fun authenticateUser(onResult: (Boolean) -> Unit) {
+        val executor: Executor = ContextCompat.getMainExecutor(this)
+        val biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    Toast.makeText(applicationContext, "Authentication error: $errString", Toast.LENGTH_SHORT).show()
+                    onResult(false)
+                }
+
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    onResult(true)
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    onResult(false)
+                }
+            })
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("MoneyPilot Secure Login")
+            .setSubtitle("Authenticate to access your financial ledger")
+            .setNegativeButtonText("Cancel")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
     }
 }
 
@@ -228,7 +286,7 @@ fun MainScreen() {
                     onAddAccount = { navController.navigate("add_account") },
                     onAddLoan = { navController.navigate("add_loan") },
                     onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("account_details/$walletId") } 
+                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") } 
                 )
             }
 
@@ -273,7 +331,7 @@ fun MainScreen() {
                     onAddAccount = { navController.navigate("add_account") },
                     onAddLoan = { navController.navigate("add_loan")},
                     onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("account_details/$walletId") } 
+                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") } 
                 )
             }
 
@@ -285,7 +343,17 @@ fun MainScreen() {
                 route = "account_details/{walletId}", 
                 arguments = listOf(navArgument("walletId") { type = NavType.LongType })
             ) {
-                AccountDetailsScreen(onPopBackStack = { navController.popBackStack() })
+                AccountDetailsScreen(
+                    onPopBackStack = { navController.popBackStack() },
+                    onEditAccount = { id -> navController.navigate("add_account?walletId=$id") }
+                )
+            }
+
+            composable(
+                route = "wallet_statement/{walletId}", 
+                arguments = listOf(navArgument("walletId") { type = NavType.LongType })
+            ) {
+                WalletStatementScreen(onPopBackStack = { navController.popBackStack() })
             }
 
             composable(

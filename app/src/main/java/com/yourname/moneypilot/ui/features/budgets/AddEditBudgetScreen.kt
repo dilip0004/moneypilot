@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.budgets
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,6 +30,7 @@ fun AddEditBudgetScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
     var expandedCategory by remember { mutableStateOf(false) }
+    var expandedSubcategory by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
@@ -47,7 +49,7 @@ fun AddEditBudgetScreen(
             topBar = {
                 CenterAlignedTopAppBar(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
-                    title = { Text("Set Category Budget", fontWeight = FontWeight.Bold) },
+                    title = { Text("Set Budget", fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onPopBackStack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -88,7 +90,7 @@ fun AddEditBudgetScreen(
                                 onDismissRequest = { expandedCategory = false }
                             ) {
                                 state.categories.forEach { category ->
-                                    if (category.type == "EXPENSE") { // Budgets are typically for expenses
+                                    if (category.type == "EXPENSE") {
                                         DropdownMenuItem(
                                             text = { Text("${category.icon} ${category.name}") },
                                             onClick = {
@@ -101,9 +103,57 @@ fun AddEditBudgetScreen(
                             }
                         }
 
+                        // Subcategory Selector
+                        AnimatedVisibility(visible = state.subcategories.isNotEmpty()) {
+                            Column {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                ExposedDropdownMenuBox(
+                                    expanded = expandedSubcategory,
+                                    onExpandedChange = { 
+                                        expandedSubcategory = !expandedSubcategory 
+                                        if (expandedSubcategory) {
+                                            showCalculator = false
+                                            focusManager.clearFocus()
+                                        }
+                                    }
+                                ) {
+                                    OutlinedTextField(
+                                        value = state.subcategories.find { it.id == state.subcategoryId }?.name ?: "All Subcategories",
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("Specific Subcategory") },
+                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedSubcategory) },
+                                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                                    )
+                                    ExposedDropdownMenu(
+                                        expanded = expandedSubcategory,
+                                        onDismissRequest = { expandedSubcategory = false }
+                                    ) {
+                                        // Option for general category budget
+                                        DropdownMenuItem(
+                                            text = { Text("None (All Subcategories)") },
+                                            onClick = {
+                                                viewModel.onEvent(AddEditBudgetEvent.SubcategoryChanged(null))
+                                                expandedSubcategory = false
+                                            }
+                                        )
+                                        state.subcategories.forEach { sub ->
+                                            DropdownMenuItem(
+                                                text = { Text(sub.name) },
+                                                onClick = {
+                                                    viewModel.onEvent(AddEditBudgetEvent.SubcategoryChanged(sub.id))
+                                                    expandedSubcategory = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Amount Input with Calculator
+                        // Amount Input
                         OutlinedTextField(
                             value = state.amount,
                             onValueChange = { viewModel.onEvent(AddEditBudgetEvent.EnteredAmount(it)) },

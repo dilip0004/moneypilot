@@ -47,7 +47,7 @@ fun SecurityScreen(
                 Switch(
                     checked = preferences?.useBiometrics ?: false,
                     onCheckedChange = { 
-                        // Implementation for updating biometrics preference
+                        viewModel.updateUseBiometrics(it)
                     }
                 )
             }
