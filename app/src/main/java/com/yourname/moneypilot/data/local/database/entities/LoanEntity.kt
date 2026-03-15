@@ -23,7 +23,8 @@ data class LoanEntity(
     val monthlyPayment: Double,
     val type: String, // BORROWED, LENT
     val status: String = "ACTIVE", // ACTIVE, COMPLETED
-    val linkedWalletId: Long?, // Linked physical wallet
+    val linkedWalletId: Long?, // Linked physical wallet for auto-deduction
+    val repaymentDayOfMonth: Int = 1, // EMI Day (TASK-AUTO-EMI)
     @Contextual
     val createdAt: LocalDateTime = LocalDateTime.now(),
     @Contextual

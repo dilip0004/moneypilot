@@ -1,17 +1,17 @@
 package com.yourname.moneypilot.ui.features.loans
 
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
+import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.data.repository.LoanRepository
+import com.yourname.moneypilot.data.repository.WalletRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 data class AddEditLoanState(
@@ -22,17 +22,34 @@ data class AddEditLoanState(
     val monthlyPayment: String = "",
     val durationMonths: String = "12",
     val type: String = "BORROWED",
-    val startDate: LocalDate = LocalDate.now()
+    val startDate: LocalDate = LocalDate.now(),
+    val repaymentDayOfMonth: Int = 1,
+    val linkedWalletId: Long? = null,
+    val wallets: List<WalletEntity> = emptyList()
 )
+
+sealed class AddEditLoanEvent {
+    data class EnteredName(val value: String) : AddEditLoanEvent()
+    data class EnteredLender(val value: String) : AddEditLoanEvent()
+    data class EnteredAmount(val value: String) : AddEditLoanEvent()
+    data class EnteredInterest(val value: String) : AddEditLoanEvent()
+    data class EnteredMonthlyPayment(val value: String) : AddEditLoanEvent()
+    data class EnteredDuration(val value: String) : AddEditLoanEvent()
+    data class TypeChanged(val value: String) : AddEditLoanEvent()
+    data class RepaymentDayChanged(val value: Int) : AddEditLoanEvent()
+    data class WalletLinked(val value: Long?) : AddEditLoanEvent()
+    object SaveLoan : AddEditLoanEvent()
+}
 
 @HiltViewModel
 class AddEditLoanViewModel @Inject constructor(
     private val loanRepository: LoanRepository,
-    savedStateHandle: SavedStateHandle
+    private val walletRepository: WalletRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _state = mutableStateOf(AddEditLoanState())
-    val state: State<AddEditLoanState> = _state
+    private val _state = MutableStateFlow(AddEditLoanState())
+    val state: StateFlow<AddEditLoanState> = _state.asStateFlow()
 
     private var currentLoanId: Long? = null
 
@@ -45,22 +62,31 @@ class AddEditLoanViewModel @Inject constructor(
     }
 
     init {
-        savedStateHandle.get<Long>("loanId")?.let { loanId ->
-            if (loanId != -1L) {
-                viewModelScope.launch {
-                    loanRepository.getLoanById(loanId)?.also { loan ->
-                        currentLoanId = loan.id
-                        _state.value = _state.value.copy(
-                            name = loan.name,
-                            lender = loan.lender,
-                            amount = loan.totalAmount.toString(),
-                            interestRate = loan.interestRate.toString(),
-                            monthlyPayment = loan.monthlyPayment.toString(),
-                            durationMonths = loan.durationMonths.toString(),
-                            type = loan.type,
-                            startDate = loan.startDate
-                        )
-                    }
+        loadData()
+    }
+
+    private fun loadData() {
+        walletRepository.getAllWallets().onEach { wallets ->
+            _state.update { it.copy(wallets = wallets) }
+        }.launchIn(viewModelScope)
+
+        val loanId = savedStateHandle.get<Long>("loanId")
+        if (loanId != null && loanId != -1L) {
+            viewModelScope.launch {
+                loanRepository.getLoanById(loanId)?.also { loan ->
+                    currentLoanId = loan.id
+                    _state.update { it.copy(
+                        name = loan.name,
+                        lender = loan.lender,
+                        amount = loan.totalAmount.toString(),
+                        interestRate = loan.interestRate.toString(),
+                        monthlyPayment = loan.monthlyPayment.toString(),
+                        durationMonths = loan.durationMonths.toString(),
+                        type = loan.type,
+                        startDate = loan.startDate,
+                        repaymentDayOfMonth = loan.repaymentDayOfMonth,
+                        linkedWalletId = loan.linkedWalletId
+                    ) }
                 }
             }
         }
@@ -68,12 +94,15 @@ class AddEditLoanViewModel @Inject constructor(
 
     fun onEvent(event: AddEditLoanEvent) {
         when (event) {
-            is AddEditLoanEvent.EnteredName -> _state.value = _state.value.copy(name = event.value)
-            is AddEditLoanEvent.EnteredLender -> _state.value = _state.value.copy(lender = event.value)
-            is AddEditLoanEvent.EnteredAmount -> _state.value = _state.value.copy(amount = event.value)
-            is AddEditLoanEvent.EnteredInterest -> _state.value = _state.value.copy(interestRate = event.value)
-            is AddEditLoanEvent.EnteredMonthlyPayment -> _state.value = _state.value.copy(monthlyPayment = event.value)
-            is AddEditLoanEvent.TypeChanged -> _state.value = _state.value.copy(type = event.value)
+            is AddEditLoanEvent.EnteredName -> _state.update { it.copy(name = event.value) }
+            is AddEditLoanEvent.EnteredLender -> _state.update { it.copy(lender = event.value) }
+            is AddEditLoanEvent.EnteredAmount -> _state.update { it.copy(amount = event.value) }
+            is AddEditLoanEvent.EnteredInterest -> _state.update { it.copy(interestRate = event.value) }
+            is AddEditLoanEvent.EnteredMonthlyPayment -> _state.update { it.copy(monthlyPayment = event.value) }
+            is AddEditLoanEvent.EnteredDuration -> _state.update { it.copy(durationMonths = event.value) }
+            is AddEditLoanEvent.TypeChanged -> _state.update { it.copy(type = event.value) }
+            is AddEditLoanEvent.RepaymentDayChanged -> _state.update { it.copy(repaymentDayOfMonth = event.value) }
+            is AddEditLoanEvent.WalletLinked -> _state.update { it.copy(linkedWalletId = event.value) }
             is AddEditLoanEvent.SaveLoan -> saveLoan()
         }
     }
@@ -81,41 +110,47 @@ class AddEditLoanViewModel @Inject constructor(
     private fun saveLoan() {
         viewModelScope.launch {
             try {
-                val amount = _state.value.amount.toDoubleOrNull() ?: 0.0
-                if (_state.value.name.isBlank() || amount <= 0) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Please fill in all required fields."))
+                val currentState = _state.value
+                
+                // Sanitize and parse amount
+                val amountValue = currentState.amount.replace(",", "").toDoubleOrNull() ?: 0.0
+                
+                if (currentState.name.isBlank()) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid loan name."))
+                    return@launch
+                }
+                if (amountValue <= 0) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid principal amount."))
                     return@launch
                 }
 
-                loanRepository.insertLoan(
-                    LoanEntity(
-                        id = currentLoanId ?: 0L,
-                        name = _state.value.name,
-                        lender = _state.value.lender,
-                        totalAmount = amount,
-                        interestRate = _state.value.interestRate.toDoubleOrNull() ?: 0.0,
-                        startDate = _state.value.startDate,
-                        durationMonths = _state.value.durationMonths.toIntOrNull() ?: 12,
-                        currentBalance = amount, // Initial balance is the total amount
-                        monthlyPayment = _state.value.monthlyPayment.toDoubleOrNull() ?: 0.0,
-                        type = _state.value.type,
-                        linkedWalletId = null // Can be linked later
-                    )
+                val loan = LoanEntity(
+                    id = currentLoanId ?: 0L,
+                    name = currentState.name,
+                    lender = currentState.lender,
+                    totalAmount = amountValue,
+                    interestRate = currentState.interestRate.toDoubleOrNull() ?: 0.0,
+                    startDate = currentState.startDate,
+                    durationMonths = currentState.durationMonths.toIntOrNull() ?: 12,
+                    currentBalance = if (currentLoanId == null) amountValue else {
+                        loanRepository.getLoanById(currentLoanId!!)?.currentBalance ?: amountValue
+                    },
+                    monthlyPayment = currentState.monthlyPayment.toDoubleOrNull() ?: 0.0,
+                    type = currentState.type,
+                    linkedWalletId = currentState.linkedWalletId,
+                    repaymentDayOfMonth = currentState.repaymentDayOfMonth
                 )
+
+                if (currentLoanId == null) {
+                    loanRepository.insertLoan(loan)
+                } else {
+                    loanRepository.updateLoan(loan)
+                }
+                
                 _eventFlow.emit(UiEvent.SaveLoan)
             } catch (e: Exception) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Could not save loan"))
+                _eventFlow.emit(UiEvent.ShowSnackbar("Save failed: ${e.message}"))
             }
         }
     }
-}
-
-sealed class AddEditLoanEvent {
-    data class EnteredName(val value: String) : AddEditLoanEvent()
-    data class EnteredLender(val value: String) : AddEditLoanEvent()
-    data class EnteredAmount(val value: String) : AddEditLoanEvent()
-    data class EnteredInterest(val value: String) : AddEditLoanEvent()
-    data class EnteredMonthlyPayment(val value: String) : AddEditLoanEvent()
-    data class TypeChanged(val value: String) : AddEditLoanEvent()
-    object SaveLoan : AddEditLoanEvent()
 }

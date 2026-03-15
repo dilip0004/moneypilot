@@ -9,9 +9,11 @@ import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.max
+import kotlinx.coroutines.flow.first
 
 /**
- * Runs on app start to catch up any due EMIs and post repayment transactions.
+ * Modern Automation Engine for Loan Repayments.
+ * Responsible for identifying due EMIs and posting split transactions (Principal + Interest).
  */
 class LoanAutoDeductionProcessor @Inject constructor(
     private val loanRepository: LoanRepository,
@@ -19,36 +21,59 @@ class LoanAutoDeductionProcessor @Inject constructor(
 ) {
     suspend fun process(asOf: LocalDate = LocalDate.now()) {
         val loans = loanRepository.getAllLoansOnce()
-            .filter { it.status == "ACTIVE" && it.type == "BORROWED" }
+            .filter { it.status == "ACTIVE" && it.type == "BORROWED" && it.linkedWalletId != null }
 
         for (loan in loans) {
-            // Since LoanEventEntity is not in the v5 spec, we must derive history from transactions.
-            // This is a placeholder for a more robust solution.
-            // For now, we assume this processor runs correctly and doesn't double-post.
+            val dueDay = loan.repaymentDayOfMonth
+            val currentMonthDue = asOf.withDayOfMonth(minOf(dueDay, asOf.lengthOfMonth()))
 
-            var cursor = loan.startDate
-            while (!cursor.isAfter(asOf)) {
-                val dueDate = cursor.withDayOfMonth(
-                    minOf(loan.startDate.dayOfMonth, cursor.lengthOfMonth())
-                )
+            // 1. Check if we are at or past the due date for this month
+            if (asOf.isBefore(currentMonthDue)) continue
 
-                if (!dueDate.isAfter(asOf)) { // Simplified check
-                    val tx = TransactionEntity(
-                        id = UUID.randomUUID().toString(),
-                        walletFromId = loan.linkedWalletId ?: 0L,
-                        categoryId = null,
-                        type = TransactionType.Expense, // LOAN_REPAYMENT is not a core type in v5
-                        amount = max(0.0, loan.monthlyPayment),
-                        note = "EMI - ${loan.name}",
-                        dateTime = LocalDateTime.of(dueDate.year, dueDate.month, dueDate.dayOfMonth, 9, 0),
-                        transactionSourceType = "AUTOMATED_LOAN_DEDUCTION"
-                    )
+            // 2. Check if a repayment for this month has already been posted
+            // We look for transactions with the specific automated source type for this loan in the current month
+            val startOfMonth = currentMonthDue.withDayOfMonth(1).atStartOfDay()
+            val endOfMonth = currentMonthDue.withDayOfMonth(currentMonthDue.lengthOfMonth()).atTime(23, 59)
+            
+            val existingTxs = transactionRepository.getTransactionsForWallet(loan.linkedWalletId!!)
+                .filter { it.loanId == loan.id && it.dateTime.isAfter(startOfMonth) && it.dateTime.isBefore(endOfMonth) }
 
-                    transactionRepository.insertTransaction(tx)
-                }
+            if (existingTxs.isNotEmpty()) continue
 
-                cursor = cursor.plusMonths(1)
-            }
+            // 3. Perform Split Deduction (Section 5.3)
+            val annualRate = loan.interestRate
+            val monthlyRate = annualRate / 12.0 / 100.0
+            
+            val interestAmount = loan.currentBalance * monthlyRate
+            val principalAmount = max(0.0, loan.monthlyPayment - interestAmount)
+
+            // A. Post Interest as an Expense (Money leaving the system)
+            val interestTx = TransactionEntity(
+                id = UUID.randomUUID().toString(),
+                walletFromId = loan.linkedWalletId,
+                categoryId = null, // Optionally link to a "Loan Interest" category
+                loanId = null, // Interest does not reduce the principal balance
+                type = TransactionType.Expense,
+                amount = interestAmount,
+                note = "Interest Payment: ${loan.name}",
+                dateTime = LocalDateTime.now(),
+                transactionSourceType = "AUTO_EMI_INTEREST"
+            )
+
+            // B. Post Principal as a Repayment (Reduces liability)
+            val principalTx = TransactionEntity(
+                id = UUID.randomUUID().toString(),
+                walletFromId = loan.linkedWalletId,
+                loanId = loan.id, // This triggers the balance reduction in Repository
+                type = TransactionType.Expense,
+                amount = principalAmount,
+                note = "Principal Repayment: ${loan.name}",
+                dateTime = LocalDateTime.now(),
+                transactionSourceType = "AUTO_EMI_PRINCIPAL"
+            )
+
+            transactionRepository.insertTransaction(interestTx)
+            transactionRepository.insertTransaction(principalTx)
         }
     }
 }
