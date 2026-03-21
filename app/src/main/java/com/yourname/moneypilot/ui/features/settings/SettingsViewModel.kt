@@ -80,4 +80,10 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.updateUseTrueBlack(enabled)
         }
     }
+
+    fun updateFontFamily(font: String) {
+        viewModelScope.launch {
+            preferencesRepository.updateFontFamily(font)
+        }
+    }
 }

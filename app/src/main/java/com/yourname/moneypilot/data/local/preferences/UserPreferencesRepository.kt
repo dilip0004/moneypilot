@@ -29,7 +29,8 @@ data class UserPreferences(
     val budgetAlertThreshold: Int,
     val dailySummaryEnabled: Boolean,
     val dailySummaryTime: String,
-    val useTrueBlack: Boolean = false
+    val useTrueBlack: Boolean = false,
+    val fontFamily: String = "DEFAULT"
 )
 
 @Singleton
@@ -48,6 +49,7 @@ class UserPreferencesRepository @Inject constructor(
         val BUDGET_ALERT_THRESHOLD = stringPreferencesKey("budget_alert_threshold")
         val DAILY_SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
         val DAILY_SUMMARY_TIME = stringPreferencesKey("daily_summary_time")
+        val FONT_FAMILY = stringPreferencesKey("font_family")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -72,8 +74,13 @@ class UserPreferencesRepository @Inject constructor(
             val threshold = preferences[PreferencesKeys.BUDGET_ALERT_THRESHOLD]?.toIntOrNull() ?: 90
             val summaryEnabled = preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] ?: true
             val summaryTime = preferences[PreferencesKeys.DAILY_SUMMARY_TIME] ?: "22:00"
+            val fontFamily = preferences[PreferencesKeys.FONT_FAMILY] ?: "DEFAULT"
 
-            UserPreferences(currency, theme, primaryColor, kbBgColor, kbBoxColor, useDynamicColor, useBiometrics, threshold, summaryEnabled, summaryTime, useTrueBlack)
+            UserPreferences(
+                currency, theme, primaryColor, kbBgColor, kbBoxColor, 
+                useDynamicColor, useBiometrics, threshold, summaryEnabled, 
+                summaryTime, useTrueBlack, fontFamily
+            )
         }
 
     suspend fun updateCurrency(currency: String) {
@@ -128,6 +135,12 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun updateUseTrueBlack(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.USE_TRUE_BLACK] = enabled
+        }
+    }
+
+    suspend fun updateFontFamily(font: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.FONT_FAMILY] = font
         }
     }
 }

@@ -16,16 +16,12 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateToAccounts: () -> Unit,
     onNavigateToCategories: () -> Unit,
-    onNavigateToBudgets: () -> Unit,
-    onNavigateToDistribution: () -> Unit,
     onNavigateToAppearance: () -> Unit,
     onNavigateToSecurity: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToBackup: () -> Unit,
-    onNavigateToDiagnostics: () -> Unit,
-    onNavigateToReconciliation: () -> Unit // Added
+    onNavigateToDiagnostics: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -38,33 +34,6 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            SettingsHeader("Financial Setup")
-            SettingsItem(
-                title = "Wallets & Accounts",
-                subtitle = "Manage bank, cash, and credit cards",
-                icon = Icons.Default.AccountBalanceWallet,
-                onClick = onNavigateToAccounts
-            )
-            SettingsItem(
-                title = "Categories & Subcategories",
-                subtitle = "Add, rename, and set emojis",
-                icon = Icons.Default.Category,
-                onClick = onNavigateToCategories
-            )
-            SettingsItem(
-                title = "Budgets & Allocations",
-                subtitle = "Set monthly spending limits",
-                icon = Icons.Default.MonetizationOn,
-                onClick = onNavigateToBudgets
-            )
-            SettingsItem(
-                title = "Leftover Distribution Rules",
-                subtitle = "Automate your month-end savings",
-                icon = Icons.Default.AutoMode,
-                onClick = onNavigateToDistribution
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SettingsHeader("App Preferences")
             SettingsItem(
                 title = "Appearance & Personalization",
@@ -83,6 +52,15 @@ fun SettingsScreen(
                 subtitle = "Reminders and budget alerts",
                 icon = Icons.Default.Notifications,
                 onClick = onNavigateToNotifications
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SettingsHeader("Governance")
+            SettingsItem(
+                title = "Categories & Subcategories",
+                subtitle = "Manage the hierarchy of your transactions",
+                icon = Icons.Default.Category,
+                onClick = onNavigateToCategories
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
@@ -22,7 +23,7 @@ fun CompactTransactionItem(
     val tx = txWithDetails.transaction
     val financeColors = LocalFinanceColors.current
 
-    Column(modifier = Modifier.padding(vertical = 0.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = Modifier.padding(vertical = 4.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         // Construct hierarchical title (Category > Subcategory)
         val title = when {
             txWithDetails.category != null && txWithDetails.subcategory != null -> 
@@ -35,18 +36,29 @@ fun CompactTransactionItem(
         }
 
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = title,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                // EMI Transparency (Sub-detail for automated loan entries)
+                if (tx.transactionSourceType == "AUTO_EMI_PRINCIPAL") {
+                    Text("Principal Repayment", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (tx.transactionSourceType == "AUTO_EMI_INTEREST") {
+                    Text("Interest Component", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
 
-            val (sign, color) = when (tx.type) {
-                TransactionType.Income -> "+" to financeColors.income
-                TransactionType.Expense -> "-" to financeColors.expense
-                TransactionType.Transfer -> "" to MaterialTheme.colorScheme.onSurfaceVariant
+            // Refund Behavior & Color Logic
+            val isRefund = tx.note?.contains("Refund", ignoreCase = true) == true
+            val (sign, color) = when {
+                tx.type == TransactionType.Income || isRefund -> "+" to financeColors.income
+                tx.type == TransactionType.Expense -> "-" to financeColors.expense
+                tx.type == TransactionType.Transfer -> "" to MaterialTheme.colorScheme.onSurfaceVariant
+                else -> "" to MaterialTheme.colorScheme.onSurface
             }
 
             Text(
@@ -59,7 +71,6 @@ fun CompactTransactionItem(
 
         val timeStr = tx.dateTime.toLocalTime().format(DateTimeFormatter.ofPattern(timePattern))
         val desc = tx.note?.trim() ?: ""
-        // If the title is already using the note, don't repeat it in the second line
         val secondLine = if (desc.isNotEmpty() && title != desc) "$timeStr • $desc" else timeStr
 
         Text(

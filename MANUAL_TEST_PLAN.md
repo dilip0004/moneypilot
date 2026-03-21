@@ -1,135 +1,101 @@
-# Money Pilot - Manual Test Plan (Architecture v5.0 compliant)
+# Money Pilot - Exhaustive Manual Test Plan (Architecture v5.0)
 
 ## 1. Document Purpose
-This document provides a detailed flow for manual testing of the Money Pilot application. Test Case IDs (e.g., **TC-FLOW-01**) must be used as references when reporting or fixing bugs to ensure traceability to the core architecture.
+This is the master authority for manual verification. Test Case IDs are continuous. Passing every case in this document guarantees a stable, architecturally compliant, and bug-free application.
 
 ---
 
-## 2. Flow Layer: Transactions (Ledger Integrity)
+## Domain 1: Flow Layer (Transactions & Ledger)
 
-### **TC-FLOW-01: Add Manual Expense**
-*   **Steps:**
-    1.  Navigate to the Dashboard.
-    2.  Tap the "Add Transaction" FAB.
-    3.  Select a Wallet (e.g., Bank).
-    4.  Select a Category and a Subcategory.
-    5.  Enter an amount (e.g., ₹500).
-    6.  Tap "Save".
-*   **Expected Result:** 
-    *   Transaction appears in the "Daily" list.
-    *   Wallet balance decreases by exactly ₹500.
-    *   Associated budget (if any) shows ₹500 consumption.
-
-### **TC-FLOW-02: Add Fund Transfer**
-*   **Steps:**
-    1.  Go to the "Transfer" screen.
-    2.  Select "Source Wallet" (e.g., Bank) and "Destination Wallet" (e.g., Cash).
-    3.  Enter amount (e.g., ₹1000).
-    4.  Tap "Execute Transfer".
-*   **Expected Result:**
-    *   Source Wallet decreases by ₹1000.
-    *   Destination Wallet increases by ₹1000.
-    *   Transaction appears in the ledger as a "Transfer".
-    *   **CRITICAL:** Total Income and Total Expense in Analytics remain unchanged.
-
-### **TC-FLOW-03: Edit Transaction (Revert & Apply Logic)**
-*   **Steps:**
-    1.  Find an existing Expense of ₹100 in the Daily list.
-    2.  Tap to Edit.
-    3.  Change amount to ₹150.
-    4.  Tap "Save".
-*   **Expected Result:**
-    *   Wallet balance is adjusted by -₹50 (reverts ₹100, applies ₹150).
-    *   Ledger shows the updated amount.
-    *   **BUG-PROTECTION:** Verify no double-deduction occurred (wallet should not have lost ₹250).
-
-### **TC-FLOW-04: Delete Transaction**
-*   **Steps:**
-    1.  Long-press an Income transaction of ₹1000.
-    2.  Select "Delete".
-*   **Expected Result:**
-    *   Transaction is removed from the list.
-    *   Wallet balance decreases by exactly ₹1000 (reversion).
+| ID | Feature | Scenario | Expected Result |
+| :--- | :--- | :--- | :--- |
+| **TC-0001** | Transaction Entry | Add Expense with ₹0 amount. | UI blocks saving; Error: "Amount must be greater than zero." |
+| **TC-0002** | Transaction Entry | Add Income to a liability wallet (Credit Card). | CC outstanding balance decreases; Inflow correctly logged. |
+| **TC-0003** | Transaction Entry | Add Transfer from Bank to Cash. | Bank -X, Cash +X. Total Income/Expense stats remain unchanged. |
+| **TC-0004** | Transaction Entry | Use Subcategory (e.g. Food > Groceries). | List shows "Food > Groceries"; Both Category and Sub-budget update. |
+| **TC-0005** | Transaction Entry | Calculator: Add multiple values (50 + 20 + 30). | Field populates with ₹100 accurately. |
+| **TC-0006** | Transaction Entry | Input: Interactivity of Description. | Tapping Description while Calculator is open swaps to Keyboard instantly. |
+| **TC-0007** | Transaction Edit | Modify Amount (₹100 to ₹500). | Wallet balance adjusted by -₹400 (Undo ₹100, Apply ₹500). |
+| **TC-0008** | Transaction Edit | Modify Wallet (Bank to Cash). | Bank balance restored; Cash balance deducted. |
+| **TC-0009** | Transaction Edit | Modify Type (Expense to Income). | Balance increases by 2x amount (Undo deduction, add gain). |
+| **TC-0010** | Transaction Edit | Modify Category (Food to Bills). | Food budget spent decreases; Bills budget spent increases. |
+| **TC-0011** | Daily List | Search by Note snippet. | Searching "lunch" filters only items with "lunch" in the note. |
+| **TC-0012** | Daily List | Long-press Delete. | Transaction removed; Balance restored; List re-animates smoothly. |
 
 ---
 
-## 3. Position Layer: Wallets & Debt
+## Domain 2: Position Layer (Accounts, Liability & Wealth)
 
-### **TC-POS-01: Wallet Management**
-*   **Steps:**
-    1.  Go to Settings -> Wallets.
-    2.  Add a new "BANK" wallet with initial balance ₹0.
-    3.  Edit the wallet name to "Savings".
-*   **Expected Result:** Wallet name updates correctly; balance remains ₹0.
-
-### **TC-POS-02: Safe Deletion Check**
-*   **Steps:**
-    1.  Attempt to delete a wallet that has 5 transactions associated with it.
-*   **Expected Result:** 
-    *   System blocks deletion.
-    *   Snackbar message: "Cannot delete wallet with transactions. Please archive instead."
-
-### **TC-POS-03: Wallet Statement (Filtered Ledger)**
-*   **Steps:**
-    1.  Tap on a specific Wallet (e.g., "Cash").
-    2.  Select a Date Range (e.g., 1st Oct to 15th Oct).
-*   **Expected Result:**
-    *   Only transactions for "Cash" within that range are shown.
-    *   "Opening Balance" and "Closing Balance" are calculated correctly based on the ledger.
+| ID | Feature | Scenario | Expected Result |
+| :--- | :--- | :--- | :--- |
+| **TC-0013** | Wallet Setup | Create BANK wallet with initial ₹10,000. | Wallet appears with ₹10k; Net worth increases by ₹10k. |
+| **TC-0014** | Wallet Setup | Create CC wallet with ₹0 initial and ₹50k limit. | Wallet appears; Billing cycle fields visible. |
+| **TC-0015** | Wallet Management | Edit Wallet Name/Icon. | Updates reflect in Hub, List, and all Transaction pickers. |
+| **TC-0016** | Wallet Management | Archive Wallet with active balance. | Wallet hidden from Hub; Total Balance still includes archived amount. |
+| **TC-0017** | Wallet Management | Delete Wallet with history (Safe Block). | Blocked; User prompted to Archive instead to protect ledger. |
+| **TC-0018** | CC Logic | Log transaction on Billing Day vs Day After. | Day after transaction is deferred to the next statement cycle. |
+| **TC-0019** | CC Logic | Full Payment (Bank -> CC). | Transfer created; CC balance returns to ₹0 (or limit). |
+| **TC-0020** | Wallet Statement | custom date range calculation. | Opening balance matches "Initial + Sum(Transactions before Range Start)". |
+| **TC-0021** | Net Worth | Verify (Assets - Liabilities). | Sum of [Bank+Cash+Investments] minus [Loans+CC] is accurate. |
 
 ---
 
-## 4. Intent Layer: Planning & Automation
+## Domain 3: Intent Layer (Planning & Budgets)
 
-### **TC-INTENT-01: Subcategory Budgeting**
-*   **Steps:**
-    1.  Go to Planning -> Budgets.
-    2.  Add a budget for "Food > Swiggy" for ₹2000.
-    3.  Log an expense of ₹500 under "Food > Swiggy".
-*   **Expected Result:**
-    *   Budget progress bar fills to 25%.
-    *   Progress bar animates smoothly.
-
-### **TC-INTENT-02: Loan EMI Auto-Deduction**
-*   **Steps:**
-    1.  Add a Loan (Borrowed) with EMI Date set to "Today".
-    2.  Link it to "Bank Wallet".
-    3.  Restart the App.
-*   **Expected Result:**
-    *   A split transaction is generated:
-        *   Interest (Expense).
-        *   Principal (Transfer/Repayment).
-    *   Loan "Outstanding Balance" decreases by the principal amount.
-    *   Bank Wallet decreases by the full EMI.
+| ID | Feature | Scenario | Expected Result |
+| :--- | :--- | :--- | :--- |
+| **TC-0022** | Budgets | Subcategory Budget exceeding Parent. | Allowed (Planning freedom), but UI shows both progress bars. |
+| **TC-0023** | Budgets | Threshold Warning (90%). | Progress bar turns **Orange** at 90.1% usage. |
+| **TC-0024** | Budgets | Overflow State (100%+). | Progress bar turns **Bright Red**; Overflow amount clearly displayed. |
+| **TC-0025** | Budgets | Self-Healing on Load. | App re-verifies spent_amount vs ledger on screen open. |
+| **TC-0026** | Budgets | Future Budget. | Set budget for next month; verify it shows 0% until 1st of month. |
+| **TC-0027** | Goals | Add Goal with Target Date 5 years out. | Appears in Planning Hub; Progress = 0%. |
+| **TC-0028** | Goals | Manual Contribution (Transfer). | Wallet balance decreases; Goal progress increases; Event logged. |
+| **TC-0029** | Goals | Achievement (Reaching Target). | Visual celebration/indicator shown; Status moves to "Completed". |
+| **TC-0030** | Goals | Delete category used in Goal. | **Blocked**; System prevents breaking the Goal's semantic link. |
+| **TC-0031** | Loans | Auto-EMI: Interest/Principal Split. | Today = EMI Date -> Link Wallet -> Restart -> 2 Ledger entries created. |
+| **TC-0032** | Loans | Auto-EMI: Duplicate Prevention. | App opened multiple times on EMI day; Only one set of EMIs posted. |
+| **TC-0033** | Loans | Principal Prepayment. | Balance decreases; Tenure shortened; "Interest Saved" recalculated. |
+| **TC-0034** | Loans | ROI Change. | New rate applied forward; Audit trail shows ROI history log. |
+| **TC-0035** | Loans | EMI Day 31 in February. | Logic correctly fires on Feb 28th/29th (Month-end fallback). |
 
 ---
 
-## 5. Governance Layer: Security & Audit
+## Domain 4: Insight Layer (Analytics & Visuals)
 
-### **TC-GOV-01: Biometric Security**
-*   **Steps:**
-    1.  Go to Settings -> Security.
-    2.  Enable "Use Biometrics".
-    3.  Force close and restart the app.
-*   **Expected Result:** 
-    *   System Biometric Prompt appears.
-    *   Dashboard is hidden until successful authentication.
-
-### **TC-GOV-02: Ledger Reconciliation (The Audit)**
-*   **Steps:**
-    1.  Go to Settings -> App Diagnostics.
-    2.  Tap "Run Ledger Integrity Check".
-*   **Expected Result:**
-    *   System calculates `SUM(Transactions)` vs `Stored Balance` for all wallets.
-    *   If a mismatch is found, it reports the exact discrepancy and offers a "Repair" (Adjustment Transaction).
+| ID | Feature | Scenario | Expected Result |
+| :--- | :--- | :--- | :--- |
+| **TC-0036** | Calendar | Heatmap Scaling (Max vs Min spend). | Thickest ring on highest spend day; hairline ring on lowest. |
+| **TC-0037** | Analytics | Efficiency Formula Verification. | Savings % = (Income - Expense) / Income. Accurate to 2 decimals. |
+| **TC-0038** | Analytics | Category Dominance. | Verifies the category with highest expense is correctly identified. |
+| **TC-0039** | Visuals | Color Uniformity (Dash vs Tabs). | Income is #00C853 (Bright Green) and Expense is #FF0000 (Bright Red) everywhere. |
+| **TC-0040** | Reports | Time Range Swap (Week / Month / Year). | Chart data and insights refresh instantly with correct ranges. |
 
 ---
 
-## 6. Edge Case Matrix
+## Domain 5: Governance & System (Security & Integrity)
 
-| ID | Scenario | Expected Behavior |
+| ID | Feature | Scenario | Expected Result |
+| :--- | :--- | :--- | :--- |
+| **TC-0041** | Security | Biometric Lock on Startup. | Splash screen blocks content until successful fingerprint/face scan. |
+| **TC-0042** | Security | Stealth Mode Toggle. | Amounts blurred/masked (₹ *****) on all screens instantly. |
+| **TC-0043** | Integrity | Manual DB Tamper Check. | Alter balance in DB file -> Launch -> System detects ledger mismatch. |
+| **TC-0044** | Integrity | Reconciliation Repair. | Accept "Repair" -> Adjustment transaction generated -> Ledger verified. |
+| **TC-0045** | System | JSON Backup Export. | File contains full schema version, timestamp, and all data entities. |
+| **TC-0046** | System | JSON Restore (Clean Wipe). | All current data erased; Backup data restored with 100% fidelity. |
+| **TC-0047** | Lifecycle | Background/Foreground persistence. | App minimized during transaction entry -> Returned -> Data preserved. |
+| **TC-0048** | System | Locale change (INR to USD). | Currency symbols and number formatting ($ 1,234.00) update globally. |
+
+---
+
+## Domain 6: Advanced Permutations (Edge Cases)
+
+| ID | Scenario | Expected Result |
 | :--- | :--- | :--- |
-| **TC-EDGE-01** | Zero Amount Transaction | Blocked by UI validation. |
-| **TC-EDGE-02** | Deleting a Transfer | Both source and destination wallets are reverted correctly. |
-| **TC-EDGE-03** | Future Date Budget | Budget remains at 0% until the start date is reached. |
-| **TC-EDGE-04** | Negative Wallet Balance | Allowed (Overdraft), amount displayed in Red. |
+| **TC-0049** | Leap Year Handling (Feb 29). | Recurring bills and analytics handle 29-day month correctly. |
+| **TC-0050** | Deleting Category with Budgets. | **Blocked**; User must delete associated budgets first. |
+| **TC-0051** | Transfer deletion between CC and Bank. | CC Liability correctly restored; Bank balance restored. |
+| **TC-0052** | Loan repayment larger than balance. | UI blocks or Warns; Principal capped at outstanding amount. |
+| **TC-0053** | Multi-month App Closure. | Startup catch-up logic runs multiple rollovers/EMIs in sequence. |
+| **TC-0054** | Zero balance Wallet deduction. | Allowed (Overdraft); balance shown in Bright Red. |
+| **TC-0055** | Category name conflict. | System prevents duplicate names in the same Category Type. |

@@ -57,8 +57,12 @@ fun PlanningHubScreen(
                 1 -> BudgetsScreen(
                     onAddBudget = onAddBudget
                 )
-                2 -> InvestmentsScreen() // Add onAddInvestment trigger to FAB inside screen
-                3 -> BigBillsScreen() // Add onAddBigBill trigger to FAB inside screen
+                2 -> InvestmentsScreen(
+                    onAddInvestment = onAddInvestment
+                )
+                3 -> BigBillsScreen(
+                    onAddBigBill = onAddBigBill
+                )
                 4 -> DistributionScreen(
                     onPopBackStack = {}
                 )

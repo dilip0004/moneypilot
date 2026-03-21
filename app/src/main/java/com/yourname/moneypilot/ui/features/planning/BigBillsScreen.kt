@@ -20,18 +20,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.BigBillEntity
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BigBillsScreen(
+    onAddBigBill: () -> Unit, // Navigation callback added
     viewModel: BigBillsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* Navigate to add bill */ }) {
+            FloatingActionButton(onClick = onAddBigBill) {
                 Icon(Icons.Default.Add, contentDescription = "Add Big Bill")
             }
         }
@@ -96,8 +98,9 @@ fun BigBillList(
 
 @Composable
 fun PendingBillsHeader(amount: Double) {
+    val financeColors = LocalFinanceColors.current // Corrected to use unified color engine
     val hasPending = amount > 0
-    val statusColor = if (hasPending) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income
+    val statusColor = if (hasPending) financeColors.expense else financeColors.income
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -129,6 +132,7 @@ fun BigBillItem(
     onMarkPaid: (BigBillEntity) -> Unit,
     onDelete: (BigBillEntity) -> Unit
 ) {
+    val financeColors = LocalFinanceColors.current // Corrected
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
@@ -143,7 +147,7 @@ fun BigBillItem(
                     Icon(
                         imageVector = if (bill.isPaid) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                         contentDescription = null,
-                        tint = if (bill.isPaid) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (bill.isPaid) financeColors.income else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -164,7 +168,7 @@ fun BigBillItem(
                 Text(
                 text = "₹ ${bill.amount}",
                 fontWeight = FontWeight.ExtraBold,
-                color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.expense
+                color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else financeColors.expense
             )
         }
     }

@@ -28,7 +28,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InvestmentEntity::class,
         DistributionRuleEntity::class,
         LoanEntity::class,
-        BigBillEntity::class
+        BigBillEntity::class,
+        LoanEventEntity::class
     ],
     version = 13,
     exportSchema = true
@@ -46,6 +47,7 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
     abstract fun distributionRuleDao(): DistributionRuleDao
     abstract fun loanDao(): LoanDao
     abstract fun bigBillDao(): BigBillDao
+    abstract fun loanEventDao(): LoanEventDao
 
     companion object {
         @Volatile
@@ -90,8 +92,34 @@ object DatabaseMigrations {
 
     val MIGRATION_8_9: Migration = object : Migration(8, 9) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("CREATE TABLE transactions_new (id TEXT NOT NULL, dateTime TEXT NOT NULL, amount REAL NOT NULL, type TEXT NOT NULL, category_id INTEGER, wallet_from_id INTEGER, wallet_to_id INTEGER, transaction_source_type TEXT NOT NULL, note TEXT, soft_deleted INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(id), FOREIGN KEY(wallet_from_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL, FOREIGN KEY(wallet_to_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL, FOREIGN KEY(category_id) REFERENCES categories(id) ON UPDATE NO ACTION ON DELETE SET NULL)")
-            db.execSQL("INSERT INTO transactions_new (id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) SELECT id, date, amount, CASE WHEN type = 'INCOME' THEN 'Income' WHEN type = 'EXPENSE' THEN 'Expense' ELSE 'Transfer' END, category_id, account_id, transfer_to_account_id, 'MANUAL', note, 0, created_at, updated_at FROM transactions")
+            // Re-create transactions table with correct columns and constraints
+            db.execSQL("""
+                CREATE TABLE transactions_new (
+                    id TEXT PRIMARY KEY NOT NULL, 
+                    dateTime TEXT NOT NULL, 
+                    amount REAL NOT NULL, 
+                    type TEXT NOT NULL, 
+                    category_id INTEGER, 
+                    wallet_from_id INTEGER, 
+                    wallet_to_id INTEGER, 
+                    transaction_source_type TEXT NOT NULL, 
+                    note TEXT, 
+                    soft_deleted INTEGER NOT NULL DEFAULT 0, 
+                    created_at TEXT NOT NULL, 
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(wallet_from_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(wallet_to_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(category_id) REFERENCES categories(id) ON UPDATE NO ACTION ON DELETE SET NULL
+                )
+            """)
+            // Map old data to new schema, handling missing created_at/updated_at
+            db.execSQL("""
+                INSERT INTO transactions_new (id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) 
+                SELECT id, date, amount, 
+                CASE WHEN type = 'INCOME' THEN 'Income' WHEN type = 'EXPENSE' THEN 'Expense' ELSE 'Transfer' END, 
+                category_id, account_id, transfer_to_account_id, 'MANUAL', note, 0, datetime('now'), datetime('now') 
+                FROM transactions
+            """)
             db.execSQL("DROP TABLE transactions")
             db.execSQL("ALTER TABLE transactions_new RENAME TO transactions")
         }
@@ -99,16 +127,13 @@ object DatabaseMigrations {
 
     val MIGRATION_9_10: Migration = object : Migration(9, 10) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("CREATE TABLE distribution_rules (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, sourceWalletId INTEGER NOT NULL, targetWalletId INTEGER NOT NULL, percentage REAL, fixedAmount REAL, priority INTEGER NOT NULL)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS distribution_rules (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, sourceWalletId INTEGER NOT NULL, targetWalletId INTEGER NOT NULL, percentage REAL, fixedAmount REAL, priority INTEGER NOT NULL)")
         }
     }
 
     val MIGRATION_10_11: Migration = object : Migration(10, 11) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("CREATE TABLE IF NOT EXISTS `transactions_new` (`id` TEXT NOT NULL, `dateTime` TEXT NOT NULL, `amount` REAL NOT NULL, `type` TEXT NOT NULL, `category_id` INTEGER, `loan_id` INTEGER, `wallet_from_id` INTEGER, `wallet_to_id` INTEGER, `transaction_source_type` TEXT NOT NULL, `note` TEXT, `soft_deleted` INTEGER NOT NULL DEFAULT 0, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`wallet_from_id`) REFERENCES `wallets`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`wallet_to_id`) REFERENCES `wallets`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`loan_id`) REFERENCES `loans`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )")
-            db.execSQL("INSERT INTO transactions_new (id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) SELECT id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at FROM transactions")
-            db.execSQL("DROP TABLE transactions")
-            db.execSQL("ALTER TABLE transactions_new RENAME TO transactions")
+            db.execSQL("ALTER TABLE transactions ADD COLUMN loan_id INTEGER")
         }
     }
 
@@ -121,6 +146,22 @@ object DatabaseMigrations {
     val MIGRATION_12_13: Migration = object : Migration(12, 13) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE loans ADD COLUMN repaymentDayOfMonth INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS loan_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    loan_id INTEGER NOT NULL, 
+                    event_type TEXT NOT NULL, 
+                    event_date TEXT NOT NULL, 
+                    amount REAL, 
+                    newInterestRate REAL, 
+                    newMonthlyPayment REAL, 
+                    newDurationMonths INTEGER, 
+                    note TEXT, 
+                    FOREIGN KEY(loan_id) REFERENCES loans(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+            """)
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_loan_events_loan_id ON loan_events (loan_id)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_loan_events_event_date ON loan_events (event_date)")
         }
     }
 

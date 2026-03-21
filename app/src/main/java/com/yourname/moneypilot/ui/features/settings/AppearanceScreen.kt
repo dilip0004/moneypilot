@@ -1,12 +1,16 @@
 package com.yourname.moneypilot.ui.features.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -18,8 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,6 +34,7 @@ fun AppearanceScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val preferences by viewModel.userPreferences.collectAsState()
+    val scrollState = rememberScrollState()
 
     val primaryColors = listOf(
         0xFF7F3DFF, // Purple (Default)
@@ -39,6 +45,13 @@ fun AppearanceScreen(
         0xFF607D8B, // Gray
         0xFF000000, // Black
         0xFF673AB7  // Indigo
+    )
+
+    val fontOptions = listOf(
+        "DEFAULT" to "System Default",
+        "SANS_SERIF" to "Modern Sans",
+        "SERIF" to "Classic Serif",
+        "MONOSPACE" to "Tech Monospace"
     )
 
     Scaffold(
@@ -57,7 +70,8 @@ fun AppearanceScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             SectionHeader("Theme Mode")
@@ -80,6 +94,41 @@ fun AppearanceScreen(
                     viewModel.updateTheme(nextMode)
                 }) {
                     Text(currentMode)
+                }
+            }
+
+            SectionHeader("Typography & Fonts")
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                fontOptions.forEach { (fontKey, displayName) ->
+                    val isSelected = (preferences?.fontFamily ?: "DEFAULT") == fontKey
+                    Surface(
+                        onClick = { viewModel.updateFontFamily(fontKey) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = if (isSelected) borderStroke() else null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = displayName,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontFamily = when(fontKey) {
+                                        "SERIF" -> FontFamily.Serif
+                                        "MONOSPACE" -> FontFamily.Monospace
+                                        "SANS_SERIF" -> FontFamily.SansSerif
+                                        else -> FontFamily.Default
+                                    }
+                                )
+                            )
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -111,8 +160,9 @@ fun AppearanceScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Dynamic Color (Android 12+)")
                 Spacer(modifier = Modifier.weight(1f))
+                val useDynamic = preferences?.useDynamicColor ?: true
                 Switch(
-                    checked = preferences?.useDynamicColor ?: true,
+                    checked = useDynamic,
                     onCheckedChange = { viewModel.updateDynamicColor(it) }
                 )
             }
@@ -124,9 +174,14 @@ fun AppearanceScreen(
                     onCheckedChange = { viewModel.updateTrueBlack(it) }
                 )
             }
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
+
+@Composable
+fun borderStroke() = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
 
 @Composable
 fun SectionHeader(title: String) {

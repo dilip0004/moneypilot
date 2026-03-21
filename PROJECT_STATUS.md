@@ -2,13 +2,13 @@
 
 ## 1. Document Purpose
 
-This document is the single source of truth for all pending development work. It tracks everything from critical architectural fixes to new feature implementation, technical debt, and quality improvements required to bring the application into full compliance with the `MoneyPilot_Enterprise_Architecture_v5.mk` specification.
+This document is the single source of truth for all pending development work. It tracks everything from critical architectural fixes to new feature implementation, technical debt, and quality improvements required to bring the application into full compliance with the `MoneyPilot_Enterprise_Architecture_v5.mk` specification and the recent product improvement recommendations.
 
 ---
 
-## 2. Current Status: **STABLE & IMPLEMENTING AUTOMATION**
+## 2. Current Status: **ENHANCING FINANCIAL INTEGRITY & UX**
 
-The core data models and ledger logic are now compliant. We are currently implementing advanced financial automation features.
+The core ledger is stable. We are currently implementing advanced safety features (Idempotency, Integrity Audits) and modern UX patterns (Undo, Natural Grouping).
 
 ---
 
@@ -27,15 +27,24 @@ The core data models and ledger logic are now compliant. We are currently implem
 *   [x] **TASK-24 through TASK-26**: Safe deletion, wallet editing, and professional statement views.
 *   [x] **TASK-27 through TASK-32**: Theme engine, configurable billing cycles, date range pickers, and calendar heatmap/animations.
 
-### **Phase 4: Advanced Automation & Technical Debt (Current Priority)**
+### **Phase 4: Product & Safety Improvements (Current Priority)**
 
-*   [ ] **TASK-34:** Implement Automated EMI Deduction for Loans.
-    *   [x] Update `LoanEntity` and Database Migration (v13).
-    *   [ ] Implement `LoanAutoDeductionProcessor` (Split Interest/Principal logic).
-    *   [ ] Update `AddEditLoanScreen` to configure EMI date and link wallets.
-*   [ ] **TASK-18:** Refactor large ViewModels into smaller components.
-*   [ ] **TASK-19:** Introduce a proper `domain` layer with specific Use Case classes.
-*   [ ] **TASK-21:** Implement a biometric lock feature.
-*   [ ] **TASK-22:** Write unit tests for all atomic financial operations.
+*   [x] **TASK-37:** Implement Daily Tab Grouping (Today/Yesterday).
+*   [x] **TASK-38:** Implement Undo Snackbar for Transaction Deletion.
+*   [x] **TASK-39:** Implement EMI Transparency (Split Principal/Interest view).
+*   [x] **TASK-40:** Implement Worker Idempotency for Loan deductions.
+*   [x] **TASK-41:** Implement Refund Behavior (+ Sign/Green color for expense refunds).
+*   [ ] **TASK-42:** Implement Backup Integrity Validation (Ledger Audit before Export).
+*   [ ] **TASK-43:** Add Savings Rate and Net Surplus to Monthly Dashboard.
+
+### **Phase 5: Technical Debt & Quality Assurance**
+
+*   [x] **TASK-33:** Unify and stabilize Notification Scheduling.
+*   [x] **TASK-22:** Write unit tests for all atomic financial operations.
+*   [x] **TASK-35:** Write unit tests for Loan EMI Auto-Deduction Engine.
+*   [x] **TASK-36:** Write unit tests for Reconciliation Engine.
 *   [ ] **TASK-23:** Create simulation tests for credit cycles and reconciliation.
+*   [ ] **TASK-18:** Refactor large ViewModels into smaller components. (AddEditTransactionViewModel partially refactored)
+*   [ ] **TASK-19:** Introduce a proper `domain` layer with specific Use Case classes. (SaveTransactionUseCase added)
+*   [ ] **TASK-21:** Implement a biometric lock feature.
 *   [ ] **TASK-20:** Implement database encryption using SQLCipher (Deferred to end).

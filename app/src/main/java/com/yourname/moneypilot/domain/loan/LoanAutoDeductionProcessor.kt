@@ -9,11 +9,11 @@ import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.max
-import kotlinx.coroutines.flow.first
+import timber.log.Timber
 
 /**
  * Modern Automation Engine for Loan Repayments.
- * Responsible for identifying due EMIs and posting split transactions (Principal + Interest).
+ * Ensures Idempotency (Safe to run multiple times).
  */
 class LoanAutoDeductionProcessor @Inject constructor(
     private val loanRepository: LoanRepository,
@@ -30,15 +30,23 @@ class LoanAutoDeductionProcessor @Inject constructor(
             // 1. Check if we are at or past the due date for this month
             if (asOf.isBefore(currentMonthDue)) continue
 
-            // 2. Check if a repayment for this month has already been posted
-            // We look for transactions with the specific automated source type for this loan in the current month
+            // 2. IDEMPOTENCY CHECK: Search for existing automated EMI transactions for this specific month and loan
             val startOfMonth = currentMonthDue.withDayOfMonth(1).atStartOfDay()
             val endOfMonth = currentMonthDue.withDayOfMonth(currentMonthDue.lengthOfMonth()).atTime(23, 59)
             
+            // Check transactions specifically for this loan and source type in current month
             val existingTxs = transactionRepository.getTransactionsForWallet(loan.linkedWalletId!!)
-                .filter { it.loanId == loan.id && it.dateTime.isAfter(startOfMonth) && it.dateTime.isBefore(endOfMonth) }
+                .filter { 
+                    it.loanId == loan.id && 
+                    it.transactionSourceType.startsWith("AUTO_EMI") &&
+                    it.dateTime.isAfter(startOfMonth) && 
+                    it.dateTime.isBefore(endOfMonth) 
+                }
 
-            if (existingTxs.isNotEmpty()) continue
+            if (existingTxs.isNotEmpty()) {
+                Timber.d("LoanAutoDeduction: EMI already processed for ${loan.name} this month. Skipping.")
+                continue
+            }
 
             // 3. Perform Split Deduction (Section 5.3)
             val annualRate = loan.interestRate
@@ -47,33 +55,33 @@ class LoanAutoDeductionProcessor @Inject constructor(
             val interestAmount = loan.currentBalance * monthlyRate
             val principalAmount = max(0.0, loan.monthlyPayment - interestAmount)
 
-            // A. Post Interest as an Expense (Money leaving the system)
+            // Post Interest Expense
             val interestTx = TransactionEntity(
                 id = UUID.randomUUID().toString(),
                 walletFromId = loan.linkedWalletId,
-                categoryId = null, // Optionally link to a "Loan Interest" category
-                loanId = null, // Interest does not reduce the principal balance
                 type = TransactionType.Expense,
                 amount = interestAmount,
-                note = "Interest Payment: ${loan.name}",
+                note = "EMI Interest: ${loan.name}",
                 dateTime = LocalDateTime.now(),
                 transactionSourceType = "AUTO_EMI_INTEREST"
             )
 
-            // B. Post Principal as a Repayment (Reduces liability)
+            // Post Principal Repayment
             val principalTx = TransactionEntity(
                 id = UUID.randomUUID().toString(),
                 walletFromId = loan.linkedWalletId,
-                loanId = loan.id, // This triggers the balance reduction in Repository
+                loanId = loan.id,
                 type = TransactionType.Expense,
                 amount = principalAmount,
-                note = "Principal Repayment: ${loan.name}",
+                note = "EMI Principal: ${loan.name}",
                 dateTime = LocalDateTime.now(),
                 transactionSourceType = "AUTO_EMI_PRINCIPAL"
             )
 
             transactionRepository.insertTransaction(interestTx)
             transactionRepository.insertTransaction(principalTx)
+            
+            Timber.i("LoanAutoDeduction: Processed EMI split for ${loan.name}")
         }
     }
 }

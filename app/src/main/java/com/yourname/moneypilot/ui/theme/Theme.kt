@@ -16,14 +16,15 @@ fun MoneyPilotTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     trueBlack: Boolean = false,
     accentColor: Color = Color(0xFF7B5CFA),
+    fontFamilyName: String = "DEFAULT",
     content: @Composable () -> Unit
 ) {
-    val financeColors = FinanceColors() // Get our bright palette
+    val financeColors = FinanceColors()
 
     val colorScheme = when {
         darkTheme && trueBlack -> darkColorScheme(
             primary = accentColor,
-            error = financeColors.expense, // Force Bright Red
+            error = financeColors.expense,
             background = Color.Black,
             surface = Color.Black,
             onBackground = Color.White,
@@ -33,7 +34,7 @@ fun MoneyPilotTheme(
         )
         darkTheme -> darkColorScheme(
             primary = accentColor,
-            error = financeColors.expense, // Force Bright Red
+            error = financeColors.expense,
             background = Color(0xFF1C1C1E),
             surface = Color(0xFF1C1C1E),
             onBackground = Color(0xFFE6E1E5),
@@ -41,7 +42,7 @@ fun MoneyPilotTheme(
         )
         else -> lightColorScheme(
             primary = accentColor,
-            error = financeColors.expense, // Force Bright Red
+            error = financeColors.expense,
             onPrimary = Color.White,
             background = Color.White,
             surface = Color.White,
@@ -61,10 +62,13 @@ fun MoneyPilotTheme(
         }
     }
 
+    // Get dynamic typography based on preference
+    val typography = getTypography(fontFamilyName)
+
     CompositionLocalProvider(LocalFinanceColors provides financeColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography,
+            typography = typography,
             content = content
         )
     }
