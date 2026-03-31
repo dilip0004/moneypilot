@@ -4,14 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.BigBillEntity
+import com.yourname.moneypilot.data.local.database.entities.BillRecurrence
+import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
+import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.data.repository.BigBillRepository
+import com.yourname.moneypilot.data.repository.CategoryRepository
+import com.yourname.moneypilot.data.repository.WalletRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -23,12 +23,34 @@ data class AddEditBigBillState(
     val dueDate: LocalDate = LocalDate.now(),
     val notes: String = "",
     val isPaid: Boolean = false,
-    val categoryId: Long? = null
+    val categoryId: Long? = null,
+    val linkedWalletId: Long? = null,
+    val recurrenceType: BillRecurrence = BillRecurrence.ONCE,
+    val autoReserveFlag: Boolean = false,
+    val reminderDaysBefore: String = "3",
+    val wallets: List<WalletEntity> = emptyList(),
+    val categories: List<CategoryEntity> = emptyList()
 )
+
+sealed class AddEditBigBillEvent {
+    data class EnteredName(val value: String) : AddEditBigBillEvent()
+    data class EnteredAmount(val value: String) : AddEditBigBillEvent()
+    data class DateChanged(val value: LocalDate) : AddEditBigBillEvent()
+    data class EnteredNotes(val value: String) : AddEditBigBillEvent()
+    data class StatusChanged(val value: Boolean) : AddEditBigBillEvent()
+    data class CategoryChanged(val value: Long?) : AddEditBigBillEvent()
+    data class WalletChanged(val value: Long?) : AddEditBigBillEvent()
+    data class RecurrenceChanged(val value: BillRecurrence) : AddEditBigBillEvent()
+    data class AutoReserveChanged(val value: Boolean) : AddEditBigBillEvent()
+    data class ReminderDaysChanged(val value: String) : AddEditBigBillEvent()
+    object SaveBigBill : AddEditBigBillEvent()
+}
 
 @HiltViewModel
 class AddEditBigBillViewModel @Inject constructor(
     private val bigBillRepository: BigBillRepository,
+    private val walletRepository: WalletRepository,
+    private val categoryRepository: CategoryRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -46,6 +68,7 @@ class AddEditBigBillViewModel @Inject constructor(
     }
 
     init {
+        loadData()
         val id = savedStateHandle.get<Long>("bigBillId")
         if (id != null && id != -1L) {
             viewModelScope.launch {
@@ -57,11 +80,25 @@ class AddEditBigBillViewModel @Inject constructor(
                         dueDate = bill.dueDate,
                         notes = bill.notes,
                         isPaid = bill.isPaid,
-                        categoryId = bill.categoryId
+                        categoryId = bill.categoryId,
+                        linkedWalletId = bill.linkedWalletId,
+                        recurrenceType = bill.recurrenceType,
+                        autoReserveFlag = bill.autoReserveFlag,
+                        reminderDaysBefore = bill.reminderDaysBefore.toString()
                     ) }
                 }
             }
         }
+    }
+
+    private fun loadData() {
+        walletRepository.getAllWallets().onEach { wallets ->
+            _state.update { it.copy(wallets = wallets) }
+        }.launchIn(viewModelScope)
+
+        categoryRepository.getCategoriesByType("EXPENSE").onEach { categories ->
+            _state.update { it.copy(categories = categories) }
+        }.launchIn(viewModelScope)
     }
 
     fun onEvent(event: AddEditBigBillEvent) {
@@ -71,6 +108,11 @@ class AddEditBigBillViewModel @Inject constructor(
             is AddEditBigBillEvent.DateChanged -> _state.update { it.copy(dueDate = event.value) }
             is AddEditBigBillEvent.EnteredNotes -> _state.update { it.copy(notes = event.value) }
             is AddEditBigBillEvent.StatusChanged -> _state.update { it.copy(isPaid = event.value) }
+            is AddEditBigBillEvent.CategoryChanged -> _state.update { it.copy(categoryId = event.value) }
+            is AddEditBigBillEvent.WalletChanged -> _state.update { it.copy(linkedWalletId = event.value) }
+            is AddEditBigBillEvent.RecurrenceChanged -> _state.update { it.copy(recurrenceType = event.value) }
+            is AddEditBigBillEvent.AutoReserveChanged -> _state.update { it.copy(autoReserveFlag = event.value) }
+            is AddEditBigBillEvent.ReminderDaysChanged -> _state.update { it.copy(reminderDaysBefore = event.value) }
             is AddEditBigBillEvent.SaveBigBill -> saveBigBill()
         }
     }
@@ -79,9 +121,15 @@ class AddEditBigBillViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentState = _state.value
-                val amountValue = currentState.amount.toDoubleOrNull() ?: 0.0
-                if (currentState.name.isBlank() || amountValue <= 0) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid name and amount."))
+                val amountValue = currentState.amount.replace(",", "").toDoubleOrNull() ?: 0.0
+                val reminderDays = currentState.reminderDaysBefore.toIntOrNull() ?: 3
+                
+                if (currentState.name.isBlank()) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a name."))
+                    return@launch
+                }
+                if (amountValue <= 0) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid amount."))
                     return@launch
                 }
 
@@ -92,6 +140,10 @@ class AddEditBigBillViewModel @Inject constructor(
                         amount = amountValue,
                         dueDate = currentState.dueDate,
                         categoryId = currentState.categoryId,
+                        linkedWalletId = currentState.linkedWalletId,
+                        recurrenceType = currentState.recurrenceType,
+                        autoReserveFlag = currentState.autoReserveFlag,
+                        reminderDaysBefore = reminderDays,
                         isPaid = currentState.isPaid,
                         notes = currentState.notes,
                         updatedAt = LocalDateTime.now()
@@ -99,17 +151,8 @@ class AddEditBigBillViewModel @Inject constructor(
                 )
                 _eventFlow.emit(UiEvent.SaveBigBill)
             } catch (e: Exception) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Could not save big bill"))
+                _eventFlow.emit(UiEvent.ShowSnackbar("Could not save big bill: ${e.message}"))
             }
         }
     }
-}
-
-sealed class AddEditBigBillEvent {
-    data class EnteredName(val value: String) : AddEditBigBillEvent()
-    data class EnteredAmount(val value: String) : AddEditBigBillEvent()
-    data class DateChanged(val value: LocalDate) : AddEditBigBillEvent()
-    data class EnteredNotes(val value: String) : AddEditBigBillEvent()
-    data class StatusChanged(val value: Boolean) : AddEditBigBillEvent()
-    object SaveBigBill : AddEditBigBillEvent()
 }

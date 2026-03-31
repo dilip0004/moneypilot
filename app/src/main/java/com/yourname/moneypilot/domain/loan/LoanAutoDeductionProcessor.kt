@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.domain.loan
 
+import com.yourname.moneypilot.data.local.database.entities.LoanEventEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.data.repository.LoanRepository
@@ -13,7 +14,7 @@ import timber.log.Timber
 
 /**
  * Modern Automation Engine for Loan Repayments.
- * Ensures Idempotency (Safe to run multiple times).
+ * Ensures Idempotency and maintains Audit Trail events.
  */
 class LoanAutoDeductionProcessor @Inject constructor(
     private val loanRepository: LoanRepository,
@@ -30,11 +31,10 @@ class LoanAutoDeductionProcessor @Inject constructor(
             // 1. Check if we are at or past the due date for this month
             if (asOf.isBefore(currentMonthDue)) continue
 
-            // 2. IDEMPOTENCY CHECK: Search for existing automated EMI transactions for this specific month and loan
+            // 2. IDEMPOTENCY CHECK: Search for existing automated EMI transactions for this month
             val startOfMonth = currentMonthDue.withDayOfMonth(1).atStartOfDay()
             val endOfMonth = currentMonthDue.withDayOfMonth(currentMonthDue.lengthOfMonth()).atTime(23, 59)
             
-            // Check transactions specifically for this loan and source type in current month
             val existingTxs = transactionRepository.getTransactionsForWallet(loan.linkedWalletId!!)
                 .filter { 
                     it.loanId == loan.id && 
@@ -43,10 +43,7 @@ class LoanAutoDeductionProcessor @Inject constructor(
                     it.dateTime.isBefore(endOfMonth) 
                 }
 
-            if (existingTxs.isNotEmpty()) {
-                Timber.d("LoanAutoDeduction: EMI already processed for ${loan.name} this month. Skipping.")
-                continue
-            }
+            if (existingTxs.isNotEmpty()) continue
 
             // 3. Perform Split Deduction (Section 5.3)
             val annualRate = loan.interestRate
@@ -56,7 +53,7 @@ class LoanAutoDeductionProcessor @Inject constructor(
             val principalAmount = max(0.0, loan.monthlyPayment - interestAmount)
 
             // Post Interest Expense
-            val interestTx = TransactionEntity(
+            transactionRepository.insertTransaction(TransactionEntity(
                 id = UUID.randomUUID().toString(),
                 walletFromId = loan.linkedWalletId,
                 type = TransactionType.Expense,
@@ -64,10 +61,10 @@ class LoanAutoDeductionProcessor @Inject constructor(
                 note = "EMI Interest: ${loan.name}",
                 dateTime = LocalDateTime.now(),
                 transactionSourceType = "AUTO_EMI_INTEREST"
-            )
+            ))
 
             // Post Principal Repayment
-            val principalTx = TransactionEntity(
+            transactionRepository.insertTransaction(TransactionEntity(
                 id = UUID.randomUUID().toString(),
                 walletFromId = loan.linkedWalletId,
                 loanId = loan.id,
@@ -76,12 +73,18 @@ class LoanAutoDeductionProcessor @Inject constructor(
                 note = "EMI Principal: ${loan.name}",
                 dateTime = LocalDateTime.now(),
                 transactionSourceType = "AUTO_EMI_PRINCIPAL"
-            )
+            ))
 
-            transactionRepository.insertTransaction(interestTx)
-            transactionRepository.insertTransaction(principalTx)
+            // 4. LOG AUDIT EVENT (TASK-HISTORY)
+            loanRepository.insertLoanEvent(LoanEventEntity(
+                loanId = loan.id,
+                eventType = "REPAYMENT_POSTED",
+                eventDate = LocalDate.now(),
+                amount = loan.monthlyPayment,
+                note = "Automated monthly EMI processed"
+            ))
             
-            Timber.i("LoanAutoDeduction: Processed EMI split for ${loan.name}")
+            Timber.i("LoanAutoDeduction: Processed EMI and logged Audit Event for ${loan.name}")
         }
     }
 }

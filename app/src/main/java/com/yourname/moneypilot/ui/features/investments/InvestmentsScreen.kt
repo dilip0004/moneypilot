@@ -19,18 +19,19 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.InvestmentEntity
 import com.yourname.moneypilot.ui.common.ScreenState
-// use MaterialTheme.colorScheme.income / expense
+import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvestmentsScreen(
+    onAddInvestment: () -> Unit, // Navigation callback added
     viewModel: InvestmentsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* Navigate to add investment */ }) {
+            FloatingActionButton(onClick = onAddInvestment) {
                 Icon(Icons.Default.Add, contentDescription = "Add Investment")
             }
         }
@@ -77,6 +78,7 @@ fun InvestmentList(data: InvestmentState) {
 
 @Composable
 fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
+    val financeColors = LocalFinanceColors.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -100,13 +102,13 @@ fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
                 Icon(
                     imageVector = if (isProfit) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
                     contentDescription = null,
-                    tint = if (isProfit) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense,
+                    tint = if (isProfit) financeColors.income else financeColors.expense,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "${if (isProfit) "+" else ""}₹$gain ($gainPct%)",
-                    color = if (isProfit) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense,
+                    color = if (isProfit) financeColors.income else financeColors.expense,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
@@ -117,6 +119,7 @@ fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
 
 @Composable
 fun InvestmentItem(investment: InvestmentEntity) {
+    val financeColors = LocalFinanceColors.current
     val totalHoldings = investment.quantity * investment.currentPrice
     val totalGain = (investment.currentPrice - investment.averagePrice) * investment.quantity
     val isProfit = totalGain >= 0
@@ -143,7 +146,7 @@ fun InvestmentItem(investment: InvestmentEntity) {
                 Text(text = "₹ $totalHoldings", fontWeight = FontWeight.ExtraBold)
                 Text(
                     text = "${if (isProfit) "+" else ""}₹${totalGain.toInt()}",
-                    color = if (isProfit) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.expense,
+                    color = if (isProfit) financeColors.income else financeColors.expense,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )

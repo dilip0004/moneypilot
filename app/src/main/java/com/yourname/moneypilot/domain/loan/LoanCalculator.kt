@@ -3,6 +3,7 @@ package com.yourname.moneypilot.domain.loan
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
 import com.yourname.moneypilot.data.local.database.entities.LoanEventEntity
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlin.math.max
 
 data class LoanSnapshot(
@@ -10,162 +11,143 @@ data class LoanSnapshot(
     val totalPrincipalPaid: Double,
     val totalInterestPaid: Double,
     val currentInterestRate: Double,
-    val emiAmount: Double,
+    val currentEmi: Double,
     val nextDueDate: LocalDate,
     val expectedEndDate: LocalDate,
-    val interestSavedApprox: Double
+    val originalEndDate: LocalDate,
+    val interestSavedApprox: Double,
+    val tenureSavedMonths: Int,
+    val monthsRemaining: Int
 )
 
 data class MonthlyPoint(
-    val month: LocalDate,
+    val date: LocalDate,
     val outstanding: Double,
     val interestPaid: Double,
-    val principalPaid: Double
+    val principalPaid: Double,
+    val rate: Double
 )
 
 /**
- * Borrower-style loan computation engine.
- *
- * Assumptions:
- * - Monthly compounding.
- * - EMI paid on the same day-of-month as startDate (or nearest valid day).
- * - Prepayment reduces principal immediately.
- * - ROI changes apply forward from effective date.
+ * Advanced Event-Sourced Loan Engine.
+ * Calculates current status and future projections by replaying all historical events.
  */
 object LoanCalculator {
 
     fun computeSnapshot(loan: LoanEntity, events: List<LoanEventEntity>, asOf: LocalDate = LocalDate.now()): Pair<LoanSnapshot, List<MonthlyPoint>> {
-        val timeline = buildTimeline(loan, events, asOf)
-        val last = timeline.last()
+        val timeline = buildFullTimeline(loan, events, asOf)
+        val currentStatus = timeline.lastOrNull { !it.date.isAfter(asOf) } ?: timeline.first()
+        
+        val remainingBalance = currentStatus.outstanding
+        val currentRate = currentStatus.rate
+        val currentEmi = loan.monthlyPayment
 
-        // Estimate end date using remaining balance & current EMI
-        val remaining = last.outstanding
-        val emi = max(loan.monthlyPayment, 0.0)
-        val rate = last.rateAnnual
+        // Projection WITH current and future events
+        val (totalInterestWithEvents, endDate) = simulateToZero(currentStatus.date, remainingBalance, currentEmi, currentRate, events.filter { it.eventDate.isAfter(asOf) })
+        
+        // Baseline: No prepayments at all (from start)
+        val (totalInterestBaseline, originalEndDate) = simulateToZero(loan.startDate, loan.totalAmount, loan.monthlyPayment, loan.interestRate, emptyList())
+        
+        // Interest saved calculation
+        val interestSaved = max(0.0, totalInterestBaseline - (timeline.filter { !it.date.isAfter(asOf) }.sumOf { it.interestPaid } + totalInterestWithEvents))
 
-        val endDate = estimateEndDate(asOf, remaining, emi, rate)
-
-        val (interestWith, _) = simulateTotalInterestToEnd(loan, events, includePrepayment = true)
-        val (interestWithout, _) = simulateTotalInterestToEnd(loan, events.filter { it.eventType != "PREPAYMENT" }, includePrepayment = false)
-        val interestSaved = max(0.0, interestWithout - interestWith)
+        // Tenure saved calculation
+        val tenureSaved = ChronoUnit.MONTHS.between(endDate, originalEndDate).toInt().coerceAtLeast(0)
 
         val snapshot = LoanSnapshot(
-            outstandingPrincipal = remaining,
-            totalPrincipalPaid = timeline.sumOf { it.principalPaid },
-            totalInterestPaid = timeline.sumOf { it.interestPaid },
-            currentInterestRate = rate,
-            emiAmount = emi,
+            outstandingPrincipal = remainingBalance,
+            totalPrincipalPaid = timeline.filter { !it.date.isAfter(asOf) }.sumOf { it.principalPaid },
+            totalInterestPaid = timeline.filter { !it.date.isAfter(asOf) }.sumOf { it.interestPaid },
+            currentInterestRate = currentRate,
+            currentEmi = currentEmi,
             nextDueDate = nextDueDate(loan.startDate, asOf),
             expectedEndDate = endDate,
-            interestSavedApprox = interestSaved
+            originalEndDate = originalEndDate,
+            interestSavedApprox = interestSaved,
+            tenureSavedMonths = tenureSaved,
+            monthsRemaining = ChronoUnit.MONTHS.between(asOf, endDate).toInt().coerceAtLeast(0)
         )
 
-        val points = timeline.map { MonthlyPoint(it.date, it.outstanding, it.interestPaid, it.principalPaid) }
-        return snapshot to points
+        return snapshot to timeline
     }
 
-    private data class StateRow(
-        val date: LocalDate,
-        val outstanding: Double,
-        val rateAnnual: Double,
-        val interestPaid: Double,
-        val principalPaid: Double
-    )
+    private fun buildFullTimeline(loan: LoanEntity, events: List<LoanEventEntity>, asOf: LocalDate): List<MonthlyPoint> {
+        val points = mutableListOf<MonthlyPoint>()
+        var cursorDate = loan.startDate
+        var balance = loan.totalAmount
+        var rate = loan.interestRate
+        var emi = loan.monthlyPayment
 
-    private fun buildTimeline(loan: LoanEntity, events: List<LoanEventEntity>, asOf: LocalDate): List<StateRow> {
-        val start = loan.startDate
-        val monthly = loan.monthlyPayment
-        var outstanding = loan.totalAmount
-        var currentRate = loan.interestRate
+        val eventsByDate = events.sortedBy { it.eventDate }.groupBy { it.eventDate }
 
-        val byDate = events.groupBy { it.eventDate }
+        // Start with initial state
+        points.add(MonthlyPoint(cursorDate, balance, 0.0, 0.0, rate))
 
-        val rows = mutableListOf<StateRow>()
-        var d = start
-        // simulate month boundaries from start to asOf (inclusive)
-        while (!d.isAfter(asOf)) {
-            // apply rate changes/prepayments on this date
-            byDate[d]?.forEach { ev ->
-                when (ev.eventType) {
-                    "RATE_CHANGE" -> currentRate = ev.newInterestRate ?: currentRate
-                    "PREPAYMENT" -> outstanding = max(0.0, outstanding - (ev.amount ?: 0.0))
-                    "EMI_CHANGE" -> { /* current model stores EMI in loan entity; ignore for now */ }
-                    "TENURE_CHANGE" -> { /* ignore; end date is computed */ }
+        // Simulate until balance is zero or 50 years (guard)
+        var months = 0
+        while (balance > 0.1 && months < 600) {
+            cursorDate = cursorDate.plusMonths(1)
+            months++
+
+            // Apply events for this month
+            eventsByDate[cursorDate]?.forEach { event ->
+                when (event.eventType) {
+                    "RATE_CHANGE" -> rate = event.newInterestRate ?: rate
+                    "PREPAYMENT" -> balance = max(0.0, balance - (event.amount ?: 0.0))
+                    "EMI_CHANGE" -> emi = event.newMonthlyPayment ?: emi
                 }
             }
 
-            // apply EMI (if due this month and not beyond asOf)
-            val due = dueDateForMonth(start, d)
-            if (!due.isAfter(asOf)) {
-                val monthlyRate = currentRate / 12.0 / 100.0
-                val interest = outstanding * monthlyRate
-                val pay = max(0.0, monthly)
-                val principal = max(0.0, pay - interest)
-                outstanding = max(0.0, outstanding - principal)
-
-                rows.add(StateRow(due, outstanding, currentRate, interest, principal))
-            } else {
-                rows.add(StateRow(d, outstanding, currentRate, 0.0, 0.0))
-            }
-
-            d = d.plusMonths(1)
+            val monthlyRate = rate / 12.0 / 100.0
+            val interestThisMonth = balance * monthlyRate
+            val principalThisMonth = (emi - interestThisMonth).coerceIn(0.0, balance)
+            
+            balance -= principalThisMonth
+            
+            points.add(MonthlyPoint(cursorDate, balance, interestThisMonth, principalThisMonth, rate))
         }
-        return rows
+
+        return points
     }
 
-    private fun dueDateForMonth(start: LocalDate, monthCursor: LocalDate): LocalDate {
-        val day = start.dayOfMonth
-        val targetMonth = LocalDate.of(monthCursor.year, monthCursor.month, 1)
-        val lastDay = targetMonth.lengthOfMonth()
-        return targetMonth.withDayOfMonth(minOf(day, lastDay))
-    }
-
-    private fun nextDueDate(start: LocalDate, asOf: LocalDate): LocalDate {
-        var d = dueDateForMonth(start, asOf)
-        if (!d.isAfter(asOf)) d = dueDateForMonth(start, asOf.plusMonths(1))
-        return d
-    }
-
-
-    private fun simulateTotalInterestToEnd(loan: LoanEntity, events: List<LoanEventEntity>, includePrepayment: Boolean): Pair<Double, LocalDate> {
-        var outstanding = loan.totalAmount
-        var currentRate = loan.interestRate
-        val emi = max(loan.monthlyPayment, 0.0)
-        val byDate = events.groupBy { it.eventDate }
-        var date = loan.startDate
+    private fun simulateToZero(startDate: LocalDate, principal: Double, emi: Double, annualRate: Double, futureEvents: List<LoanEventEntity>): Pair<Double, LocalDate> {
+        var balance = principal
+        var rate = annualRate
+        var currentEmi = emi
+        var date = startDate
         var totalInterest = 0.0
+        
+        val eventsByDate = futureEvents.groupBy { it.eventDate }
+
         var guard = 0
-        while (outstanding > 0.01 && guard < 2000) {
-            byDate[date]?.forEach { ev ->
-                when (ev.eventType) {
-                    "RATE_CHANGE" -> currentRate = ev.newInterestRate ?: currentRate
-                    "PREPAYMENT" -> if (includePrepayment) outstanding = max(0.0, outstanding - (ev.amount ?: 0.0))
-                }
-            }
-            val monthlyRate = currentRate / 12.0 / 100.0
-            val interest = outstanding * monthlyRate
-            totalInterest += interest
-            val principal = max(0.0, emi - interest)
-            if (principal <= 0.0) break
-            outstanding = max(0.0, outstanding - principal)
+        while (balance > 0.1 && guard < 600) {
             date = date.plusMonths(1)
             guard++
+
+            eventsByDate[date]?.forEach { event ->
+                when (event.eventType) {
+                    "RATE_CHANGE" -> rate = event.newInterestRate ?: rate
+                    "PREPAYMENT" -> balance = max(0.0, balance - (event.amount ?: 0.0))
+                    "EMI_CHANGE" -> currentEmi = event.newMonthlyPayment ?: currentEmi
+                }
+            }
+
+            val monthlyRate = rate / 12.0 / 100.0
+            val interest = balance * monthlyRate
+            val principalPaid = (currentEmi - interest).coerceIn(0.0, balance)
+            
+            totalInterest += interest
+            balance -= principalPaid
+            
+            if (principalPaid <= 0 && balance > 0) break // Stuck loop (EMI < Interest)
         }
         return totalInterest to date
     }
 
-    private fun estimateEndDate(asOf: LocalDate, principal: Double, emi: Double, rateAnnual: Double): LocalDate {
-        if (emi <= 0.0 || principal <= 0.0) return asOf
-        val monthlyRate = rateAnnual / 12.0 / 100.0
-        var balance = principal
-        var months = 0
-        while (balance > 0.01 && months < 1000) {
-            val interest = balance * monthlyRate
-            val p = max(0.0, emi - interest)
-            if (p <= 0.0) break
-            balance -= p
-            months++
-        }
-        return asOf.plusMonths(months.toLong())
+    private fun nextDueDate(start: LocalDate, asOf: LocalDate): LocalDate {
+        val day = start.dayOfMonth
+        var due = asOf.withDayOfMonth(minOf(day, asOf.lengthOfMonth()))
+        if (!due.isAfter(asOf)) due = due.plusMonths(1).withDayOfMonth(minOf(day, due.plusMonths(1).lengthOfMonth()))
+        return due
     }
 }

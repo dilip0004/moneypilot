@@ -1,7 +1,9 @@
 package com.yourname.moneypilot.ui.features.planning
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Done
@@ -13,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.data.local.database.entities.BillRecurrence
 import com.yourname.moneypilot.ui.components.AppDatePickerField
 import kotlinx.coroutines.flow.collectLatest
 
@@ -24,6 +27,7 @@ fun AddEditBigBillScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -56,7 +60,8 @@ fun AddEditBigBillScreen(
             modifier = Modifier
                 .padding(padding)
                 .padding(16.dp)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
@@ -84,6 +89,129 @@ fun AddEditBigBillScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // Recurrence Picker
+            var expandedRecurrence by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandedRecurrence,
+                onExpandedChange = { expandedRecurrence = it }
+            ) {
+                OutlinedTextField(
+                    value = state.recurrenceType.name,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Recurrence") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRecurrence) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedRecurrence,
+                    onDismissRequest = { expandedRecurrence = false }
+                ) {
+                    BillRecurrence.entries.forEach { type ->
+                        DropdownMenuItem(
+                            text = { Text(type.name) },
+                            onClick = {
+                                viewModel.onEvent(AddEditBigBillEvent.RecurrenceChanged(type))
+                                expandedRecurrence = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Wallet Selector
+            var expandedWallet by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandedWallet,
+                onExpandedChange = { expandedWallet = it }
+            ) {
+                OutlinedTextField(
+                    value = state.wallets.find { it.id == state.linkedWalletId }?.name ?: "No Wallet Linked",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Linked Wallet (Source of Funds)") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWallet) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedWallet,
+                    onDismissRequest = { expandedWallet = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("None") },
+                        onClick = {
+                            viewModel.onEvent(AddEditBigBillEvent.WalletChanged(null))
+                            expandedWallet = false
+                        }
+                    )
+                    state.wallets.forEach { wallet ->
+                        DropdownMenuItem(
+                            text = { Text(wallet.name) },
+                            onClick = {
+                                viewModel.onEvent(AddEditBigBillEvent.WalletChanged(wallet.id))
+                                expandedWallet = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Category Selector
+            var expandedCategory by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandedCategory,
+                onExpandedChange = { expandedCategory = it }
+            ) {
+                OutlinedTextField(
+                    value = state.categories.find { it.id == state.categoryId }?.name ?: "Select Category",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Category") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedCategory,
+                    onDismissRequest = { expandedCategory = false }
+                ) {
+                    state.categories.forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text("${category.icon} ${category.name}") },
+                            onClick = {
+                                viewModel.onEvent(AddEditBigBillEvent.CategoryChanged(category.id))
+                                expandedCategory = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Text("Proactive Planning", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Checkbox(
+                    checked = state.autoReserveFlag,
+                    onCheckedChange = { viewModel.onEvent(AddEditBigBillEvent.AutoReserveChanged(it)) }
+                )
+                Column {
+                    Text("Auto-Reserve Goal", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text("Calculate monthly target to meet this bill.", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            OutlinedTextField(
+                value = state.reminderDaysBefore,
+                onValueChange = { viewModel.onEvent(AddEditBigBillEvent.ReminderDaysChanged(it)) },
+                label = { Text("Reminder (Days Before)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                placeholder = { Text("e.g. 3") }
+            )
+
             OutlinedTextField(
                 value = state.notes,
                 onValueChange = { viewModel.onEvent(AddEditBigBillEvent.EnteredNotes(it)) },
@@ -104,10 +232,12 @@ fun AddEditBigBillScreen(
             }
 
             Text(
-                "Big Bills help you plan for irregular but large expenses so they don't 'surprise' your monthly cash flow.",
+                "Big Bills help you plan for irregular but large expenses. Setting a reminder ensures you have funds ready.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

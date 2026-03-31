@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
+import com.yourname.moneypilot.data.local.database.entities.LoanEventEntity
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.data.repository.LoanRepository
 import com.yourname.moneypilot.data.repository.WalletRepository
@@ -11,7 +12,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.LocalDateTime
 import javax.inject.Inject
 
 data class AddEditLoanState(
@@ -52,6 +52,7 @@ class AddEditLoanViewModel @Inject constructor(
     val state: StateFlow<AddEditLoanState> = _state.asStateFlow()
 
     private var currentLoanId: Long? = null
+    private var originalLoan: LoanEntity? = null
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
     val eventFlow = _eventFlow.asSharedFlow()
@@ -75,6 +76,7 @@ class AddEditLoanViewModel @Inject constructor(
             viewModelScope.launch {
                 loanRepository.getLoanById(loanId)?.also { loan ->
                     currentLoanId = loan.id
+                    originalLoan = loan
                     _state.update { it.copy(
                         name = loan.name,
                         lender = loan.lender,
@@ -111,8 +113,6 @@ class AddEditLoanViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentState = _state.value
-                
-                // Sanitize and parse amount
                 val amountValue = currentState.amount.replace(",", "").toDoubleOrNull() ?: 0.0
                 
                 if (currentState.name.isBlank()) {
@@ -124,27 +124,70 @@ class AddEditLoanViewModel @Inject constructor(
                     return@launch
                 }
 
+                val newRate = currentState.interestRate.toDoubleOrNull() ?: 0.0
+                val newEmi = currentState.monthlyPayment.toDoubleOrNull() ?: 0.0
+                val newDuration = currentState.durationMonths.toIntOrNull() ?: 12
+
                 val loan = LoanEntity(
                     id = currentLoanId ?: 0L,
                     name = currentState.name,
                     lender = currentState.lender,
                     totalAmount = amountValue,
-                    interestRate = currentState.interestRate.toDoubleOrNull() ?: 0.0,
+                    interestRate = newRate,
                     startDate = currentState.startDate,
-                    durationMonths = currentState.durationMonths.toIntOrNull() ?: 12,
+                    durationMonths = newDuration,
                     currentBalance = if (currentLoanId == null) amountValue else {
                         loanRepository.getLoanById(currentLoanId!!)?.currentBalance ?: amountValue
                     },
-                    monthlyPayment = currentState.monthlyPayment.toDoubleOrNull() ?: 0.0,
+                    monthlyPayment = newEmi,
                     type = currentState.type,
                     linkedWalletId = currentState.linkedWalletId,
                     repaymentDayOfMonth = currentState.repaymentDayOfMonth
                 )
 
                 if (currentLoanId == null) {
-                    loanRepository.insertLoan(loan)
+                    val id = loanRepository.insertLoan(loan)
+                    // Log initial loan event
+                    loanRepository.insertLoanEvent(LoanEventEntity(
+                        loanId = id,
+                        eventType = "INITIAL_LOAN",
+                        eventDate = currentState.startDate,
+                        amount = amountValue,
+                        note = "Loan initiated"
+                    ))
                 } else {
                     loanRepository.updateLoan(loan)
+                    
+                    // Check for changes to log events (ROI, EMI, Tenure)
+                    originalLoan?.let { original ->
+                        if (original.interestRate != newRate) {
+                            loanRepository.insertLoanEvent(LoanEventEntity(
+                                loanId = original.id,
+                                eventType = "RATE_CHANGE",
+                                eventDate = LocalDate.now(),
+                                newInterestRate = newRate,
+                                note = "ROI updated from ${original.interestRate}% to $newRate%"
+                            ))
+                        }
+                        if (original.monthlyPayment != newEmi) {
+                            loanRepository.insertLoanEvent(LoanEventEntity(
+                                loanId = original.id,
+                                eventType = "EMI_CHANGE",
+                                eventDate = LocalDate.now(),
+                                newMonthlyPayment = newEmi,
+                                note = "EMI updated from ${original.monthlyPayment} to $newEmi"
+                            ))
+                        }
+                        if (original.durationMonths != newDuration) {
+                            loanRepository.insertLoanEvent(LoanEventEntity(
+                                loanId = original.id,
+                                eventType = "TENURE_CHANGE",
+                                eventDate = LocalDate.now(),
+                                newDurationMonths = newDuration,
+                                note = "Tenure updated from ${original.durationMonths} to $newDuration months"
+                            ))
+                        }
+                    }
                 }
                 
                 _eventFlow.emit(UiEvent.SaveLoan)

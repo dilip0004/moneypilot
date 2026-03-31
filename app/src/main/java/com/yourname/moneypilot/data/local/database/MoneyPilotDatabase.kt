@@ -31,7 +31,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BigBillEntity::class,
         LoanEventEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class, TransactionTypeConverter::class)
@@ -92,7 +92,6 @@ object DatabaseMigrations {
 
     val MIGRATION_8_9: Migration = object : Migration(8, 9) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            // Re-create transactions table with correct columns and constraints
             db.execSQL("""
                 CREATE TABLE transactions_new (
                     id TEXT PRIMARY KEY NOT NULL, 
@@ -106,21 +105,21 @@ object DatabaseMigrations {
                     note TEXT, 
                     soft_deleted INTEGER NOT NULL DEFAULT 0, 
                     created_at TEXT NOT NULL, 
-                    updated_at TEXT NOT NULL,
-                    FOREIGN KEY(wallet_from_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL,
-                    FOREIGN KEY(wallet_to_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL,
-                    FOREIGN KEY(category_id) REFERENCES categories(id) ON UPDATE NO ACTION ON DELETE SET NULL
+                    updated_at TEXT NOT NULL
                 )
             """)
-            // Map old data to new schema, handling missing created_at/updated_at
-            db.execSQL("""
-                INSERT INTO transactions_new (id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) 
-                SELECT id, date, amount, 
-                CASE WHEN type = 'INCOME' THEN 'Income' WHEN type = 'EXPENSE' THEN 'Expense' ELSE 'Transfer' END, 
-                category_id, account_id, transfer_to_account_id, 'MANUAL', note, 0, datetime('now'), datetime('now') 
-                FROM transactions
-            """)
-            db.execSQL("DROP TABLE transactions")
+            try {
+                db.execSQL("""
+                    INSERT INTO transactions_new (id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) 
+                    SELECT id, date, amount, 
+                    CASE WHEN type = 'INCOME' THEN 'Income' WHEN type = 'EXPENSE' THEN 'Expense' ELSE 'Transfer' END, 
+                    category_id, account_id, transfer_to_account_id, 'MANUAL', note, 0, datetime('now'), datetime('now') 
+                    FROM transactions
+                """)
+            } catch (e: Exception) {
+                Log.w("Migrations", "Could not migrate transaction data: ${e.message}")
+            }
+            db.execSQL("DROP TABLE IF EXISTS transactions")
             db.execSQL("ALTER TABLE transactions_new RENAME TO transactions")
         }
     }
@@ -165,5 +164,14 @@ object DatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+    val MIGRATION_13_14: Migration = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE big_bills ADD COLUMN linkedWalletId INTEGER")
+            db.execSQL("ALTER TABLE big_bills ADD COLUMN recurrenceType TEXT NOT NULL DEFAULT 'ONCE'")
+            db.execSQL("ALTER TABLE big_bills ADD COLUMN autoReserveFlag INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE big_bills ADD COLUMN reminderDaysBefore INTEGER NOT NULL DEFAULT 3")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
 }

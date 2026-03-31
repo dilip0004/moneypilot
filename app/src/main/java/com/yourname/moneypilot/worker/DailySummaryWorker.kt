@@ -10,6 +10,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.data.repository.TransactionRepository
+import com.yourname.moneypilot.data.repository.BigBillRepository
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -17,64 +18,75 @@ import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalTime
 import timber.log.Timber
+import java.time.temporal.ChronoUnit
 
+/**
+ * Enhanced Daily Worker (TASK-48)
+ * Responsible for Daily Summaries AND Proactive Big Bill Reminders.
+ */
 @HiltWorker
 class DailySummaryWorker @AssistedInject constructor(
     @Assisted private val context: Context,
     @Assisted workerParams: WorkerParameters,
     private val transactionRepository: TransactionRepository,
+    private val bigBillRepository: BigBillRepository,
     private val preferencesRepository: UserPreferencesRepository,
-    private val notificationScheduler: NotificationScheduler // Injected to re-arm the next alarm
+    private val notificationScheduler: NotificationScheduler
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
         return try {
             val preferences = preferencesRepository.userPreferencesFlow.first()
             
-            // 1. Execute the actual work
             if (preferences.dailySummaryEnabled) {
                 val today = LocalDate.now()
+                
+                // 1. Calculate Daily Stats
                 val startOfDay = today.atStartOfDay()
                 val endOfDay = today.atTime(LocalTime.MAX)
+                val txs = transactionRepository.getTransactionsWithDetailsByDateRange(startOfDay, endOfDay).first()
+                val totalSpent = txs.filter { it.transaction.type == TransactionType.Expense }.sumOf { it.transaction.amount }
+                val totalEarned = txs.filter { it.transaction.type == TransactionType.Income }.sumOf { it.transaction.amount }
 
-                val transactionsWithDetails = transactionRepository.getTransactionsWithDetailsByDateRange(startOfDay, endOfDay).first()
-                val transactions = transactionsWithDetails.map { it.transaction }
-                
-                val totalSpent = transactions.filter { it.type == TransactionType.Expense }.sumOf { it.amount }
-                val totalEarned = transactions.filter { it.type == TransactionType.Income }.sumOf { it.amount }
+                // 2. Identify Urgent Big Bills (TASK-48)
+                val upcomingBills = bigBillRepository.getUnpaidBigBills().first().filter { bill ->
+                    val daysUntilDue = ChronoUnit.DAYS.between(today, bill.dueDate)
+                    daysUntilDue >= 0 && daysUntilDue <= bill.reminderDaysBefore
+                }
 
-                sendNotification(totalSpent, totalEarned)
+                sendCombinedNotification(totalSpent, totalEarned, upcomingBills.size)
             }
 
-            // 2. Re-arm the next daily alarm (Linear Chain Pattern)
             notificationScheduler.scheduleDailySummary(preferences)
-            
             Result.success()
         } catch (e: Exception) {
-            Timber.e(e, "DailySummaryWorker: Failed to process or re-arm")
+            Timber.e(e, "DailySummaryWorker: Failure during combined processing")
             Result.failure()
         }
     }
 
-    private fun sendNotification(spent: Double, earned: Double) {
+    private fun sendCombinedNotification(spent: Double, earned: Double, urgentBillCount: Int) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "daily_summary_channel"
+        val channelId = "money_pilot_alerts"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Daily Summary",
+                "Financial Alerts",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Daily financial spending and earnings summary"
+                description = "Combined Daily Summary and Bill Reminders"
             }
             notificationManager.createNotificationChannel(channel)
         }
 
+        val summaryText = "Spent: ₹${String.format("%.0f", spent)} | Earned: ₹${String.format("%.0f", earned)}"
+        val billAlertText = if (urgentBillCount > 0) "\n⚠️ $urgentBillCount Big Bills due soon!" else ""
+
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Daily Financial Summary")
-            .setContentText("Spent: ₹${String.format("%.2f", spent)} | Earned: ₹${String.format("%.2f", earned)}")
+            .setContentTitle("Daily Financial Snapshot")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(summaryText + billAlertText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)

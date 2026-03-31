@@ -18,7 +18,8 @@ fun PlanningHubScreen(
     onEditGoal: (Long) -> Unit,
     onAddBudget: () -> Unit,
     onAddInvestment: () -> Unit,
-    onAddBigBill: () -> Unit
+    onAddBigBill: () -> Unit,
+    onEditBigBill: (Long) -> Unit
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Distribution")
@@ -61,7 +62,8 @@ fun PlanningHubScreen(
                     onAddInvestment = onAddInvestment
                 )
                 3 -> BigBillsScreen(
-                    onAddBigBill = onAddBigBill
+                    onAddBigBill = onAddBigBill,
+                    onEditBigBill = onEditBigBill
                 )
                 4 -> DistributionScreen(
                     onPopBackStack = {}

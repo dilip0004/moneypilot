@@ -54,6 +54,7 @@ import com.yourname.moneypilot.ui.features.settings.SettingsScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
 import com.yourname.moneypilot.ui.features.transactions.TransferScreen
 import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
+import com.yourname.moneypilot.ui.features.loans.LoanDetailsScreen
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -87,7 +88,6 @@ class MainActivity : ComponentActivity() {
         if (!isRunningUiTest()) {
             lifecycleScope.launch {
                 try {
-                    // Safety Pass (BUG-STARTUP Fix)
                     loanAutoDeductionProcessor.process()
                     monthlyRolloverProcessor.process()
                     val mismatches = verifyLedgerIntegrityUseCase()
@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
                         Timber.e("LEDGER INTEGRITY CHECK FAILED: ${mismatches.size} mismatches found.")
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "Startup database processing deferred due to error: ${e.message}")
+                    Timber.e(e, "Startup processing failed")
                 }
             }
         }
@@ -245,7 +245,8 @@ fun MainScreen() {
                     onEditGoal = { id -> navController.navigate("add_goal?goalId=$id") },
                     onAddBudget = { navController.navigate("add_budget") },
                     onAddInvestment = { navController.navigate("add_investment") },
-                    onAddBigBill = { navController.navigate("add_big_bill") }
+                    onAddBigBill = { navController.navigate("add_big_bill") },
+                    onEditBigBill = { id -> navController.navigate("add_big_bill?bigBillId=$id") }
                 )
             }
 
@@ -263,7 +264,11 @@ fun MainScreen() {
             composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("categories") { CategoryManagerScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("distribution") { DistributionScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("investments") { InvestmentsScreen() }
+            composable("investments") { 
+                InvestmentsScreen(
+                    onAddInvestment = { navController.navigate("add_investment") }
+                ) 
+            }
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
@@ -347,6 +352,18 @@ fun MainScreen() {
                 arguments = listOf(navArgument("loanId") { type = NavType.LongType; defaultValue = -1L })
             ) {
                 AddEditLoanScreen(onPopBackStack = { navController.popBackStack() })
+            }
+
+            composable(
+                route = "loan_details/{loanId}",
+                arguments = listOf(navArgument("loanId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val loanId = backStackEntry.arguments?.getLong("loanId") ?: return@composable
+                LoanDetailsScreen(
+                    loanId = loanId,
+                    onBack = { navController.popBackStack() },
+                    onEditLoan = { id -> navController.navigate("add_loan?loanId=$id") }
+                )
             }
 
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }

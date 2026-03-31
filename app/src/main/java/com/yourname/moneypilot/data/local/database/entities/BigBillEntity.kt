@@ -7,6 +7,10 @@ import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+enum class BillRecurrence {
+    ONCE, MONTHLY, QUARTERLY, ANNUALLY
+}
+
 @Entity(tableName = "big_bills")
 @Serializable
 data class BigBillEntity(
@@ -17,6 +21,10 @@ data class BigBillEntity(
     @Contextual
     val dueDate: LocalDate,
     val categoryId: Long?,
+    val linkedWalletId: Long? = null,
+    val recurrenceType: BillRecurrence = BillRecurrence.ONCE,
+    val autoReserveFlag: Boolean = false, // (TASK-47)
+    val reminderDaysBefore: Int = 3, // (TASK-48)
     val isPaid: Boolean = false,
     val notes: String = "",
     @Contextual

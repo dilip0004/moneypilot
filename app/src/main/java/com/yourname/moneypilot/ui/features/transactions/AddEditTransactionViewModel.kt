@@ -20,10 +20,12 @@ data class AddEditTransactionState(
     val walletFromId: Long? = null,
     val categoryId: Long? = null,
     val subcategoryId: Long? = null,
+    val loanId: Long? = null, // Added for Loan Linking/Prepayment
     val date: LocalDateTime = LocalDateTime.now(),
     val wallets: List<WalletEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
-    val subcategories: List<SubcategoryEntity> = emptyList()
+    val subcategories: List<SubcategoryEntity> = emptyList(),
+    val loans: List<LoanEntity> = emptyList() // Added to show selectable loans
 )
 
 sealed class AddEditTransactionEvent {
@@ -33,6 +35,7 @@ sealed class AddEditTransactionEvent {
     data class WalletChanged(val value: Long) : AddEditTransactionEvent()
     data class CategoryChanged(val value: Long) : AddEditTransactionEvent()
     data class SubcategoryChanged(val value: Long?) : AddEditTransactionEvent()
+    data class LoanChanged(val value: Long?) : AddEditTransactionEvent() // Added
     data class DateChanged(val value: LocalDateTime) : AddEditTransactionEvent()
     object SaveTransaction : AddEditTransactionEvent()
 }
@@ -42,6 +45,7 @@ class AddEditTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val walletRepository: WalletRepository,
     private val categoryRepository: CategoryRepository,
+    private val loanRepository: LoanRepository, // Injected for Prepayment linking
     private val saveTransactionUseCase: SaveTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -81,6 +85,7 @@ class AddEditTransactionViewModel @Inject constructor(
                         walletFromId = transaction.walletFromId,
                         categoryId = transaction.categoryId,
                         subcategoryId = transaction.subcategoryId,
+                        loanId = transaction.loanId,
                         date = transaction.dateTime
                     ) }
                     _typeFlow.value = transaction.type
@@ -96,6 +101,11 @@ class AddEditTransactionViewModel @Inject constructor(
                 wallets = wallets,
                 walletFromId = it.walletFromId ?: wallets.find { w -> w.isPrimary }?.id ?: wallets.firstOrNull()?.id
             ) }
+        }.launchIn(viewModelScope)
+
+        // Load active loans for linking
+        loanRepository.getAllLoans().onEach { loans ->
+            _state.update { it.copy(loans = loans.filter { l -> l.status == "ACTIVE" }) }
         }.launchIn(viewModelScope)
 
         viewModelScope.launch {
@@ -123,6 +133,7 @@ class AddEditTransactionViewModel @Inject constructor(
                 loadSubcategories(event.value)
             }
             is AddEditTransactionEvent.SubcategoryChanged -> _state.update { it.copy(subcategoryId = event.value) }
+            is AddEditTransactionEvent.LoanChanged -> _state.update { it.copy(loanId = event.value) }
             is AddEditTransactionEvent.DateChanged -> _state.update { it.copy(date = event.value) }
             is AddEditTransactionEvent.SaveTransaction -> saveTransaction()
         }
@@ -158,10 +169,6 @@ class AddEditTransactionViewModel @Inject constructor(
                         _eventFlow.emit(UiEvent.ShowSnackbar("Please select a category."))
                         return@launch
                     }
-                    if (currentState.subcategories.isNotEmpty() && currentState.subcategoryId == null) {
-                        _eventFlow.emit(UiEvent.ShowSnackbar("Please select a subcategory."))
-                        return@launch
-                    }
                 }
 
                 val transaction = TransactionEntity(
@@ -169,11 +176,12 @@ class AddEditTransactionViewModel @Inject constructor(
                     walletFromId = walletId,
                     categoryId = currentState.categoryId,
                     subcategoryId = currentState.subcategoryId,
+                    loanId = currentState.loanId, // Attached for Prepayment/Repayment logic
                     type = currentState.type,
                     amount = amountValue,
                     note = currentState.description,
                     dateTime = currentState.date,
-                    transactionSourceType = "MANUAL"
+                    transactionSourceType = if (currentState.loanId != null) "LOAN_REPAYMENT" else "MANUAL"
                 )
                 
                 saveTransactionUseCase(transaction, isEdit = currentTransactionId != null)
