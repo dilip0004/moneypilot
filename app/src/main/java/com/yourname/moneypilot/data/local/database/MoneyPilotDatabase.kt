@@ -60,18 +60,8 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
                     MoneyPilotDatabase::class.java,
                     "moneypilot.db"
                 )
-                    .apply {
-                    if (BuildConfig.DEBUG) {
-                        fallbackToDestructiveMigration()
-                    } else {
-                        try {
-                            addMigrations(*DatabaseMigrations.ALL)
-                        } catch (e: Exception) {
-                            Log.w("MoneyPilotDatabase", "Failed to register migrations: ${e.message}")
-                        }
-                    }
-                }
-                    .build()
+                .addMigrations(*DatabaseMigrations.ALL)
+                .build()
                 INSTANCE = instance
                 instance
             }

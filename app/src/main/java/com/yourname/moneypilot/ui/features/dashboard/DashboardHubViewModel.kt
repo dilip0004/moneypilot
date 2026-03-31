@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.YearMonth
+import java.time.Year
 import javax.inject.Inject
 
 data class DashboardHubState(
@@ -19,7 +20,12 @@ data class DashboardHubState(
     val totalBalance: Double = 0.0,
     val monthlyIncome: Double = 0.0,
     val monthlyExpense: Double = 0.0,
-    val currentMonth: YearMonth = YearMonth.now()
+    val netSurplus: Double = 0.0,
+    val savingsRate: Double = 0.0,
+    val yearlyIncome: Double = 0.0,
+    val yearlyExpense: Double = 0.0,
+    val currentMonth: YearMonth = YearMonth.now(),
+    val currentYear: Year = Year.now()
 )
 
 @HiltViewModel
@@ -29,6 +35,7 @@ class DashboardHubViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
+    private val _currentYear = MutableStateFlow(Year.now())
     
     private val _hubState = MutableStateFlow(DashboardHubState())
     val state: StateFlow<DashboardHubState> = _hubState.asStateFlow()
@@ -37,32 +44,51 @@ class DashboardHubViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 walletRepository.getAllWallets(),
-                _currentMonth
-            ) { wallets, month ->
-                Pair(wallets, month)
-            }.collect { (wallets, month) ->
-                updateTotals(wallets, month)
+                _currentMonth,
+                _currentYear
+            ) { wallets, month, year ->
+                Triple(wallets, month, year)
+            }.collect { (wallets, month, year) ->
+                updateTotals(wallets, month, year)
             }
         }
     }
 
-    private suspend fun updateTotals(wallets: List<WalletEntity>, month: YearMonth) {
-        val start = month.atDay(1).atStartOfDay()
-        val end = month.atEndOfMonth().atTime(LocalTime.MAX)
+    private suspend fun updateTotals(wallets: List<WalletEntity>, month: YearMonth, year: Year) {
+        // Monthly Totals
+        val mStart = month.atDay(1).atStartOfDay()
+        val mEnd = month.atEndOfMonth().atTime(LocalTime.MAX)
+        val mIncome = transactionRepository.getTotalSumByType(TransactionType.Income, mStart, mEnd) ?: 0.0
+        val mExpense = transactionRepository.getTotalSumByType(TransactionType.Expense, mStart, mEnd) ?: 0.0
         
-        val income = transactionRepository.getTotalSumByType(TransactionType.Income, start, end) ?: 0.0
-        val expense = transactionRepository.getTotalSumByType(TransactionType.Expense, start, end) ?: 0.0
+        val surplus = mIncome - mExpense
+        val rate = if (mIncome > 0) (surplus / mIncome) * 100.0 else 0.0
+
+        // Yearly Totals
+        val yStart = year.atDay(1).atStartOfDay()
+        val yEnd = year.atMonth(12).atEndOfMonth().atTime(LocalTime.MAX)
+        val yIncome = transactionRepository.getTotalSumByType(TransactionType.Income, yStart, yEnd) ?: 0.0
+        val yExpense = transactionRepository.getTotalSumByType(TransactionType.Expense, yStart, yEnd) ?: 0.0
 
         _hubState.value = DashboardHubState(
             wallets = wallets,
             totalBalance = wallets.sumOf { it.currentBalance },
-            monthlyIncome = income,
-            monthlyExpense = expense,
-            currentMonth = month
+            monthlyIncome = mIncome,
+            monthlyExpense = mExpense,
+            netSurplus = surplus,
+            savingsRate = rate,
+            yearlyIncome = yIncome,
+            yearlyExpense = yExpense,
+            currentMonth = month,
+            currentYear = year
         )
     }
 
     fun onMonthChange(month: YearMonth) {
         _currentMonth.value = month
+    }
+
+    fun onYearChange(year: Year) {
+        _currentYear.value = year
     }
 }
