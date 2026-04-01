@@ -16,5 +16,7 @@ class InvestmentRepositoryImpl @Inject constructor(
 
     override suspend fun deleteInvestment(investment: InvestmentEntity) = investmentDao.deleteInvestment(investment)
 
+    override suspend fun getInvestmentById(id: Long): InvestmentEntity? = investmentDao.getInvestmentById(id)
+
     override suspend fun getTotalPortfolioValue(): Double = investmentDao.getTotalPortfolioValue() ?: 0.0
 }

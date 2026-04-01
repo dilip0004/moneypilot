@@ -1,7 +1,9 @@
 package com.yourname.moneypilot.ui.features.investments
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Done
@@ -22,6 +24,7 @@ fun AddEditInvestmentScreen(
 ) {
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -33,6 +36,8 @@ fun AddEditInvestmentScreen(
             }
         }
     }
+
+    val assetTypes = listOf("STOCKS", "MUTUAL_FUNDS", "CRYPTO", "GOLD", "REAL_ESTATE", "FD")
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -56,13 +61,14 @@ fun AddEditInvestmentScreen(
             modifier = Modifier
                 .padding(padding)
                 .padding(16.dp)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredName(it)) },
-                label = { Text("Asset Name (e.g. Reliance Stocks)") },
+                label = { Text("Asset Name (e.g. HDFC Index Fund)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -71,35 +77,64 @@ fun AddEditInvestmentScreen(
                 OutlinedTextField(
                     value = state.symbol,
                     onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredSymbol(it)) },
-                    label = { Text("Symbol") },
+                    label = { Text("Symbol / Ticker") },
                     modifier = Modifier.weight(1f),
                     singleLine = true
                 )
                 
-                var expanded by remember { mutableStateOf(false) }
+                var expandedType by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it },
-                    modifier = Modifier.weight(1f)
+                    expanded = expandedType,
+                    onExpandedChange = { expandedType = it },
+                    modifier = Modifier.weight(1.2f)
                 ) {
                     OutlinedTextField(
                         value = state.type,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Type") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        label = { Text("Asset Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
                         modifier = Modifier.menuAnchor()
                     )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        listOf("STOCKS", "MUTUAL_FUNDS", "CRYPTO", "GOLD").forEach { type ->
+                    ExposedDropdownMenu(expanded = expandedType, onDismissRequest = { expandedType = false }) {
+                        assetTypes.forEach { type ->
                             DropdownMenuItem(
                                 text = { Text(type) },
                                 onClick = {
                                     viewModel.onEvent(AddEditInvestmentEvent.TypeChanged(type))
-                                    expanded = false
+                                    expandedType = false
                                 }
                             )
                         }
+                    }
+                }
+            }
+
+            // Wallet Selector (TASK-INVESTMENT-LINK)
+            var expandedWallet by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandedWallet,
+                onExpandedChange = { expandedWallet = it }
+            ) {
+                OutlinedTextField(
+                    value = state.wallets.find { it.id == state.linkedWalletId }?.name ?: "No Wallet Linked",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Buy using Wallet") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWallet) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    placeholder = { Text("Deduct funds from...") }
+                )
+                ExposedDropdownMenu(expanded = expandedWallet, onDismissRequest = { expandedWallet = false }) {
+                    DropdownMenuItem(text = { Text("None (Already Paid)") }, onClick = {
+                        viewModel.onEvent(AddEditInvestmentEvent.WalletLinked(null))
+                        expandedWallet = false
+                    })
+                    state.wallets.forEach { wallet ->
+                        DropdownMenuItem(text = { Text(wallet.name) }, onClick = {
+                            viewModel.onEvent(AddEditInvestmentEvent.WalletLinked(wallet.id))
+                            expandedWallet = false
+                        })
                     }
                 }
             }
@@ -117,7 +152,7 @@ fun AddEditInvestmentScreen(
                     value = state.currency,
                     onValueChange = {},
                     label = { Text("Currency") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(0.6f),
                     readOnly = true,
                     singleLine = true
                 )
@@ -126,7 +161,7 @@ fun AddEditInvestmentScreen(
             OutlinedTextField(
                 value = state.averagePrice,
                 onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredAvgPrice(it)) },
-                label = { Text("Buying Price (Avg)") },
+                label = { Text("Purchase Price (Avg)") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 prefix = { Text("₹ ") },
@@ -144,10 +179,12 @@ fun AddEditInvestmentScreen(
             )
             
             Text(
-                "Tip: Log investments regularly to see accurate P&L growth in your Analytics hub.",
+                "Info: Linking a wallet will automatically create an Expense transaction in your ledger to maintain balance accuracy.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

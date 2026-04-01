@@ -5,13 +5,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.yourname.moneypilot.data.local.database.entities.InvestmentEntity
-import com.yourname.moneypilot.data.repository.InvestmentRepository
+import com.yourname.moneypilot.data.local.database.entities.*
+import com.yourname.moneypilot.data.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+import java.util.UUID
 import javax.inject.Inject
 
 data class AddEditInvestmentState(
@@ -21,13 +21,17 @@ data class AddEditInvestmentState(
     val quantity: String = "",
     val averagePrice: String = "",
     val currentPrice: String = "",
-    val currency: String = "INR"
+    val currency: String = "INR",
+    val linkedWalletId: Long? = null,
+    val wallets: List<WalletEntity> = emptyList()
 )
 
 @HiltViewModel
 class AddEditInvestmentViewModel @Inject constructor(
     private val investmentRepository: InvestmentRepository,
-    savedStateHandle: SavedStateHandle
+    private val walletRepository: WalletRepository,
+    private val transactionRepository: TransactionRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _state = mutableStateOf(AddEditInvestmentState())
@@ -44,13 +48,31 @@ class AddEditInvestmentViewModel @Inject constructor(
     }
 
     init {
-        savedStateHandle.get<Long>("investmentId")?.let { id ->
-            if (id != -1L) {
-                viewModelScope.launch {
-                    // Fetch investment logic here
+        loadWallets()
+        val id = savedStateHandle.get<Long>("investmentId")
+        if (id != null && id != -1L) {
+            viewModelScope.launch {
+                investmentRepository.getInvestmentById(id)?.let { investment ->
+                    currentInvestmentId = investment.id
+                    _state.value = _state.value.copy(
+                        name = investment.name,
+                        type = investment.type,
+                        symbol = investment.symbol,
+                        quantity = investment.quantity.toString(),
+                        averagePrice = investment.averagePrice.toString(),
+                        currentPrice = investment.currentPrice.toString(),
+                        currency = investment.currency,
+                        linkedWalletId = investment.linkedWalletId
+                    )
                 }
             }
         }
+    }
+
+    private fun loadWallets() {
+        walletRepository.getAllWallets().onEach { wallets ->
+            _state.value = _state.value.copy(wallets = wallets)
+        }.launchIn(viewModelScope)
     }
 
     fun onEvent(event: AddEditInvestmentEvent) {
@@ -61,6 +83,7 @@ class AddEditInvestmentViewModel @Inject constructor(
             is AddEditInvestmentEvent.EnteredAvgPrice -> _state.value = _state.value.copy(averagePrice = event.value)
             is AddEditInvestmentEvent.EnteredCurrentPrice -> _state.value = _state.value.copy(currentPrice = event.value)
             is AddEditInvestmentEvent.TypeChanged -> _state.value = _state.value.copy(type = event.value)
+            is AddEditInvestmentEvent.WalletLinked -> _state.value = _state.value.copy(linkedWalletId = event.value)
             is AddEditInvestmentEvent.SaveInvestment -> saveInvestment()
         }
     }
@@ -68,27 +91,50 @@ class AddEditInvestmentViewModel @Inject constructor(
     private fun saveInvestment() {
         viewModelScope.launch {
             try {
-                if (_state.value.name.isBlank() || _state.value.quantity.isBlank()) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Please fill required fields."))
+                val s = _state.value
+                val qty = s.quantity.toDoubleOrNull() ?: 0.0
+                val avgPrice = s.averagePrice.toDoubleOrNull() ?: 0.0
+                val investedAmount = qty * avgPrice
+
+                if (s.name.isBlank() || qty <= 0) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Please fill required fields (Name, Quantity)."))
                     return@launch
                 }
 
-                investmentRepository.insertInvestment(
-                    InvestmentEntity(
-                        id = currentInvestmentId ?: 0L,
-                        name = _state.value.name,
-                        type = _state.value.type,
-                        symbol = _state.value.symbol,
-                        quantity = _state.value.quantity.toDoubleOrNull() ?: 0.0,
-                        averagePrice = _state.value.averagePrice.toDoubleOrNull() ?: 0.0,
-                        currentPrice = _state.value.currentPrice.toDoubleOrNull() ?: 0.0,
-                        currency = _state.value.currency,
-                        lastUpdated = LocalDateTime.now()
-                    )
+                val investment = InvestmentEntity(
+                    id = currentInvestmentId ?: 0L,
+                    name = s.name,
+                    type = s.type,
+                    symbol = s.symbol,
+                    quantity = qty,
+                    averagePrice = avgPrice,
+                    currentPrice = s.currentPrice.toDoubleOrNull() ?: avgPrice,
+                    currency = s.currency,
+                    linkedWalletId = s.linkedWalletId,
+                    lastUpdated = LocalDateTime.now()
                 )
+
+                // 1. Record the Investment
+                investmentRepository.insertInvestment(investment)
+
+                // 2. Ledger Integration (Only for new buys)
+                if (currentInvestmentId == null && s.linkedWalletId != null) {
+                    transactionRepository.insertTransaction(
+                        TransactionEntity(
+                            id = UUID.randomUUID().toString(),
+                            walletFromId = s.linkedWalletId,
+                            type = TransactionType.Expense,
+                            amount = investedAmount,
+                            note = "Investment Purchase: ${s.name} (${s.symbol})",
+                            dateTime = LocalDateTime.now(),
+                            transactionSourceType = "INVESTMENT_BUY"
+                        )
+                    )
+                }
+
                 _eventFlow.emit(UiEvent.SaveInvestment)
             } catch (e: Exception) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Save failed."))
+                _eventFlow.emit(UiEvent.ShowSnackbar("Save failed: ${e.message}"))
             }
         }
     }
@@ -101,5 +147,6 @@ sealed class AddEditInvestmentEvent {
     data class EnteredAvgPrice(val value: String) : AddEditInvestmentEvent()
     data class EnteredCurrentPrice(val value: String) : AddEditInvestmentEvent()
     data class TypeChanged(val value: String) : AddEditInvestmentEvent()
+    data class WalletLinked(val value: Long?) : AddEditInvestmentEvent()
     object SaveInvestment : AddEditInvestmentEvent()
 }

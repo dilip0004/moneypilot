@@ -8,5 +8,6 @@ interface InvestmentRepository {
     suspend fun insertInvestment(investment: InvestmentEntity): Long
     suspend fun updateInvestment(investment: InvestmentEntity)
     suspend fun deleteInvestment(investment: InvestmentEntity)
+    suspend fun getInvestmentById(id: Long): InvestmentEntity?
     suspend fun getTotalPortfolioValue(): Double
 }

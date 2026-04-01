@@ -31,7 +31,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BigBillEntity::class,
         LoanEventEntity::class
     ],
-    version = 14,
+    version = 15, // Incremented for Investment Wallet Linking
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class, TransactionTypeConverter::class)
@@ -163,5 +163,11 @@ object DatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+    val MIGRATION_14_15: Migration = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE investments ADD COLUMN linkedWalletId INTEGER")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
 }

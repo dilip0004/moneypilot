@@ -27,6 +27,9 @@ interface InvestmentDao {
     @Query("SELECT * FROM investments")
     suspend fun getAllInvestmentsList(): List<InvestmentEntity>
 
+    @Query("SELECT * FROM investments WHERE id = :id")
+    suspend fun getInvestmentById(id: Long): InvestmentEntity?
+
     @Query("SELECT SUM(quantity * currentPrice) FROM investments")
     suspend fun getTotalPortfolioValue(): Double?
 }

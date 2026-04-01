@@ -30,4 +30,5 @@ This document tracks the number of compilation errors and critical runtime bugs.
 -   **UI & Nav Bug:** Big Bills screen using invalid color references and broken navigation. (Resolved)
 -   **UI & UX Bug:** Big Bills cannot be edited, deleted, or configured for recurrence despite spec requirements. (Resolved)
 -   **CATASTROPHIC RUNTIME BUG:** Persistent startup crashes due to fatal database migration syntax errors and naming mismatches (db vs database). (Resolved)
--   **Cascading Build Failure:** Incomplete parameter updates in MainActivity and PlanningHubScreen, combined with property name mismatches in LoanDetailsScreen (5 errors). This was caused by a failure to perform cross-file impact analysis. (Resolved)
+-   **Cascading Build Failure:** Incomplete parameter updates in MainActivity and PlanningHubScreen, combined with property name mismatches in LoanDetailsScreen (5 errors). (Resolved)
+-   **Repository Implementation Failure:** Attempted to use `getInvestmentById` in the ViewModel without implementing it in the Dao or Repository layers, causing an unresolved reference compilation error. (Resolved)
