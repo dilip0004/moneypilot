@@ -15,7 +15,8 @@ class TransactionRepositoryImpl @Inject constructor(
     private val walletDao: WalletDao,
     private val goalDao: GoalDao,
     private val loanDao: LoanDao,
-    private val budgetDao: BudgetDao // Injected for budget sync
+    private val investmentDao: InvestmentDao,
+    private val budgetDao: BudgetDao
 ) : TransactionRepository {
 
     override fun getAllTransactionsWithDetails(): Flow<List<TransactionWithDetails>> =
@@ -112,20 +113,43 @@ class TransactionRepositoryImpl @Inject constructor(
             }
         }
 
-        // 3. Budget Sync (BUG-018 Fix)
-        // Only expenses impact budgets
+        // 3. Goal Impact (TASK-GOAL-SYNC)
+        if (tx.goalId != null) {
+            goalDao.getGoalById(tx.goalId)?.let { goal ->
+                // Adding money to a goal is usually an Expense from a wallet, but an Inflow to the goal
+                val newAmount = (goal.currentAmount + amount).coerceAtLeast(0.0)
+                goalDao.update(goal.copy(currentAmount = newAmount)) // FIXED: update instead of updateGoal
+            }
+        }
+
+        // 4. Investment Impact (TASK-INVESTMENT-SYNC)
+        if (tx.investmentId != null) {
+            investmentDao.getInvestmentById(tx.investmentId)?.let { investment ->
+                if (tx.type == TransactionType.Expense) {
+                    val priceToUse = if (investment.currentPrice > 0) investment.currentPrice else investment.averagePrice
+                    val addedQuantity = if (priceToUse > 0) amount / priceToUse else 0.0
+                    
+                    val newQuantity = investment.quantity + addedQuantity
+                    val totalCostBasis = (investment.quantity * investment.averagePrice) + amount
+                    val newAveragePrice = if (newQuantity > 0) totalCostBasis / newQuantity else investment.averagePrice
+                    
+                    investmentDao.updateInvestment(investment.copy(
+                        quantity = newQuantity,
+                        averagePrice = newAveragePrice,
+                        lastUpdated = LocalDateTime.now()
+                    ))
+                }
+            }
+        }
+
+        // 5. Budget Sync
         if (tx.type == TransactionType.Expense && tx.categoryId != null) {
             syncBudgets(tx)
         }
     }
 
-    /**
-     * Recalculates spent amount for any budgets affected by this transaction.
-     */
     private suspend fun syncBudgets(tx: TransactionEntity) {
         val date = tx.dateTime.toLocalDate()
-        
-        // Find active budgets for the category or subcategory
         val activeBudgets = budgetDao.getActiveBudgets(date).first()
         val affectedBudgets = activeBudgets.filter { 
             it.categoryId == tx.categoryId || (tx.subcategoryId != null && it.subcategoryId == tx.subcategoryId)
@@ -134,13 +158,11 @@ class TransactionRepositoryImpl @Inject constructor(
         for (budget in affectedBudgets) {
             val start = budget.startDate.atStartOfDay()
             val end = budget.endDate.atTime(LocalTime.MAX)
-            
             val totalSpent = if (budget.subcategoryId != null) {
                 transactionDao.getSubcategoryExpenseSum(budget.subcategoryId, start, end) ?: 0.0
             } else {
                 transactionDao.getCategoryExpenseSum(budget.categoryId, start, end) ?: 0.0
             }
-            
             budgetDao.updateSpentAmount(budget.id, totalSpent)
         }
     }

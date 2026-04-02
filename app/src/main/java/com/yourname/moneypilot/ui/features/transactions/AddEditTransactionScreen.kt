@@ -50,6 +50,8 @@ fun AddEditTransactionScreen(
     var showWalletDropdown by remember { mutableStateOf(false) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var showSubcategoryDropdown by remember { mutableStateOf(false) }
+    var showGoalDropdown by remember { mutableStateOf(false) }
+    var showInvestmentDropdown by remember { mutableStateOf(false) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -189,8 +191,9 @@ fun AddEditTransactionScreen(
                         }
                     }
                 ) {
+                    val walletName = state.wallets.find { it.id == state.walletFromId }?.name ?: "Select Wallet"
                     OutlinedTextField(
-                        value = state.wallets.find { it.id == state.walletFromId }?.name ?: "Select Wallet",
+                        value = walletName,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Wallet") },
@@ -225,8 +228,9 @@ fun AddEditTransactionScreen(
                                 if (showCategoryDropdown) { focusManager.clearFocus(); showCalculator = false }
                             }
                         ) {
+                            val categoryName = state.categories.find { cat -> cat.id == state.categoryId }?.let { "${it.icon} ${it.name}" } ?: "Select Category"
                             OutlinedTextField(
-                                value = state.categories.find { cat -> cat.id == state.categoryId }?.name ?: "Select Category",
+                                value = categoryName,
                                 onValueChange = {},
                                 readOnly = true,
                                 label = { Text("Category") },
@@ -258,8 +262,9 @@ fun AddEditTransactionScreen(
                                     if (showSubcategoryDropdown) { focusManager.clearFocus(); showCalculator = false }
                                 }
                             ) {
+                                val subName = state.subcategories.find { sub -> sub.id == state.subcategoryId }?.name ?: "Select Subcategory"
                                 OutlinedTextField(
-                                    value = state.subcategories.find { sub -> sub.id == state.subcategoryId }?.name ?: "Select Subcategory",
+                                    value = subName,
                                     onValueChange = {},
                                     readOnly = true,
                                     label = { Text("Subcategory") },
@@ -283,13 +288,87 @@ fun AddEditTransactionScreen(
                                 }
                             }
                         }
+
+                        // Link to Goal (TASK-GOAL-SYNC UI)
+                        if (state.goals.isNotEmpty()) {
+                            ExposedDropdownMenuBox(
+                                expanded = showGoalDropdown,
+                                onExpandedChange = {
+                                    showGoalDropdown = !showGoalDropdown
+                                    if (showGoalDropdown) { focusManager.clearFocus(); showCalculator = false }
+                                }
+                            ) {
+                                val goalName = state.goals.find { it.id == state.goalId }?.name ?: "No Goal Linked"
+                                OutlinedTextField(
+                                    value = goalName,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Link to Financial Goal") },
+                                    leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showGoalDropdown) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                                )
+                                ExposedDropdownMenu(expanded = showGoalDropdown, onDismissRequest = { showGoalDropdown = false }) {
+                                    DropdownMenuItem(text = { Text("None") }, onClick = {
+                                        viewModel.onEvent(AddEditTransactionEvent.GoalChanged(null))
+                                        showGoalDropdown = false
+                                    })
+                                    state.goals.forEach { goal ->
+                                        DropdownMenuItem(
+                                            text = { Text(goal.name) },
+                                            onClick = {
+                                                viewModel.onEvent(AddEditTransactionEvent.GoalChanged(goal.id))
+                                                showGoalDropdown = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Link to Investment (TASK-INVESTMENT-SYNC UI)
+                        if (state.investments.isNotEmpty()) {
+                            ExposedDropdownMenuBox(
+                                expanded = showInvestmentDropdown,
+                                onExpandedChange = {
+                                    showInvestmentDropdown = !showInvestmentDropdown
+                                    if (showInvestmentDropdown) { focusManager.clearFocus(); showCalculator = false }
+                                }
+                            ) {
+                                val invName = state.investments.find { it.id == state.investmentId }?.name ?: "No Investment Linked"
+                                OutlinedTextField(
+                                    value = invName,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    label = { Text("Link to Asset/Investment") },
+                                    leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showInvestmentDropdown) },
+                                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                                )
+                                ExposedDropdownMenu(expanded = showInvestmentDropdown, onDismissRequest = { showInvestmentDropdown = false }) {
+                                    DropdownMenuItem(text = { Text("None") }, onClick = {
+                                        viewModel.onEvent(AddEditTransactionEvent.InvestmentChanged(null))
+                                        showInvestmentDropdown = false
+                                    })
+                                    state.investments.forEach { inv ->
+                                        DropdownMenuItem(
+                                            text = { Text(inv.name) },
+                                            onClick = {
+                                                viewModel.onEvent(AddEditTransactionEvent.InvestmentChanged(inv.id))
+                                                showInvestmentDropdown = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
                 OutlinedTextField(
                     value = state.description,
                     onValueChange = { viewModel.onEvent(AddEditTransactionEvent.EnteredDescription(it)) },
-                    label = { Text("Description") },
+                    label = { Text("Description / Note") },
                     modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) showCalculator = false },
                     keyboardOptions = KeyboardOptions(
                         imeAction = ImeAction.Next,

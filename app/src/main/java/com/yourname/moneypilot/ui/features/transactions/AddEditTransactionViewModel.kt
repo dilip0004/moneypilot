@@ -20,12 +20,16 @@ data class AddEditTransactionState(
     val walletFromId: Long? = null,
     val categoryId: Long? = null,
     val subcategoryId: Long? = null,
-    val loanId: Long? = null, // Added for Loan Linking/Prepayment
+    val loanId: Long? = null,
+    val goalId: Long? = null, // Added for Goal Linking
+    val investmentId: Long? = null, // Added for Investment Linking
     val date: LocalDateTime = LocalDateTime.now(),
     val wallets: List<WalletEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
     val subcategories: List<SubcategoryEntity> = emptyList(),
-    val loans: List<LoanEntity> = emptyList() // Added to show selectable loans
+    val loans: List<LoanEntity> = emptyList(),
+    val goals: List<GoalEntity> = emptyList(), // Added
+    val investments: List<InvestmentEntity> = emptyList() // Added
 )
 
 sealed class AddEditTransactionEvent {
@@ -35,7 +39,9 @@ sealed class AddEditTransactionEvent {
     data class WalletChanged(val value: Long) : AddEditTransactionEvent()
     data class CategoryChanged(val value: Long) : AddEditTransactionEvent()
     data class SubcategoryChanged(val value: Long?) : AddEditTransactionEvent()
-    data class LoanChanged(val value: Long?) : AddEditTransactionEvent() // Added
+    data class LoanChanged(val value: Long?) : AddEditTransactionEvent()
+    data class GoalChanged(val value: Long?) : AddEditTransactionEvent() // Added
+    data class InvestmentChanged(val value: Long?) : AddEditTransactionEvent() // Added
     data class DateChanged(val value: LocalDateTime) : AddEditTransactionEvent()
     object SaveTransaction : AddEditTransactionEvent()
 }
@@ -45,7 +51,9 @@ class AddEditTransactionViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val walletRepository: WalletRepository,
     private val categoryRepository: CategoryRepository,
-    private val loanRepository: LoanRepository, // Injected for Prepayment linking
+    private val loanRepository: LoanRepository,
+    private val goalRepository: GoalRepository, // Added
+    private val investmentRepository: InvestmentRepository, // Added
     private val saveTransactionUseCase: SaveTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -86,6 +94,8 @@ class AddEditTransactionViewModel @Inject constructor(
                         categoryId = transaction.categoryId,
                         subcategoryId = transaction.subcategoryId,
                         loanId = transaction.loanId,
+                        goalId = transaction.goalId,
+                        investmentId = transaction.investmentId,
                         date = transaction.dateTime
                     ) }
                     _typeFlow.value = transaction.type
@@ -103,9 +113,16 @@ class AddEditTransactionViewModel @Inject constructor(
             ) }
         }.launchIn(viewModelScope)
 
-        // Load active loans for linking
         loanRepository.getAllLoans().onEach { loans ->
             _state.update { it.copy(loans = loans.filter { l -> l.status == "ACTIVE" }) }
+        }.launchIn(viewModelScope)
+
+        goalRepository.getAllGoals().onEach { goals ->
+            _state.update { it.copy(goals = goals.filter { g -> g.status == "ACTIVE" }) }
+        }.launchIn(viewModelScope)
+
+        investmentRepository.getAllInvestments().onEach { investments ->
+            _state.update { it.copy(investments = investments) }
         }.launchIn(viewModelScope)
 
         viewModelScope.launch {
@@ -134,6 +151,8 @@ class AddEditTransactionViewModel @Inject constructor(
             }
             is AddEditTransactionEvent.SubcategoryChanged -> _state.update { it.copy(subcategoryId = event.value) }
             is AddEditTransactionEvent.LoanChanged -> _state.update { it.copy(loanId = event.value) }
+            is AddEditTransactionEvent.GoalChanged -> _state.update { it.copy(goalId = event.value) }
+            is AddEditTransactionEvent.InvestmentChanged -> _state.update { it.copy(investmentId = event.value) }
             is AddEditTransactionEvent.DateChanged -> _state.update { it.copy(date = event.value) }
             is AddEditTransactionEvent.SaveTransaction -> saveTransaction()
         }
@@ -176,12 +195,19 @@ class AddEditTransactionViewModel @Inject constructor(
                     walletFromId = walletId,
                     categoryId = currentState.categoryId,
                     subcategoryId = currentState.subcategoryId,
-                    loanId = currentState.loanId, // Attached for Prepayment/Repayment logic
+                    loanId = currentState.loanId,
+                    goalId = currentState.goalId,
+                    investmentId = currentState.investmentId,
                     type = currentState.type,
                     amount = amountValue,
                     note = currentState.description,
                     dateTime = currentState.date,
-                    transactionSourceType = if (currentState.loanId != null) "LOAN_REPAYMENT" else "MANUAL"
+                    transactionSourceType = when {
+                        currentState.loanId != null -> "LOAN_REPAYMENT"
+                        currentState.goalId != null -> "GOAL_CONTRIBUTION"
+                        currentState.investmentId != null -> "INVESTMENT_BUY"
+                        else -> "MANUAL"
+                    }
                 )
                 
                 saveTransactionUseCase(transaction, isEdit = currentTransactionId != null)

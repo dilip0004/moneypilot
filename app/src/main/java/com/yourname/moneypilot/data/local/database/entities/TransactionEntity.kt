@@ -49,6 +49,18 @@ enum class TransactionType {
             parentColumns = ["id"],
             childColumns = ["loan_id"],
             onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = GoalEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["goal_id"],
+            onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = InvestmentEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["investment_id"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
     indices = [
@@ -57,6 +69,8 @@ enum class TransactionType {
         Index("category_id"),
         Index("subcategory_id"),
         Index("loan_id"),
+        Index("goal_id"),
+        Index("investment_id"),
         Index("dateTime"),
         Index("type")
     ]
@@ -85,6 +99,12 @@ data class TransactionEntity(
 
     @ColumnInfo(name = "loan_id")
     val loanId: Long? = null,
+
+    @ColumnInfo(name = "goal_id")
+    val goalId: Long? = null,
+
+    @ColumnInfo(name = "investment_id")
+    val investmentId: Long? = null,
 
     @ColumnInfo(name = "wallet_from_id")
     val walletFromId: Long? = null,
