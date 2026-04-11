@@ -107,9 +107,14 @@ class AddEditTransactionViewModel @Inject constructor(
 
     private fun loadData() {
         walletRepository.getAllWallets().onEach { wallets ->
+            val defaultWalletId = if (currentTransactionId != null) {
+                _state.value.walletFromId
+            } else {
+                wallets.find { it.isPrimary }?.id ?: wallets.firstOrNull()?.id
+            }
             _state.update { it.copy(
                 wallets = wallets,
-                walletFromId = it.walletFromId ?: wallets.find { w -> w.isPrimary }?.id ?: wallets.firstOrNull()?.id
+                walletFromId = defaultWalletId
             ) }
         }.launchIn(viewModelScope)
 

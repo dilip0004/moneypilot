@@ -1,20 +1,27 @@
 package com.yourname.moneypilot.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.core.content.ContextCompat
@@ -23,12 +30,16 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
 import com.yourname.moneypilot.domain.loan.LoanAutoDeductionProcessor
 import com.yourname.moneypilot.domain.monthly.MonthlyRolloverProcessor
 import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCase
+import com.yourname.moneypilot.ui.QuickAddActivity
 import com.yourname.moneypilot.ui.features.accounts.AccountDetailsScreen
 import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
@@ -42,6 +53,8 @@ import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
 import com.yourname.moneypilot.ui.features.investments.AddEditInvestmentScreen
 import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
+import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
+import com.yourname.moneypilot.ui.features.loans.LoanDetailsScreen
 import com.yourname.moneypilot.ui.features.planning.AddEditBigBillScreen
 import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
 import com.yourname.moneypilot.ui.features.reconciliation.ReconciliationScreen
@@ -53,25 +66,33 @@ import com.yourname.moneypilot.ui.features.settings.SecurityScreen
 import com.yourname.moneypilot.ui.features.settings.SettingsScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
 import com.yourname.moneypilot.ui.features.transactions.TransferScreen
-import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
-import com.yourname.moneypilot.ui.features.loans.LoanDetailsScreen
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import javax.inject.Inject
+import androidx.activity.compose.rememberLauncherForActivityResult
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @javax.inject.Inject
+    @Inject
     lateinit var loanAutoDeductionProcessor: LoanAutoDeductionProcessor
 
-    @javax.inject.Inject
+    @Inject
     lateinit var monthlyRolloverProcessor: MonthlyRolloverProcessor
-    
-    @javax.inject.Inject
+
+    @Inject
     lateinit var verifyLedgerIntegrityUseCase: VerifyLedgerIntegrityUseCase
+
+    @Inject
+    lateinit var preferencesRepository: com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
+
+    private var biometricAuthenticated = false
+    private lateinit var biometricPrompt: BiometricPrompt
+    private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
     private fun isRunningUiTest(): Boolean {
         return try {
@@ -84,22 +105,52 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
-        if (!isRunningUiTest()) {
-            lifecycleScope.launch {
-                try {
-                    loanAutoDeductionProcessor.process()
-                    monthlyRolloverProcessor.process()
-                    val mismatches = verifyLedgerIntegrityUseCase()
-                    if (mismatches.isNotEmpty()) {
-                        Timber.e("LEDGER INTEGRITY CHECK FAILED: ${mismatches.size} mismatches found.")
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "Startup processing failed")
-                }
+        val isFromWidget = intent?.action == "ACTION_ADD_TRANSACTION"
+
+        lifecycleScope.launch {
+            val preferences = preferencesRepository.userPreferencesFlow.first()
+
+            if (!isRunningUiTest() && preferences.useBiometrics && !isFromWidget && !biometricAuthenticated) {
+                setupBiometricPrompt()
+                biometricPrompt.authenticate(promptInfo)
+            } else {
+                proceedToContent(intent)
             }
         }
+    }
 
+    private fun setupBiometricPrompt() {
+        val executor = ContextCompat.getMainExecutor(this)
+        val currentIntent = this.intent
+        biometricPrompt = BiometricPrompt(this as androidx.fragment.app.FragmentActivity, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    Timber.e("Biometric error: $errString")
+                    finish()
+                }
+
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    biometricAuthenticated = true
+                    proceedToContent(currentIntent)
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                }
+            })
+
+        promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("MoneyPilot Authentication")
+            .setSubtitle("Verify your identity to access your finances")
+            .setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
+            .build()
+    }
+
+    private fun proceedToContent(intent: Intent?) {
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
             val preferences by mainViewModel.userPreferences.collectAsState()
@@ -115,7 +166,6 @@ class MainActivity : ComponentActivity() {
             val isOled = preferences?.theme == AppTheme.OLED
             val useTrueBlackPref = preferences?.useTrueBlack == true
 
-            // Permission Handling
             if (!isRunningUiTest() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val context = LocalContext.current
                 var hasNotificationPermission by remember {
@@ -141,14 +191,24 @@ class MainActivity : ComponentActivity() {
             MoneyPilotTheme(
                 darkTheme = darkTheme,
                 trueBlack = useTrueBlackPref || isOled,
-                accentColor = Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt()),
+                accentColor = androidx.compose.ui.graphics.Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt()),
                 fontFamilyName = preferences?.fontFamily ?: "DEFAULT"
             ) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen()
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    MainScreen(intent = intent)
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        lifecycleScope.launch {
+            if (intent?.action == "ACTION_ADD_TRANSACTION") {
+                val preferences = preferencesRepository.userPreferencesFlow.first()
+                if (biometricAuthenticated || !preferences.useBiometrics) {
+                    proceedToContent(intent)
                 }
             }
         }
@@ -156,8 +216,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainScreen() {
+fun MainScreen(intent: Intent?) {
     val navController = rememberNavController()
+
+    // Handle widget intent to navigate directly to add transaction screen
+    LaunchedEffect(intent) {
+        if (intent?.action == "ACTION_ADD_TRANSACTION") {
+            navController.navigate("add_transaction?date=${System.currentTimeMillis()}")
+        }
+    }
 
     val navItems = listOf(
         Screen.Transactions,
@@ -187,7 +254,7 @@ fun MainScreen() {
 
                         NavigationBarItem(
                             modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
-                            icon = { Icon(screen.icon, contentDescription = null) },
+                            icon = { androidx.compose.material3.Icon(screen.icon, contentDescription = null) },
                             label = { Text(screen.title) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
@@ -235,7 +302,7 @@ fun MainScreen() {
                     onAddAccount = { navController.navigate("add_account") },
                     onAddLoan = { navController.navigate("add_loan") },
                     onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") } 
+                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") }
                 )
             }
 
@@ -264,18 +331,16 @@ fun MainScreen() {
             composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("categories") { CategoryManagerScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("distribution") { DistributionScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("investments") { 
-                InvestmentsScreen(
-                    onAddInvestment = { navController.navigate("add_investment") }
-                ) 
+            composable("investments") {
+                InvestmentsScreen(onAddInvestment = { navController.navigate("add_investment") })
             }
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("diagnostics") { DiagnosticsScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToReconciliation = { navController.navigate("reconciliation") }) }
-            
+
             composable(
-                route = "add_account?walletId={walletId}", 
+                route = "add_account?walletId={walletId}",
                 arguments = listOf(navArgument("walletId") { type = NavType.LongType; defaultValue = -1L })
             ) {
                 AddEditAccountScreen(onPopBackStack = { navController.popBackStack() })
@@ -286,9 +351,9 @@ fun MainScreen() {
             composable("accounts_list") {
                 AccountsHubScreen(
                     onAddAccount = { navController.navigate("add_account") },
-                    onAddLoan = { navController.navigate("add_loan")},
+                    onAddLoan = { navController.navigate("add_loan") },
                     onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") } 
+                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") }
                 )
             }
 
@@ -297,7 +362,7 @@ fun MainScreen() {
             }
 
             composable(
-                route = "account_details/{walletId}", 
+                route = "account_details/{walletId}",
                 arguments = listOf(navArgument("walletId") { type = NavType.LongType })
             ) {
                 AccountDetailsScreen(
@@ -307,7 +372,7 @@ fun MainScreen() {
             }
 
             composable(
-                route = "wallet_statement/{walletId}", 
+                route = "wallet_statement/{walletId}",
                 arguments = listOf(navArgument("walletId") { type = NavType.LongType })
             ) {
                 WalletStatementScreen(onPopBackStack = { navController.popBackStack() })

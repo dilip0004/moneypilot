@@ -5,6 +5,7 @@ import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.data.repository.TransactionRepository
+import com.yourname.moneypilot.data.repository.WalletRepository
 import com.yourname.moneypilot.ui.common.BaseViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,15 +27,19 @@ data class GroupedTransactions(
 
 data class TransactionsState(
     val groupedTransactions: List<GroupedTransactions> = emptyList(),
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val selectedWalletId: Long? = null,
+    val wallets: List<com.yourname.moneypilot.data.local.database.entities.WalletEntity> = emptyList()
 )
 
 @HiltViewModel
 class TransactionsViewModel @Inject constructor(
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val walletRepository: WalletRepository
 ) : BaseViewModel<TransactionsState>() {
 
     private val _searchQuery = MutableStateFlow("")
+    private val _selectedWalletId = MutableStateFlow<Long?>(null)
     private var lastDeletedTransaction: TransactionEntity? = null
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
@@ -45,30 +50,51 @@ class TransactionsViewModel @Inject constructor(
     }
 
     init {
-        loadTransactions()
+        loadWalletsAndTransactions()
     }
 
-    private fun loadTransactions() {
+    private fun loadWalletsAndTransactions() {
         viewModelScope.launch {
-            _uiState.value = ScreenState.Loading
-            
+            // Load wallets first
+            walletRepository.getAllWallets().collect { wallets ->
+                _uiState.value = (_uiState.value as? ScreenState.Success)?.let {
+                    it.copy(data = (it.data as TransactionsState).copy(wallets = wallets))
+                } ?: ScreenState.Success(TransactionsState(wallets = wallets))
+
+                // Auto-select primary wallet if none selected
+                if (_selectedWalletId.value == null) {
+                    val primary = wallets.find { it.isPrimary }?.id ?: wallets.firstOrNull()?.id
+                    primary?.let { onWalletSelected(it) }
+                }
+            }
+        }
+
+        viewModelScope.launch {
             combine(
                 transactionRepository.getAllTransactionsWithDetails(),
-                _searchQuery
-            ) { transactions, query ->
-                val filtered = if (query.isBlank()) {
-                    transactions
-                } else {
-                    transactions.filter { 
-                        it.transaction.note?.contains(query, ignoreCase = true) == true ||
-                        it.category?.name?.contains(query, ignoreCase = true) == true
+                _searchQuery,
+                _selectedWalletId
+            ) { transactions, query, walletId ->
+                // Filter by wallet if selected
+                val walletFiltered = if (walletId != null) {
+                    transactions.filter {
+                        it.transaction.walletFromId == walletId ||
+                                it.transaction.walletToId == walletId
                     }
+                } else {
+                    transactions
+                }
+
+                val filtered = if (query.isBlank()) walletFiltered
+                else walletFiltered.filter {
+                    it.transaction.note?.contains(query, ignoreCase = true) == true ||
+                            it.category?.name?.contains(query, ignoreCase = true) == true
                 }
 
                 val grouped = filtered.groupBy { it.transaction.dateTime.toLocalDate() }
                     .map { (date, items) ->
-                        val total = items.sumOf { 
-                            if (it.transaction.type == TransactionType.Expense) -it.transaction.amount else it.transaction.amount 
+                        val total = items.sumOf {
+                            if (it.transaction.type == TransactionType.Expense) -it.transaction.amount else it.transaction.amount
                         }
                         GroupedTransactions(
                             dateLabel = getRelativeDateLabel(date),
@@ -79,7 +105,7 @@ class TransactionsViewModel @Inject constructor(
                     }
                     .sortedByDescending { it.date }
 
-                TransactionsState(grouped, query)
+                TransactionsState(grouped, query, walletId, (_uiState.value as? ScreenState.Success)?.data?.wallets ?: emptyList())
             }.collect { state ->
                 if (state.groupedTransactions.isEmpty() && state.searchQuery.isBlank()) {
                     _uiState.value = ScreenState.Empty
@@ -103,6 +129,10 @@ class TransactionsViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
+    fun onWalletSelected(walletId: Long) {
+        _selectedWalletId.value = walletId
+    }
+
     fun deleteTransaction(transaction: TransactionEntity) {
         viewModelScope.launch {
             lastDeletedTransaction = transaction
@@ -113,7 +143,7 @@ class TransactionsViewModel @Inject constructor(
 
     fun undoDelete() {
         viewModelScope.launch {
-            lastDeletedTransaction?.let { 
+            lastDeletedTransaction?.let {
                 transactionRepository.insertTransaction(it)
                 lastDeletedTransaction = null
             }

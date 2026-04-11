@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <application
         android:name="com.yourname.moneypilot.MoneyPilotApplication"
@@ -40,9 +41,36 @@
         </provider>
 
         <receiver
-            android:name="com.yourname.moneypilot.widget.QuickAddWidgetReceiver"
+            android:name="com.yourname.moneypilot.worker.DailySummaryAlarmReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name="com.yourname.moneypilot.worker.BootReceiver"
             android:enabled="true"
-            android:exported="false">
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Add Activity (bypass biometric) -->
+        <activity
+            android:name=".ui.QuickAddActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MoneyPilot"
+            android:taskAffinity=""
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Widget receiver (only one) -->
+        <receiver
+            android:name=".widget.QuickAddWidgetReceiver"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -50,19 +78,6 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/quick_add_widget_info" />
         </receiver>
-            <receiver
-                android:name="com.yourname.moneypilot.worker.DailySummaryAlarmReceiver"
-                android:exported="false" />
-
-            <receiver
-                android:name="com.yourname.moneypilot.worker.BootReceiver"
-                android:enabled="true"
-                android:exported="true">
-                <intent-filter>
-                    <action android:name="android.intent.action.BOOT_COMPLETED" />
-                    <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                </intent-filter>
-            </receiver>
 
     </application>
 </manifest>

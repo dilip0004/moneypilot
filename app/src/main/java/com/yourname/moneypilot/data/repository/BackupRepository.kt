@@ -21,7 +21,7 @@ import javax.inject.Inject
 @Serializable
 data class MoneyPilotBackup(
     val version: Int,
-    val wallets: List<WalletEntity>, // Changed from accounts/AccountEntity
+    val wallets: List<WalletEntity>,
     val categories: List<CategoryEntity>,
     val subcategories: List<SubcategoryEntity>,
     val transactions: List<TransactionEntity>,
@@ -49,7 +49,7 @@ class BackupRepository @Inject constructor(
 
     suspend fun createJsonBackup(): String {
         val backup = MoneyPilotBackup(
-            version = 11,
+            version = 12,
             wallets = database.walletDao().getAllWalletsList(),
             categories = database.categoryDao().getAllCategoriesList(),
             subcategories = database.categoryDao().getAllSubcategoriesList(),
@@ -68,10 +68,10 @@ class BackupRepository @Inject constructor(
         return try {
             val content = readUriContent(uri)
             val backup = json.decodeFromString<MoneyPilotBackup>(content)
-            
+
             database.withTransaction {
                 clearAllData()
-                
+
                 database.walletDao().insertAll(backup.wallets)
                 database.categoryDao().insertAllCategories(backup.categories)
                 database.categoryDao().insertAllSubcategories(backup.subcategories)

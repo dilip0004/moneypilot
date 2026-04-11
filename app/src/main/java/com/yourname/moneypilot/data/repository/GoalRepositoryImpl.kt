@@ -12,6 +12,7 @@ class GoalRepositoryImpl @Inject constructor(
     private val goalDao: GoalDao,
     private val transactionDao: TransactionDao
 ) : GoalRepository {
+
     override fun getAllGoals(): Flow<List<GoalEntity>> = goalDao.getAllGoals()
 
     override fun getGoalsByStatus(status: String): Flow<List<GoalEntity>> = goalDao.getGoalsByStatus(status)
@@ -24,12 +25,17 @@ class GoalRepositoryImpl @Inject constructor(
 
     override suspend fun deleteGoal(goal: GoalEntity) = goalDao.delete(goal)
 
-    // Ghost Write Loophole Fix: Removed incrementCurrentAmount and updateCurrentAmount.
-    // Progress must now be driven strictly through the Transaction Ledger via GoalId linking.
+    override suspend fun incrementCurrentAmount(goalId: Long, amount: Double) {
+        goalDao.incrementCurrentAmount(goalId, amount)
+    }
+
+    override suspend fun updateCurrentAmount(goalId: Long, amount: Double) {
+        goalDao.updateCurrentAmount(goalId, amount)
+    }
 
     override fun getTransactionsForGoal(goalId: Long): Flow<List<TransactionWithDetails>> {
         return transactionDao.getAllTransactionsWithDetails().map { allTxs ->
-            allTxs.filter { it.transaction.goalId == goalId } 
+            allTxs.filter { it.transaction.goalId == goalId }
         }
     }
 }

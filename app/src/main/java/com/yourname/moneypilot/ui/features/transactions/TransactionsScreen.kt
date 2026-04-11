@@ -17,12 +17,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
-import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
+import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import kotlinx.coroutines.flow.collectLatest
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +33,7 @@ fun TransactionsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var walletExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -55,7 +55,7 @@ fun TransactionsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (showSearchBar) { 
+            if (showSearchBar) {
                 FloatingActionButton(
                     onClick = onAddTransaction,
                     modifier = Modifier.testTag("transactions_fab_add")
@@ -72,14 +72,55 @@ fun TransactionsScreen(
         ) {
             if (showSearchBar) {
                 val state = (uiState as? ScreenState.Success)?.data
+
+                // Wallet selector dropdown
+                ExposedDropdownMenuBox(
+                    expanded = walletExpanded,
+                    onExpandedChange = { walletExpanded = !walletExpanded }
+                ) {
+                    val selectedWalletName = state?.wallets?.find { it.id == state.selectedWalletId }?.name ?: "All Wallets"
+                    OutlinedTextField(
+                        value = selectedWalletName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Wallet") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = walletExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = walletExpanded,
+                        onDismissRequest = { walletExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("All Wallets") },
+                            onClick = {
+                                viewModel.onWalletSelected(-1L)
+                                walletExpanded = false
+                            }
+                        )
+                        state?.wallets?.forEach { wallet ->
+                            DropdownMenuItem(
+                                text = { Text(wallet.name) },
+                                onClick = {
+                                    viewModel.onWalletSelected(wallet.id)
+                                    walletExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = state?.searchQuery ?: "",
                     onValueChange = { viewModel.onSearchQueryChange(it) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     placeholder = { Text("Search transactions...") },
-                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     shape = MaterialTheme.shapes.medium
                 )
             }

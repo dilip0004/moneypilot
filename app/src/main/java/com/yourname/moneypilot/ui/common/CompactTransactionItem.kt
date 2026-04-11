@@ -23,36 +23,46 @@ fun CompactTransactionItem(
     val tx = txWithDetails.transaction
     val financeColors = LocalFinanceColors.current
 
-    Column(modifier = Modifier.padding(vertical = 4.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        // Construct hierarchical title (Category > Subcategory)
-        val title = when {
-            txWithDetails.category != null && txWithDetails.subcategory != null -> 
-                "${txWithDetails.category.name} > ${txWithDetails.subcategory.name}"
-            txWithDetails.category != null -> 
-                txWithDetails.category.name
-            !tx.note.isNullOrBlank() -> 
-                tx.note
-            else -> "Uncategorized"
+    // Semantic label based on transaction source type
+    val semanticLabel = when (tx.transactionSourceType) {
+        "LOAN_REPAYMENT" -> "Repaid"
+        "GOAL_CONTRIBUTION" -> "Saved"
+        "INVESTMENT_BUY" -> "Invested"
+        "BIG_BILL_SETTLEMENT" -> "Reserved"
+        else -> when (tx.type) {
+            TransactionType.Expense -> "Spent"
+            TransactionType.Income -> "Received"
+            else -> ""
         }
+    }
 
+    val categoryName = when {
+        txWithDetails.category != null && txWithDetails.subcategory != null ->
+            "${txWithDetails.category.name} > ${txWithDetails.subcategory.name}"
+        txWithDetails.category != null ->
+            txWithDetails.category.name
+        else -> null
+    }
+
+    val title = when {
+        !tx.note.isNullOrBlank() && categoryName == null -> tx.note!!
+        categoryName != null -> categoryName
+        else -> "Uncategorized"
+    }
+
+    val displayTitle = if (semanticLabel.isNotBlank()) "$title ($semanticLabel)" else title
+
+    Column(modifier = Modifier.padding(vertical = 4.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
+                    text = displayTitle,
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
-                // EMI Transparency (Sub-detail for automated loan entries)
-                if (tx.transactionSourceType == "AUTO_EMI_PRINCIPAL") {
-                    Text("Principal Repayment", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else if (tx.transactionSourceType == "AUTO_EMI_INTEREST") {
-                    Text("Interest Component", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
 
-            // Refund Behavior & Color Logic
             val isRefund = tx.note?.contains("Refund", ignoreCase = true) == true
             val (sign, color) = when {
                 tx.type == TransactionType.Income || isRefund -> "+" to financeColors.income
