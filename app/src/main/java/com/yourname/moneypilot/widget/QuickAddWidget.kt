@@ -16,7 +16,6 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
-import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.yourname.moneypilot.ui.QuickAddActivity
 
@@ -38,7 +37,7 @@ class QuickAddWidget : GlanceAppWidget() {
         val action = actionStartActivity(intent)
 
         Button(
-            text = "",
+            text = "💰 MoneyPilot\n+ Add Expense",
             onClick = action,
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -47,37 +46,10 @@ class QuickAddWidget : GlanceAppWidget() {
                 backgroundColor = GlanceTheme.colors.primary,
                 contentColor = GlanceTheme.colors.onPrimary
             )
-        ) {
-            androidx.glance.layout.Column(
-                horizontalAlignment = androidx.glance.layout.Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "💰",
-                    style = TextStyle(fontSize = 28.dp.toSp())
-                )
-                Text(
-                    text = "MoneyPilot",
-                    style = TextStyle(
-                        fontWeight = FontWeight.Bold,
-                        color = GlanceTheme.colors.onPrimary
-                    )
-                )
-                Text(
-                    text = "Tap to add",
-                    style = TextStyle(
-                        color = GlanceTheme.colors.onPrimary
-                    )
-                )
-            }
-        }
+        )
     }
 }
 
 class QuickAddWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = QuickAddWidget()
-}
-
-// Helper extension to convert dp to sp
-private fun androidx.compose.ui.unit.Dp.toSp(): androidx.compose.ui.unit.TextUnit {
-    return androidx.compose.ui.unit.TextUnit(this.value, androidx.compose.ui.unit.TextUnitType.Sp)
 }
