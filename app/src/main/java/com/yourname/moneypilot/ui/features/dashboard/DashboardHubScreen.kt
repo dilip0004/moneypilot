@@ -43,7 +43,7 @@ fun DashboardHubScreen(
     val hubState by viewModel.state.collectAsState()
     val financeColors = LocalFinanceColors.current
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Daily", "Calendar", "Monthly", "Yearly", "Total") // Added Yearly, removed Note
+    val tabs = listOf("Daily", "Calendar", "Monthly", "Yearly", "Total")
 
     val isYearlyTab = selectedTabIndex == 3
 
@@ -63,15 +63,15 @@ fun DashboardHubScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             IconButton(
-                                onClick = { 
+                                onClick = {
                                     if (isYearlyTab) viewModel.onYearChange(hubState.currentYear.minusYears(1))
-                                    else viewModel.onMonthChange(hubState.currentMonth.minusMonths(1)) 
-                                }, 
+                                    else viewModel.onMonthChange(hubState.currentMonth.minusMonths(1))
+                                },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
                             }
-                            
+
                             val headerText = if (isYearlyTab) {
                                 hubState.currentYear.toString()
                             } else {
@@ -83,12 +83,12 @@ fun DashboardHubScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            
+
                             IconButton(
-                                onClick = { 
+                                onClick = {
                                     if (isYearlyTab) viewModel.onYearChange(hubState.currentYear.plusYears(1))
-                                    else viewModel.onMonthChange(hubState.currentMonth.plusMonths(1)) 
-                                }, 
+                                    else viewModel.onMonthChange(hubState.currentMonth.plusMonths(1))
+                                },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
@@ -122,7 +122,7 @@ fun DashboardHubScreen(
                             Tab(
                                 selected = isSelected,
                                 onClick = { selectedTabIndex = index },
-                                text = { 
+                                text = {
                                     Text(
                                         text = title,
                                         style = MaterialTheme.typography.labelMedium,
@@ -130,14 +130,14 @@ fun DashboardHubScreen(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Visible
-                                    ) 
+                                    )
                                 },
                                 modifier = Modifier.testTag("tab_${title.lowercase()}")
                             )
                         }
                     }
 
-                    // Summary Bar (Changes context based on tab)
+                    // Summary Bar
                     val income = if (isYearlyTab) hubState.yearlyIncome else hubState.monthlyIncome
                     val expense = if (isYearlyTab) hubState.yearlyExpense else hubState.monthlyExpense
                     val net = income - expense
@@ -161,7 +161,9 @@ fun DashboardHubScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
-                modifier = Modifier.testTag("fab_add_transaction")
+                modifier = Modifier
+                    .testTag("fab_add_transaction")
+                    .navigationBarsPadding()
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
@@ -193,14 +195,14 @@ fun YearlySummaryTab(state: DashboardHubState) {
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
-                    label = "Yearly Income", 
-                    value = "₹ ${state.yearlyIncome.toInt()}", 
+                    label = "Yearly Income",
+                    value = "₹ ${state.yearlyIncome.toInt()}",
                     color = financeColors.income,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
-                    label = "Yearly Expense", 
-                    value = "₹ ${state.yearlyExpense.toInt()}", 
+                    label = "Yearly Expense",
+                    value = "₹ ${state.yearlyExpense.toInt()}",
                     color = financeColors.expense,
                     modifier = Modifier.weight(1f)
                 )
@@ -237,14 +239,14 @@ fun MonthlySummaryTab(state: DashboardHubState) {
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
-                    label = "Savings Rate", 
-                    value = "${String.format("%.1f", state.savingsRate)}%", 
+                    label = "Savings Rate",
+                    value = "${String.format("%.1f", state.savingsRate)}%",
                     color = if (state.savingsRate >= 20) financeColors.income else if (state.savingsRate > 0) Color(0xFFFFA500) else financeColors.expense,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
-                    label = "Net Surplus", 
-                    value = "₹ ${state.netSurplus.toInt()}", 
+                    label = "Net Surplus",
+                    value = "₹ ${state.netSurplus.toInt()}",
                     color = if (state.netSurplus >= 0) financeColors.income else financeColors.expense,
                     modifier = Modifier.weight(1f)
                 )
@@ -297,7 +299,7 @@ fun TotalNetWorthTab(state: DashboardHubState) {
         }
         item { Spacer(modifier = Modifier.height(8.dp)) }
         item { Text("Your Wallets", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        
+
         items(state.wallets) { wallet ->
             Card(modifier = Modifier.fillMaxWidth()) {
                 Row(

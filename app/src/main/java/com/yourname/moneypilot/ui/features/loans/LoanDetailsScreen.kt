@@ -40,7 +40,7 @@ import java.util.Locale
 fun LoanDetailsScreen(
     loanId: Long,
     onBack: () -> Unit,
-    onEditLoan: (Long) -> Unit, // Added missing parameter
+    onEditLoan: (Long) -> Unit,
     viewModel: LoanDetailsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -83,7 +83,7 @@ fun LoanDetailsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onEditLoan(loanId) }) { // Added edit action
+                    IconButton(onClick = { onEditLoan(loanId) }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Loan")
                     }
                 }
@@ -104,7 +104,7 @@ fun LoanDetailsScreen(
                 }
                 val fmt = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
                 val dateFmt = DateTimeFormatter.ofPattern("MMM yyyy")
-                
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentPadding = PaddingValues(16.dp),
@@ -119,7 +119,7 @@ fun LoanDetailsScreen(
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("Outstanding Principal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(fmt.format(snapshot.outstandingPrincipal), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
-                                
+
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     StatBox("Interest Rate", "${snapshot.currentInterestRate}%", Modifier.weight(1f))
                                     StatBox("Monthly EMI", fmt.format(snapshot.currentEmi), Modifier.weight(1.5f))
@@ -128,7 +128,39 @@ fun LoanDetailsScreen(
                         }
                     }
 
-                    // 2. SUCCESS METRICS (Tenure & Interest Saved)
+                    // 2. Additional Loan Details (NEW)
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        ) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Loan Timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Months Remaining", style = MaterialTheme.typography.bodySmall)
+                                    Text("${snapshot.monthsRemaining}", fontWeight = FontWeight.Bold)
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Expected End Date", style = MaterialTheme.typography.bodySmall)
+                                    Text(snapshot.expectedEndDate.format(DateTimeFormatter.ofPattern("MMM yyyy")), fontWeight = FontWeight.Bold)
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Original End Date", style = MaterialTheme.typography.bodySmall)
+                                    Text(snapshot.originalEndDate.format(DateTimeFormatter.ofPattern("MMM yyyy")), fontWeight = FontWeight.Bold)
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Total Principal Paid", style = MaterialTheme.typography.bodySmall)
+                                    Text(fmt.format(snapshot.totalPrincipalPaid), fontWeight = FontWeight.Bold)
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Total Interest Paid", style = MaterialTheme.typography.bodySmall)
+                                    Text(fmt.format(snapshot.totalInterestPaid), fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Success Metrics
                     item {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Card(
@@ -143,7 +175,7 @@ fun LoanDetailsScreen(
                                     Text(fmt.format(snapshot.interestSavedApprox), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF00A36C))
                                 }
                             }
-                            
+
                             if (snapshot.tenureSavedMonths > 0) {
                                 Card(
                                     modifier = Modifier.weight(1f),
@@ -161,7 +193,7 @@ fun LoanDetailsScreen(
                         }
                     }
 
-                    // 3. Visual Breakdown
+                    // 4. Visual Breakdown (Donut chart)
                     item {
                         Card(shape = RoundedCornerShape(16.dp)) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -180,9 +212,9 @@ fun LoanDetailsScreen(
                                         Text(fmt.format(snapshot.totalInterestPaid), style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
-                                
+
                                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                                
+
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column {
                                         Text("Original End", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -197,7 +229,7 @@ fun LoanDetailsScreen(
                         }
                     }
 
-                    // 4. Audit Trail Header
+                    // 5. Audit Trail
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -240,7 +272,7 @@ fun LoanDetailsScreen(
                             LoanEventItem(event, fmt)
                         }
                     }
-                    
+
                     item { Spacer(modifier = Modifier.height(32.dp)) }
                 }
             }
@@ -248,6 +280,8 @@ fun LoanDetailsScreen(
     }
 }
 
+// ... (rest of the file: AddEventDialog, LoanEventItem, StatBox, LegendItem, DonutChart remain unchanged)
+// For brevity, I'm not repeating them here, but they are identical to your existing code.
 @Composable
 fun AddEventDialog(
     title: String,

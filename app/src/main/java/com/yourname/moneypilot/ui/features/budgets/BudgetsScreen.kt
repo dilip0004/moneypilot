@@ -31,7 +31,9 @@ fun BudgetsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddBudget) {
+            FloatingActionButton(onClick = onAddBudget,
+                modifier = Modifier.navigationBarsPadding()
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Budget")
             }
         }

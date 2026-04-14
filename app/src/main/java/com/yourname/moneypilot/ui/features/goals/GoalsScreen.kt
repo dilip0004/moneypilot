@@ -38,7 +38,8 @@ fun GoalsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddGoal) {
+            FloatingActionButton(onClick = onAddGoal,
+                modifier = Modifier.navigationBarsPadding()) {
                 Icon(Icons.Default.Add, contentDescription = "Add Goal")
             }
         }

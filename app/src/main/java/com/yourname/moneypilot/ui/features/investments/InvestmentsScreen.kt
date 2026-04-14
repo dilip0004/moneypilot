@@ -31,7 +31,8 @@ fun InvestmentsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddInvestment) {
+            FloatingActionButton(onClick = onAddInvestment,
+                modifier = Modifier.navigationBarsPadding()) {
                 Icon(Icons.Default.Add, contentDescription = "Add Investment")
             }
         }

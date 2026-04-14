@@ -114,33 +114,51 @@ class AddEditLoanViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentState = _state.value
-                
-                // 1. Precise Validation with Trimming
+
+                // 1. Validation
                 val name = currentState.name.trim()
                 val lender = currentState.lender.trim()
                 val amountStr = currentState.amount.replace(",", "").trim()
                 val emiStr = currentState.monthlyPayment.replace(",", "").trim()
-                
-                val amountValue = amountStr.toDoubleOrNull() ?: 0.0
-                val emiValue = emiStr.toDoubleOrNull() ?: 0.0
-                val rateValue = currentState.interestRate.toDoubleOrNull() ?: 0.0
-                val durationValue = currentState.durationMonths.toIntOrNull() ?: 0
+                val rateStr = currentState.interestRate.replace(",", "").trim()
+                val durationStr = currentState.durationMonths.trim()
 
                 if (name.isEmpty()) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Validation Error: Please enter a name for the loan."))
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Loan name is required"))
                     return@launch
                 }
-                if (amountValue <= 0) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Validation Error: Principal amount must be greater than zero."))
+                if (lender.isEmpty()) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Lender name is required"))
                     return@launch
                 }
-                if (emiValue <= 0) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Validation Error: Monthly EMI must be greater than zero."))
+
+                val amountValue = amountStr.toDoubleOrNull()
+                if (amountValue == null || amountValue <= 0) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Principal amount must be greater than zero"))
                     return@launch
                 }
-                if (durationValue <= 0) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Validation Error: Loan tenure must be at least 1 month."))
+
+                val emiValue = emiStr.toDoubleOrNull()
+                if (emiValue == null || emiValue <= 0) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Monthly EMI must be greater than zero"))
                     return@launch
+                }
+
+                val rateValue = rateStr.toDoubleOrNull()
+                if (rateValue == null || rateValue < 0) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Interest rate cannot be negative"))
+                    return@launch
+                }
+
+                val durationValue = durationStr.toIntOrNull()
+                if (durationValue == null || durationValue <= 0) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Tenure must be at least 1 month"))
+                    return@launch
+                }
+
+                // Warning if EMI > remaining balance (only for existing loan edit)
+                if (currentLoanId != null && emiValue > (originalLoan?.currentBalance ?: amountValue)) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Warning: EMI exceeds remaining balance"))
                 }
 
                 val loan = LoanEntity(
@@ -162,41 +180,73 @@ class AddEditLoanViewModel @Inject constructor(
 
                 if (currentLoanId == null) {
                     val id = loanRepository.insertLoan(loan)
-                    loanRepository.insertLoanEvent(LoanEventEntity(
-                        loanId = id,
-                        eventType = "INITIAL_LOAN",
-                        eventDate = currentState.startDate,
-                        amount = amountValue,
-                        note = "Loan initiated"
-                    ))
+                    loanRepository.insertLoanEvent(
+                        LoanEventEntity(
+                            loanId = id,
+                            eventType = "INITIAL_LOAN",
+                            eventDate = currentState.startDate,
+                            amount = amountValue,
+                            note = "Loan initiated"
+                        )
+                    )
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Loan created successfully"))
                 } else {
+                    // Update existing loan
                     loanRepository.updateLoan(loan)
+                    // Audit changes
                     originalLoan?.let { original ->
                         if (original.interestRate != rateValue) {
-                            loanRepository.insertLoanEvent(LoanEventEntity(
-                                loanId = original.id,
-                                eventType = "RATE_CHANGE",
-                                eventDate = LocalDate.now(),
-                                newInterestRate = rateValue,
-                                note = "ROI updated to $rateValue%"
-                            ))
+                            loanRepository.insertLoanEvent(
+                                LoanEventEntity(
+                                    loanId = original.id,
+                                    eventType = "RATE_CHANGE",
+                                    eventDate = LocalDate.now(),
+                                    newInterestRate = rateValue,
+                                    note = "Interest rate changed from ${original.interestRate}% to $rateValue%"
+                                )
+                            )
                         }
                         if (original.monthlyPayment != emiValue) {
-                            loanRepository.insertLoanEvent(LoanEventEntity(
-                                loanId = original.id,
-                                eventType = "EMI_CHANGE",
-                                eventDate = LocalDate.now(),
-                                newMonthlyPayment = emiValue,
-                                note = "EMI updated to $emiValue"
-                            ))
+                            loanRepository.insertLoanEvent(
+                                LoanEventEntity(
+                                    loanId = original.id,
+                                    eventType = "EMI_CHANGE",
+                                    eventDate = LocalDate.now(),
+                                    newMonthlyPayment = emiValue,
+                                    note = "EMI changed from ${original.monthlyPayment} to $emiValue"
+                                )
+                            )
+                        }
+                        if (original.totalAmount != amountValue) {
+                            loanRepository.insertLoanEvent(
+                                LoanEventEntity(
+                                    loanId = original.id,
+                                    eventType = "AMOUNT_CHANGE",
+                                    eventDate = LocalDate.now(),
+                                    amount = amountValue,
+                                    note = "Principal amount changed from ${original.totalAmount} to $amountValue"
+                                )
+                            )
+                        }
+                        if (original.durationMonths != durationValue) {
+                            loanRepository.insertLoanEvent(
+                                LoanEventEntity(
+                                    loanId = original.id,
+                                    eventType = "TENURE_CHANGE",
+                                    eventDate = LocalDate.now(),
+                                    newDurationMonths = durationValue,
+                                    note = "Tenure changed from ${original.durationMonths} to $durationValue months"
+                                )
+                            )
                         }
                     }
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Loan updated successfully"))
                 }
-                
+
                 _eventFlow.emit(UiEvent.SaveLoan)
             } catch (e: Exception) {
                 Timber.e(e, "Save Loan Failed")
-                _eventFlow.emit(UiEvent.ShowSnackbar("System Error: ${e.localizedMessage}"))
+                _eventFlow.emit(UiEvent.ShowSnackbar("Error: ${e.localizedMessage}"))
             }
         }
     }

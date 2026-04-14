@@ -43,7 +43,8 @@ fun AccountsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddAccount) {
+            FloatingActionButton(onClick = onAddAccount,
+                modifier = Modifier.navigationBarsPadding()) {
                 Icon(Icons.Default.Add, contentDescription = "Add Account")
             }
         }

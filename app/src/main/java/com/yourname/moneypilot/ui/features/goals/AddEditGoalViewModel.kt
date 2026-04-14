@@ -18,11 +18,11 @@ import javax.inject.Inject
 data class AddEditGoalState(
     val name: String = "",
     val targetAmount: String = "",
-    val currentAmount: String = "0", // Initial contribution for new goals
+    val currentAmount: String = "0",
     val targetDate: LocalDate = LocalDate.now().plusMonths(6),
     val priority: Int = 3,
     val color: Int = 0xFF0067FF.toInt(),
-    val icon: String = "savings",
+    val icon: String = "💰",  // default emoji (only one declaration)
     val linkedWalletId: Long? = null,
     val wallets: List<WalletEntity> = emptyList(),
     val isEditMode: Boolean = false
@@ -94,6 +94,7 @@ class AddEditGoalViewModel @Inject constructor(
             is AddEditGoalEvent.DateChanged -> _state.value = _state.value.copy(targetDate = event.value)
             is AddEditGoalEvent.WalletChanged -> _state.value = _state.value.copy(linkedWalletId = event.value)
             is AddEditGoalEvent.SaveGoal -> saveGoal()
+            is AddEditGoalEvent.IconChanged -> _state.value = _state.value.copy(icon = event.value)
         }
     }
 
@@ -160,5 +161,6 @@ sealed class AddEditGoalEvent {
     data class PriorityChanged(val value: Int) : AddEditGoalEvent()
     data class DateChanged(val value: LocalDate) : AddEditGoalEvent()
     data class WalletChanged(val value: Long) : AddEditGoalEvent()
+    data class IconChanged(val value: String) : AddEditGoalEvent()
     object SaveGoal : AddEditGoalEvent()
 }

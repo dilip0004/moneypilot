@@ -58,7 +58,9 @@ fun TransactionsScreen(
             if (showSearchBar) {
                 FloatingActionButton(
                     onClick = onAddTransaction,
-                    modifier = Modifier.testTag("transactions_fab_add")
+                    modifier = Modifier
+                        .testTag("transactions_fab_add")
+                        .navigationBarsPadding()
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Transaction")
                 }

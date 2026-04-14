@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +35,10 @@ fun LoansScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddLoan) {
+            FloatingActionButton(
+                onClick = onAddLoan,
+                modifier = Modifier.navigationBarsPadding()
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Loan")
             }
         }
@@ -52,21 +56,23 @@ fun LoansScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
                     ) {
+                        // Replace the empty boxes with a meaningful summary header
                         item {
-                            LoanSummaryHeader(
+                            LoanSummaryCard(
                                 borrowed = state.data.totalBorrowed,
                                 lent = state.data.totalLent
                             )
                         }
-                        
+
                         items(state.data.loans) { loan ->
                             var isExpanded by remember { mutableStateOf(false) }
-                            
+
                             LoanItem(
                                 loan = loan,
                                 isExpanded = isExpanded,
                                 onClick = { isExpanded = !isExpanded },
-                                repayments = emptyList() 
+                                onEdit = { onLoanClick(loan.id) }, // navigate to edit screen
+                                repayments = emptyList()
                             )
                         }
                     }
@@ -83,27 +89,24 @@ fun LoansScreen(
 }
 
 @Composable
-fun LoanSummaryHeader(borrowed: Double, lent: Double) {
-    Row(
+fun LoanSummaryCard(borrowed: Double, lent: Double) {
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
     ) {
-        Card(
-            modifier = Modifier.weight(1f),
-            // colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.expense.copy(alpha = 0.1f))
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Text("Borrowed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.expense)
-                // Text("₹ $borrowed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.expense)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Borrowed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                Text("₹${String.format("%.0f", borrowed)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
             }
-        }
-        Card(
-            modifier = Modifier.weight(1f),
-            // colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.income.copy(alpha = 0.1f))
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Text("Lent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.income)
-                // Text("₹ $lent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.income)
+            VerticalDivider(modifier = Modifier.height(40.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Lent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text("₹${String.format("%.0f", lent)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -114,10 +117,11 @@ fun LoanItem(
     loan: LoanEntity,
     isExpanded: Boolean,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     repayments: List<TransactionEntity>
 ) {
-    val progress = ((loan.totalAmount - loan.currentBalance) / loan.totalAmount).toFloat()
-    
+    val progress = ((loan.totalAmount - loan.currentBalance) / loan.totalAmount).toFloat().coerceIn(0f, 1f)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -134,25 +138,27 @@ fun LoanItem(
                     Text(text = loan.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(text = "from ${loan.lender}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Badge(
-                    // containerColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense.copy(alpha = 0.2f) else MaterialTheme.colorScheme.income.copy(alpha = 0.2f),
-                    // contentColor = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income
-                ) {
-                    Text(loan.type, modifier = Modifier.padding(horizontal = 4.dp))
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Loan", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Badge {
+                        Text(loan.type, modifier = Modifier.padding(horizontal = 4.dp))
+                    }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
-                LinearProgressIndicator(
+
+            LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(6.dp),
-                // color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.income,
+                color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 strokeCap = StrokeCap.Round
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text("Remaining", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -173,7 +179,7 @@ fun LoanItem(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Repayment History", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     }
-                    
+
                     if (repayments.isEmpty()) {
                         Text(
                             "No repayment records found for this loan.",
@@ -194,8 +200,7 @@ fun LoanItem(
                                 Text(
                                     text = "₹ ${record.amount}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
-                                    // color = MaterialTheme.colorScheme.income
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }

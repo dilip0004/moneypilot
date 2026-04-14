@@ -37,7 +37,8 @@ fun BigBillsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddBigBill) {
+            FloatingActionButton(onClick = onAddBigBill,
+                modifier = Modifier.navigationBarsPadding()) {
                 Icon(Icons.Default.Add, contentDescription = "Add Big Bill")
             }
         }
