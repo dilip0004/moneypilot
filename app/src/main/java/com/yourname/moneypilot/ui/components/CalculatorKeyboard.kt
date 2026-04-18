@@ -36,7 +36,7 @@ fun CalculatorKeyboard(
                     val result = evaluateExpression(expression)
                     expression = if (result % 1.0 == 0.0) result.toInt().toString() else result.toString()
                 } catch (e: Exception) {
-                    // Handle error
+                    // ignore
                 }
             }
             else -> expression += key
@@ -114,11 +114,42 @@ fun CalculatorKey(
 fun evaluateExpression(expression: String): Double {
     if (expression.isEmpty()) return 0.0
     return try {
-        // Simple manual parsing for basic operations
-        // For production, use a library like exp4j or a more robust parser
-        val sanitized = expression.replace(",", ".")
-        sanitized.toDoubleOrNull() ?: 0.0
+        val sanitized = expression.replace(" ", "").replace(",", ".")
+        evaluateSimpleExpression(sanitized)
     } catch (e: Exception) {
         0.0
     }
+}
+
+private fun evaluateSimpleExpression(expr: String): Double {
+    var result = 0.0
+    var currentNumber = StringBuilder()
+    var currentOp = '+'
+    var i = 0
+    val n = expr.length
+    while (i < n) {
+        val ch = expr[i]
+        if (ch.isDigit() || ch == '.') {
+            currentNumber.append(ch)
+        } else if (ch == '+' || ch == '-' || ch == '*' || ch == '/') {
+            val num = currentNumber.toString().toDoubleOrNull() ?: 0.0
+            when (currentOp) {
+                '+' -> result += num
+                '-' -> result -= num
+                '*' -> result *= num
+                '/' -> if (num != 0.0) result /= num else result = 0.0
+            }
+            currentOp = ch
+            currentNumber.clear()
+        }
+        i++
+    }
+    val num = currentNumber.toString().toDoubleOrNull() ?: 0.0
+    when (currentOp) {
+        '+' -> result += num
+        '-' -> result -= num
+        '*' -> result *= num
+        '/' -> if (num != 0.0) result /= num else result = 0.0
+    }
+    return result
 }

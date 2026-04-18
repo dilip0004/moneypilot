@@ -43,8 +43,7 @@ class GoalsViewModel @Inject constructor(
 
     fun getTransactionsForGoal(goalId: Long): Flow<List<TransactionWithDetails>> {
         return transactionRepository.getAllTransactionsWithDetails().map { allTxs ->
-            // A more direct query would be better, but for now we filter.
-            allTxs.filter { it.transaction.note?.contains("Goal: $goalId") == true } 
+            allTxs.filter { it.transaction.goalId == goalId }  // FIX #29
         }
     }
 }

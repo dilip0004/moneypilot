@@ -69,6 +69,7 @@ fun AddEditTransactionScreen(
             when (event) {
                 is AddEditTransactionViewModel.UiEvent.SaveTransaction -> onPopBackStack()
                 is AddEditTransactionViewModel.UiEvent.ShowSnackbar -> snackbarHostState.showSnackbar(event.message)
+                else -> { /* Do nothing for other events */ }
             }
         }
     }
@@ -289,8 +290,8 @@ fun AddEditTransactionScreen(
                             }
                         }
 
-                        // Link to Goal (TASK-GOAL-SYNC UI)
-                        if (state.goals.isNotEmpty()) {
+                        // Link to Goal (only for Expense) - FIX #23, #24
+                        if (state.type != TransactionType.Income && state.goals.isNotEmpty()) {
                             ExposedDropdownMenuBox(
                                 expanded = showGoalDropdown,
                                 onExpandedChange = {
@@ -326,8 +327,8 @@ fun AddEditTransactionScreen(
                             }
                         }
 
-                        // Link to Investment (TASK-INVESTMENT-SYNC UI)
-                        if (state.investments.isNotEmpty()) {
+                        // Link to Investment (only for Expense) - FIX #23, #24
+                        if (state.type != TransactionType.Income && state.investments.isNotEmpty()) {
                             ExposedDropdownMenuBox(
                                 expanded = showInvestmentDropdown,
                                 onExpandedChange = {

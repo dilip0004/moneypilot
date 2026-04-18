@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,7 +73,8 @@ fun AccountsScreen(
                                     account = acc,
                                     onClick = { onAccountClick(acc.id) },
                                     onArchive = { viewModel.archiveAccount(acc) },
-                                    onDelete = { viewModel.deleteWallet(acc) }
+                                    onDelete = { viewModel.deleteWallet(acc) },
+                                    onEdit = { onAccountClick(acc.id) } // FIX #50: navigate to edit screen
                                 )
                             }
                         }
@@ -88,7 +90,8 @@ private fun AccountCard(
     account: WalletEntity,
     onClick: () -> Unit,
     onArchive: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
 ) {
     Card(
         modifier = Modifier.clickable(onClick = onClick),
@@ -100,7 +103,12 @@ private fun AccountCard(
                     Text(account.name, style = MaterialTheme.typography.titleMedium)
                     Text(account.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text("₹${account.currentBalance}", style = MaterialTheme.typography.titleMedium)
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Wallet")
+                    }
+                    Text("₹${account.currentBalance}", style = MaterialTheme.typography.titleMedium)
+                }
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -109,8 +117,8 @@ private fun AccountCard(
                 TextButton(
                     onClick = onDelete,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { 
-                    Text("Delete") 
+                ) {
+                    Text("Delete")
                 }
             }
         }

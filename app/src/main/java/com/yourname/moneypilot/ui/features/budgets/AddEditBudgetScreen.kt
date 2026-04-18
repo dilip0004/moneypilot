@@ -2,8 +2,11 @@ package com.yourname.moneypilot.ui.features.budgets
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,7 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
-import com.yourname.moneypilot.ui.components.PrimaryButton
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,6 +31,7 @@ fun AddEditBudgetScreen(
     var expandedCategory by remember { mutableStateOf(false) }
     var expandedSubcategory by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -48,6 +51,13 @@ fun AddEditBudgetScreen(
                     IconButton(onClick = onPopBackStack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    if (!showCalculator) {
+                        IconButton(onClick = { viewModel.onEvent(AddEditBudgetEvent.SaveBudget) }) {
+                            Icon(Icons.Default.Save, contentDescription = "Save")
+                        }
+                    }
                 }
             )
         }
@@ -56,7 +66,9 @@ fun AddEditBudgetScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(scrollState)
                     .padding(16.dp)
+                    .padding(bottom = if (showCalculator) 300.dp else 0.dp)
             ) {
                 Text("Budget Details", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
@@ -172,14 +184,7 @@ fun AddEditBudgetScreen(
                     valueRange = 50f..100f
                 )
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                if (!showCalculator) {
-                    PrimaryButton(
-                        text = "Save Budget",
-                        onClick = { viewModel.onEvent(AddEditBudgetEvent.SaveBudget) }
-                    )
-                }
+                Spacer(modifier = Modifier.height(100.dp))
             }
 
             if (showCalculator) {

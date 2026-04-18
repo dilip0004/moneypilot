@@ -21,15 +21,15 @@ data class AddEditTransactionState(
     val categoryId: Long? = null,
     val subcategoryId: Long? = null,
     val loanId: Long? = null,
-    val goalId: Long? = null, // Added for Goal Linking
-    val investmentId: Long? = null, // Added for Investment Linking
+    val goalId: Long? = null,
+    val investmentId: Long? = null,
     val date: LocalDateTime = LocalDateTime.now(),
     val wallets: List<WalletEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
     val subcategories: List<SubcategoryEntity> = emptyList(),
     val loans: List<LoanEntity> = emptyList(),
-    val goals: List<GoalEntity> = emptyList(), // Added
-    val investments: List<InvestmentEntity> = emptyList() // Added
+    val goals: List<GoalEntity> = emptyList(),
+    val investments: List<InvestmentEntity> = emptyList()
 )
 
 sealed class AddEditTransactionEvent {
@@ -40,8 +40,8 @@ sealed class AddEditTransactionEvent {
     data class CategoryChanged(val value: Long) : AddEditTransactionEvent()
     data class SubcategoryChanged(val value: Long?) : AddEditTransactionEvent()
     data class LoanChanged(val value: Long?) : AddEditTransactionEvent()
-    data class GoalChanged(val value: Long?) : AddEditTransactionEvent() // Added
-    data class InvestmentChanged(val value: Long?) : AddEditTransactionEvent() // Added
+    data class GoalChanged(val value: Long?) : AddEditTransactionEvent()
+    data class InvestmentChanged(val value: Long?) : AddEditTransactionEvent()
     data class DateChanged(val value: LocalDateTime) : AddEditTransactionEvent()
     object SaveTransaction : AddEditTransactionEvent()
 }
@@ -52,8 +52,8 @@ class AddEditTransactionViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
     private val categoryRepository: CategoryRepository,
     private val loanRepository: LoanRepository,
-    private val goalRepository: GoalRepository, // Added
-    private val investmentRepository: InvestmentRepository, // Added
+    private val goalRepository: GoalRepository,
+    private val investmentRepository: InvestmentRepository,
     private val saveTransactionUseCase: SaveTransactionUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -146,7 +146,7 @@ class AddEditTransactionViewModel @Inject constructor(
             is AddEditTransactionEvent.EnteredDescription -> _state.update { it.copy(description = event.value) }
             is AddEditTransactionEvent.EnteredAmount -> _state.update { it.copy(amount = event.value) }
             is AddEditTransactionEvent.TypeChanged -> {
-                _state.update { it.copy(type = event.value, categoryId = null, subcategoryId = null) }
+                _state.update { it.copy(type = event.value, categoryId = null, subcategoryId = null, goalId = null, investmentId = null) }
                 _typeFlow.value = event.value
             }
             is AddEditTransactionEvent.WalletChanged -> _state.update { it.copy(walletFromId = event.value) }
@@ -181,7 +181,7 @@ class AddEditTransactionViewModel @Inject constructor(
                     _eventFlow.emit(UiEvent.ShowSnackbar("Please enter a valid amount."))
                     return@launch
                 }
-                
+
                 val walletId = currentState.walletFromId
                 if (walletId == null) {
                     _eventFlow.emit(UiEvent.ShowSnackbar("Please select a wallet."))
@@ -189,11 +189,13 @@ class AddEditTransactionViewModel @Inject constructor(
                 }
 
                 if (currentState.type != TransactionType.Transfer) {
-                    if (currentState.categoryId == null) {
-                        _eventFlow.emit(UiEvent.ShowSnackbar("Please select a category."))
+                    if (currentState.categoryId == null && currentState.goalId == null) {
+                        _eventFlow.emit(UiEvent.ShowSnackbar("Please select a category or link a goal."))
                         return@launch
                     }
                 }
+
+                val finalType = if (currentState.goalId != null) TransactionType.Expense else currentState.type
 
                 val transaction = TransactionEntity(
                     id = currentTransactionId ?: UUID.randomUUID().toString(),
@@ -203,7 +205,7 @@ class AddEditTransactionViewModel @Inject constructor(
                     loanId = currentState.loanId,
                     goalId = currentState.goalId,
                     investmentId = currentState.investmentId,
-                    type = currentState.type,
+                    type = finalType,
                     amount = amountValue,
                     note = currentState.description,
                     dateTime = currentState.date,
@@ -214,7 +216,7 @@ class AddEditTransactionViewModel @Inject constructor(
                         else -> "MANUAL"
                     }
                 )
-                
+
                 saveTransactionUseCase(transaction, isEdit = currentTransactionId != null)
                 _eventFlow.emit(UiEvent.SaveTransaction)
             } catch (e: Exception) {

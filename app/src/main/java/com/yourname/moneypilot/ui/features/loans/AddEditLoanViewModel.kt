@@ -115,7 +115,7 @@ class AddEditLoanViewModel @Inject constructor(
             try {
                 val currentState = _state.value
 
-                // 1. Validation
+                // Validation
                 val name = currentState.name.trim()
                 val lender = currentState.lender.trim()
                 val amountStr = currentState.amount.replace(",", "").trim()
@@ -156,9 +156,18 @@ class AddEditLoanViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Warning if EMI > remaining balance (only for existing loan edit)
-                if (currentLoanId != null && emiValue > (originalLoan?.currentBalance ?: amountValue)) {
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Warning: EMI exceeds remaining balance"))
+                // FIX #28: When editing principal, adjust currentBalance proportionally
+                val currentBalance = if (currentLoanId != null) {
+                    val original = originalLoan ?: loanRepository.getLoanById(currentLoanId!!)
+                    if (original != null && original.totalAmount != amountValue) {
+                        // Calculate new current balance based on ratio
+                        val ratio = amountValue / original.totalAmount
+                        (original.currentBalance * ratio).coerceAtLeast(0.0)
+                    } else {
+                        original?.currentBalance ?: amountValue
+                    }
+                } else {
+                    amountValue
                 }
 
                 val loan = LoanEntity(
@@ -169,9 +178,7 @@ class AddEditLoanViewModel @Inject constructor(
                     interestRate = rateValue,
                     startDate = currentState.startDate,
                     durationMonths = durationValue,
-                    currentBalance = if (currentLoanId == null) amountValue else {
-                        loanRepository.getLoanById(currentLoanId!!)?.currentBalance ?: amountValue
-                    },
+                    currentBalance = currentBalance,
                     monthlyPayment = emiValue,
                     type = currentState.type,
                     linkedWalletId = currentState.linkedWalletId,
@@ -191,9 +198,7 @@ class AddEditLoanViewModel @Inject constructor(
                     )
                     _eventFlow.emit(UiEvent.ShowSnackbar("Loan created successfully"))
                 } else {
-                    // Update existing loan
                     loanRepository.updateLoan(loan)
-                    // Audit changes
                     originalLoan?.let { original ->
                         if (original.interestRate != rateValue) {
                             loanRepository.insertLoanEvent(

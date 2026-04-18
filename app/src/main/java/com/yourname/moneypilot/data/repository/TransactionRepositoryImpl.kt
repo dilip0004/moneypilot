@@ -41,7 +41,7 @@ class TransactionRepositoryImpl @Inject constructor(
         walletId: Long,
         startDate: LocalDateTime,
         endDate: LocalDateTime
-    ): Flow<List<TransactionWithDetails>> = 
+    ): Flow<List<TransactionWithDetails>> =
         transactionDao.getTransactionsWithDetailsForWallet(walletId, startDate, endDate)
 
     override suspend fun getSumBeforeDate(walletId: Long, startDate: LocalDateTime): Double =
@@ -98,7 +98,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     private suspend fun applyFinancialImpact(tx: TransactionEntity, multiplier: Double) {
         val amount = tx.amount * multiplier
-        
+
         // 1. Wallet Balance Impact
         if (tx.walletFromId != null) {
             val balanceChange = if (tx.type == TransactionType.Income) amount else -amount
@@ -113,26 +113,25 @@ class TransactionRepositoryImpl @Inject constructor(
             }
         }
 
-        // 3. Goal Impact (TASK-GOAL-SYNC)
+        // 3. Goal Impact
         if (tx.goalId != null) {
             goalDao.getGoalById(tx.goalId)?.let { goal ->
-                // Adding money to a goal is usually an Expense from a wallet, but an Inflow to the goal
                 val newAmount = (goal.currentAmount + amount).coerceAtLeast(0.0)
-                goalDao.update(goal.copy(currentAmount = newAmount)) // FIXED: update instead of updateGoal
+                goalDao.update(goal.copy(currentAmount = newAmount))
             }
         }
 
-        // 4. Investment Impact (TASK-INVESTMENT-SYNC)
+        // 4. Investment Impact (FIX #22: use averagePrice as purchase price)
         if (tx.investmentId != null) {
             investmentDao.getInvestmentById(tx.investmentId)?.let { investment ->
                 if (tx.type == TransactionType.Expense) {
-                    val priceToUse = if (investment.currentPrice > 0) investment.currentPrice else investment.averagePrice
-                    val addedQuantity = if (priceToUse > 0) amount / priceToUse else 0.0
-                    
+                    val priceToUse = if (investment.averagePrice > 0) investment.averagePrice else 1.0
+                    val addedQuantity = amount / priceToUse
+
                     val newQuantity = investment.quantity + addedQuantity
                     val totalCostBasis = (investment.quantity * investment.averagePrice) + amount
                     val newAveragePrice = if (newQuantity > 0) totalCostBasis / newQuantity else investment.averagePrice
-                    
+
                     investmentDao.updateInvestment(investment.copy(
                         quantity = newQuantity,
                         averagePrice = newAveragePrice,
@@ -151,7 +150,7 @@ class TransactionRepositoryImpl @Inject constructor(
     private suspend fun syncBudgets(tx: TransactionEntity) {
         val date = tx.dateTime.toLocalDate()
         val activeBudgets = budgetDao.getActiveBudgets(date).first()
-        val affectedBudgets = activeBudgets.filter { 
+        val affectedBudgets = activeBudgets.filter {
             it.categoryId == tx.categoryId || (tx.subcategoryId != null && it.subcategoryId == tx.subcategoryId)
         }
 
