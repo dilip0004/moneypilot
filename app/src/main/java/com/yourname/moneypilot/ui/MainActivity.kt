@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
@@ -39,7 +40,6 @@ import com.yourname.moneypilot.data.local.preferences.AppTheme
 import com.yourname.moneypilot.domain.loan.LoanAutoDeductionProcessor
 import com.yourname.moneypilot.domain.monthly.MonthlyRolloverProcessor
 import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCase
-import com.yourname.moneypilot.ui.QuickAddActivity
 import com.yourname.moneypilot.ui.features.accounts.AccountDetailsScreen
 import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
 import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
@@ -68,6 +68,7 @@ import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
 import com.yourname.moneypilot.ui.features.transactions.TransferScreen
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
+import com.yourname.moneypilot.util.SecurityPreferences
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -90,7 +91,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var preferencesRepository: com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 
-    private var biometricAuthenticated = false
+    @Inject
+    lateinit var securityPreferences: SecurityPreferences
+
+    private var isAuthenticated = false
     private lateinit var biometricPrompt: BiometricPrompt
     private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
@@ -111,10 +115,13 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             val preferences = preferencesRepository.userPreferencesFlow.first()
+            val hasPin = securityPreferences.isPinSet()
 
-            if (!isRunningUiTest() && preferences.useBiometrics && !isFromWidget && !biometricAuthenticated) {
+            if (!isRunningUiTest() && preferences.useBiometrics && !isFromWidget && !isAuthenticated && hasPin) {
                 setupBiometricPrompt()
                 biometricPrompt.authenticate(promptInfo)
+            } else if (!isRunningUiTest() && !isFromWidget && !isAuthenticated && hasPin && !preferences.useBiometrics) {
+                showPinDialog()
             } else {
                 proceedToContent(intent)
             }
@@ -129,12 +136,16 @@ class MainActivity : ComponentActivity() {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
                     Timber.e("Biometric error: $errString")
-                    finish()
+                    if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || errorCode == BiometricPrompt.ERROR_USER_CANCELED) {
+                        showPinDialog()
+                    } else {
+                        finish()
+                    }
                 }
 
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
-                    biometricAuthenticated = true
+                    isAuthenticated = true
                     proceedToContent(currentIntent)
                 }
 
@@ -147,7 +158,20 @@ class MainActivity : ComponentActivity() {
             .setTitle("MoneyPilot Authentication")
             .setSubtitle("Verify your identity to access your finances")
             .setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
+            .setNegativeButtonText("Use PIN")
             .build()
+    }
+
+    private fun showPinDialog() {
+        setContent {
+            PinAuthenticationScreen(
+                onSuccess = {
+                    isAuthenticated = true
+                    proceedToContent(intent)
+                },
+                onCancel = { finish() }
+            )
+        }
     }
 
     private fun proceedToContent(intent: Intent?) {
@@ -207,7 +231,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             if (intent?.action == "ACTION_ADD_TRANSACTION") {
                 val preferences = preferencesRepository.userPreferencesFlow.first()
-                if (biometricAuthenticated || !preferences.useBiometrics) {
+                if (isAuthenticated || !preferences.useBiometrics) {
                     proceedToContent(intent)
                 }
             }
@@ -219,7 +243,6 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(intent: Intent?) {
     val navController = rememberNavController()
 
-    // Handle widget intent to navigate directly to add transaction screen
     LaunchedEffect(intent) {
         if (intent?.action == "ACTION_ADD_TRANSACTION") {
             navController.navigate("add_transaction?date=${System.currentTimeMillis()}")
