@@ -9,9 +9,12 @@ import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.time.LocalDate  // ADDED
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.ceil
 
 data class BigBillsState(
     val unpaidBills: List<BigBillEntity> = emptyList(),
@@ -36,7 +39,7 @@ class BigBillsViewModel @Inject constructor(
                 val unpaid = allBills.filter { !it.isPaid }
                 val paid = allBills.filter { it.isPaid }
                 val pendingAmount = unpaid.sumOf { it.amount }
-                
+
                 _uiState.value = ScreenState.Success(
                     BigBillsState(
                         unpaidBills = unpaid,
@@ -51,10 +54,8 @@ class BigBillsViewModel @Inject constructor(
     fun markAsPaid(bill: BigBillEntity) {
         viewModelScope.launch {
             try {
-                // 1. Update the current bill to Paid
                 bigBillRepository.updateBigBill(bill.copy(isPaid = true, updatedAt = LocalDateTime.now()))
 
-                // 2. Ledger Integration: Create a real transaction if a wallet is linked
                 bill.linkedWalletId?.let { walletId ->
                     transactionRepository.insertTransaction(
                         TransactionEntity(
@@ -70,7 +71,6 @@ class BigBillsViewModel @Inject constructor(
                     )
                 }
 
-                // 3. Recurrence Logic: Schedule the next occurrence
                 if (bill.recurrenceType != BillRecurrence.ONCE) {
                     val nextDueDate = when (bill.recurrenceType) {
                         BillRecurrence.MONTHLY -> bill.dueDate.plusMonths(1)
@@ -78,7 +78,6 @@ class BigBillsViewModel @Inject constructor(
                         BillRecurrence.ANNUALLY -> bill.dueDate.plusYears(1)
                         else -> bill.dueDate
                     }
-
                     bigBillRepository.insertBigBill(
                         BigBillEntity(
                             name = bill.name,
@@ -92,15 +91,33 @@ class BigBillsViewModel @Inject constructor(
                         )
                     )
                 }
-            } catch (e: Exception) {
-                // Handle error (e.g., via a shared event flow if added)
-            }
+            } catch (e: Exception) { }
         }
     }
 
     fun deleteBill(bill: BigBillEntity) {
         viewModelScope.launch {
             bigBillRepository.deleteBigBill(bill)
+        }
+    }
+
+    fun createMonthlyTransferForBill(bill: BigBillEntity) {
+        viewModelScope.launch {
+            if (bill.linkedWalletId == null) return@launch
+            val monthsRemaining = ChronoUnit.MONTHS.between(LocalDate.now(), bill.dueDate).coerceAtLeast(1)
+            val monthlyAmount = ceil(bill.amount / monthsRemaining)
+
+            val transaction = TransactionEntity(
+                id = UUID.randomUUID().toString(),
+                walletFromId = bill.linkedWalletId,
+                categoryId = bill.categoryId,
+                type = TransactionType.Expense,
+                amount = monthlyAmount,
+                note = "Auto-reserve for ${bill.name}",
+                dateTime = LocalDateTime.now(),
+                transactionSourceType = "AUTO_RESERVE"
+            )
+            transactionRepository.insertTransaction(transaction)
         }
     }
 }

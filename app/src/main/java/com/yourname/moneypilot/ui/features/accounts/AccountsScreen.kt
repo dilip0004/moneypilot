@@ -25,7 +25,8 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun AccountsScreen(
     onAddAccount: () -> Unit,
-    onAccountClick: (Long) -> Unit,
+    onAccountClick: (Long) -> Unit, // Used for viewing statement
+    onEditAccount: (Long) -> Unit,  // NEW: for editing
     viewModel: AccountsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -74,7 +75,7 @@ fun AccountsScreen(
                                     onClick = { onAccountClick(acc.id) },
                                     onArchive = { viewModel.archiveAccount(acc) },
                                     onDelete = { viewModel.deleteWallet(acc) },
-                                    onEdit = { onAccountClick(acc.id) } // FIX #50: navigate to edit screen
+                                    onEdit = { onEditAccount(acc.id) }  // FIX #61: navigate to edit screen
                                 )
                             }
                         }

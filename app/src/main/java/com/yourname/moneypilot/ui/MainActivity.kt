@@ -302,7 +302,8 @@ fun MainScreen(intent: Intent?) {
                     onAddAccount = { navController.navigate("add_account") },
                     onAddLoan = { navController.navigate("add_loan") },
                     onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") }
+                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") },
+                    onEditAccount = { walletId -> navController.navigate("add_account?walletId=$walletId") }
                 )
             }
 
@@ -353,7 +354,8 @@ fun MainScreen(intent: Intent?) {
                     onAddAccount = { navController.navigate("add_account") },
                     onAddLoan = { navController.navigate("add_loan") },
                     onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") }
+                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") },
+                    onEditAccount = { walletId -> navController.navigate("add_account?walletId=$walletId") }
                 )
             }
 

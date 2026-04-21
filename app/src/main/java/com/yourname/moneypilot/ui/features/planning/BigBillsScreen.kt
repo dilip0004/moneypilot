@@ -53,7 +53,8 @@ fun BigBillsScreen(
                         state.data,
                         onMarkPaid = { viewModel.markAsPaid(it) },
                         onDelete = { viewModel.deleteBill(it) },
-                        onEdit = onEditBigBill
+                        onEdit = onEditBigBill,
+                        onCreateMonthlyTransfer = { viewModel.createMonthlyTransferForBill(it) } // NEW
                     )
                 }
                 is ScreenState.Empty -> {
@@ -72,7 +73,8 @@ fun BigBillList(
     data: BigBillsState,
     onMarkPaid: (BigBillEntity) -> Unit,
     onDelete: (BigBillEntity) -> Unit,
-    onEdit: (Long) -> Unit
+    onEdit: (Long) -> Unit,
+    onCreateMonthlyTransfer: (BigBillEntity) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -88,7 +90,13 @@ fun BigBillList(
                 Text("Upcoming Bills", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             items(data.unpaidBills) { bill ->
-                BigBillItem(bill, onMarkPaid, onDelete, onEdit)
+                BigBillItem(
+                    bill = bill,
+                    onMarkPaid = onMarkPaid,
+                    onDelete = onDelete,
+                    onEdit = onEdit,
+                    onCreateMonthlyTransfer = onCreateMonthlyTransfer
+                )
             }
         }
 
@@ -97,7 +105,13 @@ fun BigBillList(
                 Text("Paid Bills", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             items(data.paidBills) { bill ->
-                BigBillItem(bill, onMarkPaid, onDelete, onEdit)
+                BigBillItem(
+                    bill = bill,
+                    onMarkPaid = onMarkPaid,
+                    onDelete = onDelete,
+                    onEdit = onEdit,
+                    onCreateMonthlyTransfer = onCreateMonthlyTransfer
+                )
             }
         }
     }
@@ -108,7 +122,7 @@ fun PendingBillsHeader(amount: Double) {
     val financeColors = LocalFinanceColors.current
     val hasPending = amount > 0
     val statusColor = if (hasPending) financeColors.expense else financeColors.income
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -119,8 +133,8 @@ fun PendingBillsHeader(amount: Double) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = if (hasPending) "Total Pending Bills" else "All Bills Paid", 
-                style = MaterialTheme.typography.labelMedium, 
+                text = if (hasPending) "Total Pending Bills" else "All Bills Paid",
+                style = MaterialTheme.typography.labelMedium,
                 color = statusColor
             )
             Text(
@@ -138,7 +152,8 @@ fun BigBillItem(
     bill: BigBillEntity,
     onMarkPaid: (BigBillEntity) -> Unit,
     onDelete: (BigBillEntity) -> Unit,
-    onEdit: (Long) -> Unit
+    onEdit: (Long) -> Unit,
+    onCreateMonthlyTransfer: (BigBillEntity) -> Unit
 ) {
     val financeColors = LocalFinanceColors.current
     Card(
@@ -188,11 +203,11 @@ fun BigBillItem(
                 }
             }
 
-            // (TASK-47) Auto-Reserve Calculation UI
+            // Auto-Reserve Calculation UI
             if (!bill.isPaid && bill.autoReserveFlag) {
                 val monthsRemaining = ChronoUnit.MONTHS.between(LocalDate.now(), bill.dueDate).coerceAtLeast(1)
                 val monthlyTarget = ceil(bill.amount / monthsRemaining)
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier
@@ -200,16 +215,27 @@ fun BigBillItem(
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                         .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(Icons.Default.Savings, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Reserve target: ₹ $monthlyTarget / month",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Savings, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Reserve target: ₹ $monthlyTarget / month",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    // NEW: Button to create monthly transfer
+                    Button(
+                        onClick = { onCreateMonthlyTransfer(bill) },
+                        modifier = Modifier.height(32.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Create Monthly Transfer", fontSize = 10.sp)
+                    }
                 }
             }
         }

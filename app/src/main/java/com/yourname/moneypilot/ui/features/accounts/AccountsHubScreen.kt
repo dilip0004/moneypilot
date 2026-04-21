@@ -6,7 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.yourname.moneypilot.ui.features.loans.LoansScreen
+import com.yourname.moneypilot.ui.features.loans.LoansScreen  // ADDED
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -14,7 +14,8 @@ fun AccountsHubScreen(
     onAddAccount: () -> Unit,
     onAddLoan: () -> Unit,
     onLoanClick: (Long) -> Unit,
-    onAccountClick: (Long) -> Unit // Added
+    onAccountClick: (Long) -> Unit,
+    onEditAccount: (Long) -> Unit  // Keep this parameter
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Wallets", "Loans")
@@ -45,8 +46,15 @@ fun AccountsHubScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (selectedTabIndex) {
-                0 -> AccountsScreen(onAddAccount = onAddAccount, onAccountClick = onAccountClick) // Updated
-                1 -> LoansScreen(onLoanClick = onLoanClick, onAddLoan = onAddLoan)
+                0 -> AccountsScreen(
+                    onAddAccount = onAddAccount,
+                    onAccountClick = onAccountClick,
+                    onEditAccount = onEditAccount
+                )
+                1 -> LoansScreen(
+                    onLoanClick = onLoanClick,
+                    onAddLoan = onAddLoan
+                )
             }
         }
     }

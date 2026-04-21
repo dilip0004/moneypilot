@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +28,19 @@ fun GoalsScreen(
     viewModel: GoalsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showContributeDialog by remember { mutableStateOf<GoalEntity?>(null) }
+
+    // Contribution dialog
+    if (showContributeDialog != null) {
+        ContributionDialog(
+            goal = showContributeDialog!!,
+            onDismiss = { showContributeDialog = null },
+            onContribute = { amount ->
+                viewModel.contributeToGoal(showContributeDialog!!.id, amount)
+                showContributeDialog = null
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -61,7 +75,8 @@ fun GoalsScreen(
                             item(key = "goal_${goal.id}") {
                                 GoalItem(
                                     goal = goal,
-                                    onClick = { onEditGoal(goal.id) }
+                                    onClick = { onEditGoal(goal.id) },
+                                    onContribute = { showContributeDialog = goal }  // NEW
                                 )
                             }
                             item(key = "history_${goal.id}") {
@@ -86,14 +101,15 @@ fun GoalsScreen(
 @Composable
 fun GoalItem(
     goal: GoalEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onContribute: () -> Unit
 ) {
     val targetProgress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
     val animatedProgress by animateFloatAsState(
         targetValue = targetProgress.coerceAtMost(1f),
         label = "goal_progress_animation"
     )
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -120,24 +136,72 @@ fun GoalItem(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             LinearProgressIndicator(
                 progress = { animatedProgress },
                 modifier = Modifier.fillMaxWidth().height(10.dp),
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(text = "₹${goal.currentAmount}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
                 Text(text = "Goal: ₹${goal.targetAmount}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Contribute button
+            Button(
+                onClick = onContribute,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Text("Add Contribution", color = MaterialTheme.colorScheme.primary)
+            }
         }
     }
+}
+
+@Composable
+fun ContributionDialog(
+    goal: GoalEntity,
+    onDismiss: () -> Unit,
+    onContribute: (Double) -> Unit
+) {
+    var amountStr by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Contribute to ${goal.name}") },
+        text = {
+            OutlinedTextField(
+                value = amountStr,
+                onValueChange = { amountStr = it },
+                label = { Text("Amount (₹)") },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amount = amountStr.toDoubleOrNull()
+                    if (amount != null && amount > 0) {
+                        onContribute(amount)
+                    }
+                }
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
