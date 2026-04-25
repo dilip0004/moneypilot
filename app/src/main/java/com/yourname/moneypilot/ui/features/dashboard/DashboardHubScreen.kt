@@ -6,20 +6,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,10 +25,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
+import com.yourname.moneypilot.util.rememberCurrencySymbol
 import java.time.LocalDate
 import java.time.Year
 import java.time.format.TextStyle
 import java.util.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +44,7 @@ fun DashboardHubScreen(
     val financeColors = LocalFinanceColors.current
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Daily", "Calendar", "Monthly", "Yearly", "Total")
+    val currencySymbol = rememberCurrencySymbol()
 
     val isYearlyTab = selectedTabIndex == 3
 
@@ -51,7 +52,6 @@ fun DashboardHubScreen(
         topBar = {
             Surface(tonalElevation = 2.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
-                    // Header Area
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -100,7 +100,6 @@ fun DashboardHubScreen(
                         }
                     }
 
-                    // Tabs
                     ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = Color.Transparent,
@@ -137,7 +136,6 @@ fun DashboardHubScreen(
                         }
                     }
 
-                    // Summary Bar
                     val income = if (isYearlyTab) hubState.yearlyIncome else hubState.monthlyIncome
                     val expense = if (isYearlyTab) hubState.yearlyExpense else hubState.monthlyExpense
                     val net = income - expense
@@ -148,9 +146,9 @@ fun DashboardHubScreen(
                             .padding(vertical = 6.dp, horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem(label = "Inflow", value = "₹ ${income.toInt()}", color = financeColors.income)
-                        SummaryItem(label = "Outflow", value = "₹ ${expense.toInt()}", color = financeColors.expense)
-                        SummaryItem(label = if (isYearlyTab) "Savings" else "Net", value = "₹ ${net.toInt()}", color = if (net >= 0) financeColors.income else financeColors.expense)
+                        SummaryItem(label = "Inflow", value = "$currencySymbol ${income.toInt()}", color = financeColors.income)
+                        SummaryItem(label = "Outflow", value = "$currencySymbol ${expense.toInt()}", color = financeColors.expense)
+                        SummaryItem(label = if (isYearlyTab) "Savings" else "Net", value = "$currencySymbol ${net.toInt()}", color = if (net >= 0) financeColors.income else financeColors.expense)
                     }
                 }
             }
@@ -171,18 +169,22 @@ fun DashboardHubScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (selectedTabIndex) {
-                0 -> TransactionsScreen(showSearchBar = false, onAddTransaction = { onAddTransaction(LocalDate.now()) }, onEditTransaction = onEditTransaction)
+                0 -> TransactionsScreen(
+                    showSearchBar = false,
+                    onAddTransaction = { onAddTransaction(LocalDate.now()) },
+                    onEditTransaction = onEditTransaction
+                )
                 1 -> CalendarScreen(currentMonth = hubState.currentMonth, onAddTransaction = onAddTransaction)
-                2 -> MonthlySummaryTab(hubState)
-                3 -> YearlySummaryTab(hubState)
-                4 -> TotalNetWorthTab(hubState)
+                2 -> MonthlySummaryTab(hubState, currencySymbol)
+                3 -> YearlySummaryTab(hubState, currencySymbol)
+                4 -> TotalNetWorthTab(hubState, currencySymbol)
             }
         }
     }
 }
 
 @Composable
-fun YearlySummaryTab(state: DashboardHubState) {
+fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String) {
     val financeColors = LocalFinanceColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -196,13 +198,13 @@ fun YearlySummaryTab(state: DashboardHubState) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
                     label = "Yearly Income",
-                    value = "₹ ${state.yearlyIncome.toInt()}",
+                    value = "$currencySymbol ${state.yearlyIncome.toInt()}",
                     color = financeColors.income,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
                     label = "Yearly Expense",
-                    value = "₹ ${state.yearlyExpense.toInt()}",
+                    value = "$currencySymbol ${state.yearlyExpense.toInt()}",
                     color = financeColors.expense,
                     modifier = Modifier.weight(1f)
                 )
@@ -215,7 +217,7 @@ fun YearlySummaryTab(state: DashboardHubState) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Financial Summary (${state.currentYear})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(12.dp))
-                    FlowRow("Net Savings", "₹ $net", if (net >= 0) financeColors.income else financeColors.expense)
+                    FlowRow("Net Savings", "$currencySymbol $net", if (net >= 0) financeColors.income else financeColors.expense)
                     val savingsRate = if (state.yearlyIncome > 0) (net / state.yearlyIncome) * 100 else 0.0
                     Spacer(modifier = Modifier.height(8.dp))
                     FlowRow("Avg. Savings Rate", "${String.format("%.1f", savingsRate)}%", if (savingsRate >= 20) financeColors.income else Color(0xFFFFA500))
@@ -226,7 +228,7 @@ fun YearlySummaryTab(state: DashboardHubState) {
 }
 
 @Composable
-fun MonthlySummaryTab(state: DashboardHubState) {
+fun MonthlySummaryTab(state: DashboardHubState, currencySymbol: String) {
     val financeColors = LocalFinanceColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -246,7 +248,7 @@ fun MonthlySummaryTab(state: DashboardHubState) {
                 )
                 MetricCard(
                     label = "Net Surplus",
-                    value = "₹ ${state.netSurplus.toInt()}",
+                    value = "$currencySymbol ${state.netSurplus.toInt()}",
                     color = if (state.netSurplus >= 0) financeColors.income else financeColors.expense,
                     modifier = Modifier.weight(1f)
                 )
@@ -258,11 +260,11 @@ fun MonthlySummaryTab(state: DashboardHubState) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Cash Flow Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(12.dp))
-                    FlowRow("Total Inflow", "₹ ${state.monthlyIncome}", financeColors.income)
+                    FlowRow("Total Inflow", "$currencySymbol ${state.monthlyIncome}", financeColors.income)
                     Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow("Total Outflow", "₹ ${state.monthlyExpense}", financeColors.expense)
+                    FlowRow("Total Outflow", "$currencySymbol ${state.monthlyExpense}", financeColors.expense)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                    FlowRow("Net Result", "₹ ${state.netSurplus}", if (state.netSurplus >= 0) financeColors.income else financeColors.expense)
+                    FlowRow("Net Result", "$currencySymbol ${state.netSurplus}", if (state.netSurplus >= 0) financeColors.income else financeColors.expense)
                 }
             }
         }
@@ -287,7 +289,7 @@ fun MetricCard(label: String, value: String, color: Color, modifier: Modifier = 
 }
 
 @Composable
-fun TotalNetWorthTab(state: DashboardHubState) {
+fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String) {
     val financeColors = LocalFinanceColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -295,7 +297,7 @@ fun TotalNetWorthTab(state: DashboardHubState) {
     ) {
         item {
             Text("Net Worth", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("₹ ${state.totalBalance}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = if (state.totalBalance >= 0) financeColors.income else financeColors.expense)
+            Text("$currencySymbol ${state.totalBalance}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = if (state.totalBalance >= 0) financeColors.income else financeColors.expense)
         }
         item { Spacer(modifier = Modifier.height(8.dp)) }
         item { Text("Your Wallets", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -323,7 +325,7 @@ fun TotalNetWorthTab(state: DashboardHubState) {
                             Text(wallet.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Text("₹ ${wallet.currentBalance}", fontWeight = FontWeight.ExtraBold, color = if (wallet.currentBalance >= 0) financeColors.income else financeColors.expense)
+                    Text("$currencySymbol ${wallet.currentBalance}", fontWeight = FontWeight.ExtraBold, color = if (wallet.currentBalance >= 0) financeColors.income else financeColors.expense)
                 }
             }
         }

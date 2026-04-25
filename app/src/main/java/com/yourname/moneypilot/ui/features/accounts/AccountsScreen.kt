@@ -7,30 +7,32 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
     onAddAccount: () -> Unit,
-    onAccountClick: (Long) -> Unit, // Used for viewing statement
-    onEditAccount: (Long) -> Unit,  // NEW: for editing
+    onAccountClick: (Long) -> Unit,
+    onEditAccount: (Long) -> Unit,
     viewModel: AccountsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val currencySymbol = rememberCurrencySymbol()
+
+    var showArchiveDialog by remember { mutableStateOf<WalletEntity?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<WalletEntity?>(null) }
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -40,6 +42,67 @@ fun AccountsScreen(
                 }
             }
         }
+    }
+
+    // Archive confirmation dialog
+    if (showArchiveDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showArchiveDialog = null },
+            title = { Text("Archive Wallet") },
+            text = { Text("Are you sure you want to archive '${showArchiveDialog!!.name}'? Archived wallets are hidden from the main list but can be restored later.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.archiveAccount(showArchiveDialog!!)
+                        showArchiveDialog = null
+                    }
+                ) {
+                    Text("Archive")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showArchiveDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteDialog != null) {
+        val wallet = showDeleteDialog!!
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete Wallet?") },
+            text = {
+                Column {
+                    Text("Are you sure you want to permanently delete '${wallet.name}'?")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "⚠️ Wallets with existing transactions cannot be deleted. Please archive them instead.",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text("Deletion is only allowed if the wallet has no transaction history.")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteWallet(wallet)
+                        showDeleteDialog = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -64,20 +127,19 @@ fun AccountsScreen(
                 }
                 is ScreenState.Success -> {
                     val data = state.data
-                    Column {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(data.accounts.filter { !it.isArchived }) { acc ->
-                                AccountCard(
-                                    account = acc,
-                                    onClick = { onAccountClick(acc.id) },
-                                    onArchive = { viewModel.archiveAccount(acc) },
-                                    onDelete = { viewModel.deleteWallet(acc) },
-                                    onEdit = { onEditAccount(acc.id) }  // FIX #61: navigate to edit screen
-                                )
-                            }
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(data.accounts.filter { !it.isArchived }) { acc ->
+                            AccountCard(
+                                account = acc,
+                                onClick = { onAccountClick(acc.id) },
+                                onArchive = { showArchiveDialog = acc },
+                                onDelete = { showDeleteDialog = acc },
+                                onEdit = { onEditAccount(acc.id) },
+                                currencySymbol = currencySymbol
+                            )
                         }
                     }
                 }
@@ -92,7 +154,8 @@ private fun AccountCard(
     onClick: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    currencySymbol: String
 ) {
     Card(
         modifier = Modifier.clickable(onClick = onClick),
@@ -108,7 +171,7 @@ private fun AccountCard(
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Wallet")
                     }
-                    Text("₹${account.currentBalance}", style = MaterialTheme.typography.titleMedium)
+                    Text("$currencySymbol${account.currentBalance}", style = MaterialTheme.typography.titleMedium)
                 }
             }
 

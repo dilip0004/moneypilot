@@ -24,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
+import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -45,6 +46,7 @@ fun AddEditTransactionScreen(
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
+    val currencySymbol = rememberCurrencySymbol()
 
     var showCalculator by remember { mutableStateOf(false) }
     var showWalletDropdown by remember { mutableStateOf(false) }
@@ -69,7 +71,7 @@ fun AddEditTransactionScreen(
             when (event) {
                 is AddEditTransactionViewModel.UiEvent.SaveTransaction -> onPopBackStack()
                 is AddEditTransactionViewModel.UiEvent.ShowSnackbar -> snackbarHostState.showSnackbar(event.message)
-                else -> { /* Do nothing for other events */ }
+                else -> { }
             }
         }
     }
@@ -153,7 +155,6 @@ fun AddEditTransactionScreen(
                     .padding(bottom = if (showCalculator) 300.dp else 0.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Date & Time field
                 Surface(
                     onClick = {
                         focusManager.clearFocus()
@@ -290,7 +291,6 @@ fun AddEditTransactionScreen(
                             }
                         }
 
-                        // Link to Goal (only for Expense) - FIX #23, #24
                         if (state.type != TransactionType.Income && state.goals.isNotEmpty()) {
                             ExposedDropdownMenuBox(
                                 expanded = showGoalDropdown,
@@ -327,7 +327,6 @@ fun AddEditTransactionScreen(
                             }
                         }
 
-                        // Link to Investment (only for Expense) - FIX #23, #24
                         if (state.type != TransactionType.Income && state.investments.isNotEmpty()) {
                             ExposedDropdownMenuBox(
                                 expanded = showInvestmentDropdown,
@@ -385,7 +384,7 @@ fun AddEditTransactionScreen(
                         label = { Text("Amount") },
                         modifier = Modifier.fillMaxWidth().testTag("add_tx_amount"),
                         readOnly = true,
-                        prefix = { Text("₹ ") }
+                        prefix = { Text("$currencySymbol ") }
                     )
                     Box(
                         modifier = Modifier

@@ -21,6 +21,7 @@ import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
 import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
+import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,6 +35,7 @@ fun TransactionsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var walletExpanded by remember { mutableStateOf(false) }
+    val currencySymbol = rememberCurrencySymbol()
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -75,7 +77,6 @@ fun TransactionsScreen(
             if (showSearchBar) {
                 val state = (uiState as? ScreenState.Success)?.data
 
-                // Wallet selector dropdown
                 ExposedDropdownMenuBox(
                     expanded = walletExpanded,
                     onExpandedChange = { walletExpanded = !walletExpanded }
@@ -138,7 +139,8 @@ fun TransactionsScreen(
                         TransactionHistoryContent(
                             state = currentUiState.data,
                             onEdit = onEditTransaction,
-                            onDelete = { viewModel.deleteTransaction(it) }
+                            onDelete = { viewModel.deleteTransaction(it) },
+                            currencySymbol = currencySymbol
                         )
                     }
                     is ScreenState.Error -> {
@@ -159,7 +161,8 @@ fun TransactionsScreen(
 fun TransactionHistoryContent(
     state: TransactionsState,
     onEdit: (String) -> Unit,
-    onDelete: (TransactionEntity) -> Unit
+    onDelete: (TransactionEntity) -> Unit,
+    currencySymbol: String
 ) {
     val financeColors = LocalFinanceColors.current
 
@@ -187,7 +190,7 @@ fun TransactionHistoryContent(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Total: ₹${grouped.dailyTotal}",
+                        text = "$currencySymbol${grouped.dailyTotal}",
                         style = MaterialTheme.typography.labelMedium,
                         color = if (grouped.dailyTotal >= 0) financeColors.income else financeColors.expense
                     )
