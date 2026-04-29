@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,8 +38,10 @@ fun BigBillsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddBigBill,
-                modifier = Modifier.navigationBarsPadding()) {
+            FloatingActionButton(
+                onClick = onAddBigBill,
+                modifier = Modifier.navigationBarsPadding().testTag("big_bill_add_fab")
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Big Bill")
             }
         }
@@ -54,12 +57,12 @@ fun BigBillsScreen(
                         onMarkPaid = { viewModel.markAsPaid(it) },
                         onDelete = { viewModel.deleteBill(it) },
                         onEdit = onEditBigBill,
-                        onCreateMonthlyTransfer = { viewModel.createMonthlyTransferForBill(it) } // NEW
+                        onCreateMonthlyTransfer = { viewModel.createMonthlyTransferForBill(it) }
                     )
                 }
                 is ScreenState.Empty -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No big bills tracked yet.")
+                        Text("No big bills tracked yet.", modifier = Modifier.testTag("big_bills_empty_state"))
                     }
                 }
                 else -> {}
@@ -77,7 +80,7 @@ fun BigBillList(
     onCreateMonthlyTransfer: (BigBillEntity) -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).testTag("big_bills_list"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
     ) {
@@ -124,7 +127,7 @@ fun PendingBillsHeader(amount: Double) {
     val statusColor = if (hasPending) financeColors.expense else financeColors.income
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag("pending_bills_header"),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f))
     ) {
@@ -141,7 +144,8 @@ fun PendingBillsHeader(amount: Double) {
                 text = "₹ $amount",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold,
-                color = statusColor
+                color = statusColor,
+                modifier = Modifier.testTag("pending_bills_amount")
             )
         }
     }
@@ -159,7 +163,8 @@ fun BigBillItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onEdit(bill.id) },
+            .clickable { onEdit(bill.id) }
+            .testTag("big_bill_card_${bill.id}"),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -169,7 +174,10 @@ fun BigBillItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    IconButton(onClick = { if (!bill.isPaid) onMarkPaid(bill) }) {
+                    IconButton(
+                        onClick = { if (!bill.isPaid) onMarkPaid(bill) },
+                        modifier = Modifier.testTag("big_bill_mark_paid_${bill.id}")
+                    ) {
                         Icon(
                             imageVector = if (bill.isPaid) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                             contentDescription = null,
@@ -182,7 +190,8 @@ fun BigBillItem(
                             text = bill.name,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
+                            color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.testTag("big_bill_name_${bill.id}")
                         )
                         Text(
                             text = "Due: ${bill.dueDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
@@ -195,9 +204,13 @@ fun BigBillItem(
                     Text(
                         text = "₹ ${bill.amount}",
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else financeColors.expense
+                        color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else financeColors.expense,
+                        modifier = Modifier.testTag("big_bill_amount_${bill.id}")
                     )
-                    IconButton(onClick = { onDelete(bill) }) {
+                    IconButton(
+                        onClick = { onDelete(bill) },
+                        modifier = Modifier.testTag("big_bill_delete_${bill.id}")
+                    ) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
                     }
                 }
@@ -225,13 +238,14 @@ fun BigBillItem(
                             text = "Reserve target: ₹ $monthlyTarget / month",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.testTag("big_bill_reserve_target_${bill.id}")
                         )
                     }
                     // NEW: Button to create monthly transfer
                     Button(
                         onClick = { onCreateMonthlyTransfer(bill) },
-                        modifier = Modifier.height(32.dp),
+                        modifier = Modifier.height(32.dp).testTag("big_bill_create_transfer_${bill.id}"),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text("Create Monthly Transfer", fontSize = 10.sp)

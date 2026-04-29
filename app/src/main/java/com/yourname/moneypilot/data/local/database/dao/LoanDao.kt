@@ -34,6 +34,9 @@ interface LoanDao {
     @Query("SELECT * FROM loans WHERE id = :loanId")
     suspend fun getLoanById(loanId: Long): LoanEntity?
 
+    @Query("SELECT * FROM loans WHERE id = :loanId")
+    fun getLoanByIdFlow(loanId: Long): Flow<LoanEntity?>
+
     @Transaction
     @Query("SELECT * FROM loans WHERE id = :loanId")
     fun getLoanWithHistory(loanId: Long): Flow<LoanWithHistory?>

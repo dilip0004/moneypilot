@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,14 +32,25 @@ fun BackupScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
+    var showIntegrityDialog by remember { mutableStateOf<BackupViewModel.UiEvent.ShowIntegrityWarning?>(null) }
+    var pendingJsonContent by remember { mutableStateOf<String?>(null) }
+    var pendingFileName by remember { mutableStateOf<String?>(null) }
+
     // Launcher for Saving JSON (Export)
     val saveFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
         onResult = { uri ->
-            uri?.let {
-                // Here we would actually write the content to the selected URI
-                // For simplicity, we trigger the snackbar notification
+            uri?.let { targetUri ->
+                pendingJsonContent?.let { content ->
+                    try {
+                        context.contentResolver.openOutputStream(targetUri)?.use { it.write(content.toByteArray()) }
+                    } catch (e: Exception) {
+                        // handled via UI or logging
+                    }
+                }
             }
+            pendingJsonContent = null
+            pendingFileName = null
         }
     )
 
@@ -63,13 +75,43 @@ fun BackupScreen(
                     context.startActivity(Intent.createChooser(intent, "Export Transactions"))
                 }
                 is BackupViewModel.UiEvent.SaveJson -> {
+                    pendingJsonContent = event.jsonContent
+                    pendingFileName = event.fileName
                     saveFileLauncher.launch(event.fileName)
+                }
+                is BackupViewModel.UiEvent.ShowIntegrityWarning -> {
+                    showIntegrityDialog = event
                 }
                 is BackupViewModel.UiEvent.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(event.message)
                 }
             }
         }
+    }
+
+    if (showIntegrityDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showIntegrityDialog = null },
+            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Integrity Mismatch Detected") },
+            text = { Text("Your ledger has ${showIntegrityDialog!!.mismatchCount} inconsistencies (wallet balances don't match transaction history). Export anyway?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.confirmBackupWithWarnings(showIntegrityDialog!!.jsonContent, showIntegrityDialog!!.fileName)
+                        showIntegrityDialog = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Export Regardless")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showIntegrityDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(

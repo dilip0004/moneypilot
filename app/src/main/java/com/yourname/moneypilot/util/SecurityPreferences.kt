@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.security.MessageDigest
@@ -13,6 +14,11 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SecurityPreferences(private val context: Context) {
 
     private val PIN_HASH_KEY = stringPreferencesKey("pin_hash")
+
+    // Reactive flow for PIN state
+    val isPinSetFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[PIN_HASH_KEY] != null
+    }
 
     suspend fun setPin(pin: String) {
         val hash = hashPin(pin)

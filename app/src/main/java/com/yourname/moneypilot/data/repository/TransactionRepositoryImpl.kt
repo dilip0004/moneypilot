@@ -113,10 +113,11 @@ class TransactionRepositoryImpl @Inject constructor(
             }
         }
 
-        // 3. Goal Impact
+        // 3. Goal Impact (#52: Expense adds to goal, Income withdraws from goal)
         if (tx.goalId != null) {
             goalDao.getGoalById(tx.goalId)?.let { goal ->
-                val newAmount = (goal.currentAmount + amount).coerceAtLeast(0.0)
+                val goalChange = if (tx.type == TransactionType.Expense) amount else -amount
+                val newAmount = (goal.currentAmount + goalChange).coerceAtLeast(0.0)
                 goalDao.update(goal.copy(currentAmount = newAmount))
             }
         }

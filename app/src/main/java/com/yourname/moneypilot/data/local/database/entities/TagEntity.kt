@@ -2,8 +2,10 @@ package com.yourname.moneypilot.data.local.database.entities
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "tags")
+@Serializable
 data class TagEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -12,7 +14,8 @@ data class TagEntity(
 )
 
 @Entity(tableName = "transaction_tag_cross_ref", primaryKeys = ["transactionId", "tagId"])
+@Serializable
 data class TransactionTagCrossRef(
-    val transactionId: Long,
+    val transactionId: String, // Changed to String to match TransactionEntity ID type
     val tagId: Long
 )

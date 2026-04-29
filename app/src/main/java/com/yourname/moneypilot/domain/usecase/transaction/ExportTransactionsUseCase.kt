@@ -19,10 +19,24 @@ class ExportTransactionsUseCase @Inject constructor(
         val file = File(context.cacheDir, fileName)
         
         file.bufferedWriter().use { out ->
-            out.write("ID,DateTime,Note,Amount,Type,WalletFromID,CategoryID\n")
-            transactionsWithDetails.forEach { 
-                val tx = it.transaction
-                out.write("${tx.id},${tx.dateTime},${tx.note ?: ""},${tx.amount},${tx.type},${tx.walletFromId},${tx.categoryId}\n")
+            // #73: Added human-readable headers
+            out.write("ID,DateTime,Type,Wallet (From),Wallet (To),Category,Subcategory,Amount,Note\n")
+            
+            transactionsWithDetails.forEach { detail ->
+                val tx = detail.transaction
+                val row = listOf(
+                    tx.id,
+                    tx.dateTime.toString(),
+                    tx.type.name,
+                    detail.walletFrom?.name ?: "N/A",
+                    detail.walletTo?.name ?: "N/A",
+                    detail.category?.name ?: "Uncategorized",
+                    detail.subcategory?.name ?: "",
+                    tx.amount.toString(),
+                    "\"${(tx.note ?: "").replace("\"", "'")}\"" // Quote note to handle commas
+                ).joinToString(",")
+                
+                out.write("$row\n")
             }
         }
         return file

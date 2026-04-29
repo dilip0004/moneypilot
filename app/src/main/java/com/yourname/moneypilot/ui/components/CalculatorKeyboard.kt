@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +50,7 @@ fun CalculatorKeyboard(
             .fillMaxWidth()
             .background(backgroundColor)
             .padding(8.dp)
+            .testTag("calculator_keyboard")
     ) {
         val keys = listOf(
             listOf("7", "8", "9", "/"),
@@ -68,7 +70,7 @@ fun CalculatorKeyboard(
                     CalculatorKey(
                         text = key,
                         onClick = { if (key == "Done") onDone() else onKeyClick(key) },
-                        modifier = Modifier.weight(weight),
+                        modifier = Modifier.weight(weight).testTag("calc_key_$key"),
                         containerColor = when {
                             key == "Done" -> MaterialTheme.colorScheme.primary
                             key in listOf("/", "*", "-", "+", "=") -> MaterialTheme.colorScheme.secondaryContainer

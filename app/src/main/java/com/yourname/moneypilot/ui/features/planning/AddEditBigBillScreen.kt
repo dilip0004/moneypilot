@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -49,7 +50,10 @@ fun AddEditBigBillScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.onEvent(AddEditBigBillEvent.SaveBigBill) }) {
+                    IconButton(
+                        onClick = { viewModel.onEvent(AddEditBigBillEvent.SaveBigBill) },
+                        modifier = Modifier.testTag("big_bill_save_button")
+                    ) {
                         Icon(Icons.Default.Done, contentDescription = "Save")
                     }
                 }
@@ -68,7 +72,7 @@ fun AddEditBigBillScreen(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddEditBigBillEvent.EnteredName(it)) },
                 label = { Text("Expense Name (e.g. Annual Insurance)") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("big_bill_name_input"),
                 singleLine = true
             )
 
@@ -76,7 +80,7 @@ fun AddEditBigBillScreen(
                 value = state.amount,
                 onValueChange = { viewModel.onEvent(AddEditBigBillEvent.EnteredAmount(it)) },
                 label = { Text("Estimated Amount") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("big_bill_amount_input"),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 prefix = { Text("₹ ") },
                 singleLine = true
@@ -86,7 +90,7 @@ fun AddEditBigBillScreen(
                 label = "Due Date",
                 value = state.dueDate,
                 onChange = { viewModel.onEvent(AddEditBigBillEvent.DateChanged(it)) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("big_bill_date_picker")
             )
 
             // Recurrence Picker
@@ -101,7 +105,7 @@ fun AddEditBigBillScreen(
                     readOnly = true,
                     label = { Text("Recurrence") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedRecurrence) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth().testTag("big_bill_recurrence_dropdown")
                 )
                 ExposedDropdownMenu(
                     expanded = expandedRecurrence,
@@ -113,7 +117,8 @@ fun AddEditBigBillScreen(
                             onClick = {
                                 viewModel.onEvent(AddEditBigBillEvent.RecurrenceChanged(type))
                                 expandedRecurrence = false
-                            }
+                            },
+                            modifier = Modifier.testTag("big_bill_recurrence_${type.name}")
                         )
                     }
                 }
@@ -131,7 +136,7 @@ fun AddEditBigBillScreen(
                     readOnly = true,
                     label = { Text("Linked Wallet (Source of Funds)") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWallet) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth().testTag("big_bill_wallet_dropdown")
                 )
                 ExposedDropdownMenu(
                     expanded = expandedWallet,
@@ -150,7 +155,8 @@ fun AddEditBigBillScreen(
                             onClick = {
                                 viewModel.onEvent(AddEditBigBillEvent.WalletChanged(wallet.id))
                                 expandedWallet = false
-                            }
+                            },
+                            modifier = Modifier.testTag("big_bill_wallet_${wallet.id}")
                         )
                     }
                 }
@@ -168,7 +174,7 @@ fun AddEditBigBillScreen(
                     readOnly = true,
                     label = { Text("Category") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth().testTag("big_bill_category_dropdown")
                 )
                 ExposedDropdownMenu(
                     expanded = expandedCategory,
@@ -180,7 +186,8 @@ fun AddEditBigBillScreen(
                             onClick = {
                                 viewModel.onEvent(AddEditBigBillEvent.CategoryChanged(category.id))
                                 expandedCategory = false
-                            }
+                            },
+                            modifier = Modifier.testTag("big_bill_category_${category.id}")
                         )
                     }
                 }
@@ -195,7 +202,8 @@ fun AddEditBigBillScreen(
             ) {
                 Checkbox(
                     checked = state.autoReserveFlag,
-                    onCheckedChange = { viewModel.onEvent(AddEditBigBillEvent.AutoReserveChanged(it)) }
+                    onCheckedChange = { viewModel.onEvent(AddEditBigBillEvent.AutoReserveChanged(it)) },
+                    modifier = Modifier.testTag("big_bill_auto_reserve_checkbox")
                 )
                 Column {
                     Text("Auto-Reserve Goal", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
@@ -207,7 +215,7 @@ fun AddEditBigBillScreen(
                 value = state.reminderDaysBefore,
                 onValueChange = { viewModel.onEvent(AddEditBigBillEvent.ReminderDaysChanged(it)) },
                 label = { Text("Reminder (Days Before)") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("big_bill_reminder_input"),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 placeholder = { Text("e.g. 3") }
             )
@@ -216,7 +224,7 @@ fun AddEditBigBillScreen(
                 value = state.notes,
                 onValueChange = { viewModel.onEvent(AddEditBigBillEvent.EnteredNotes(it)) },
                 label = { Text("Notes (Optional)") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("big_bill_notes_input"),
                 minLines = 3
             )
 
@@ -226,7 +234,8 @@ fun AddEditBigBillScreen(
             ) {
                 Checkbox(
                     checked = state.isPaid,
-                    onCheckedChange = { viewModel.onEvent(AddEditBigBillEvent.StatusChanged(it)) }
+                    onCheckedChange = { viewModel.onEvent(AddEditBigBillEvent.StatusChanged(it)) },
+                    modifier = Modifier.testTag("big_bill_paid_checkbox")
                 )
                 Text("Mark as Paid", style = MaterialTheme.typography.bodyMedium)
             }

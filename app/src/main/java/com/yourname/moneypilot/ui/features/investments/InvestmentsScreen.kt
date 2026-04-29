@@ -24,15 +24,14 @@ import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvestmentsScreen(
-    onAddInvestment: () -> Unit, // Navigation callback added
+    onAddInvestment: () -> Unit,
     viewModel: InvestmentsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddInvestment,
-                modifier = Modifier.navigationBarsPadding()) {
+            FloatingActionButton(onClick = onAddInvestment) { // Removed navigationBarsPadding()
                 Icon(Icons.Default.Add, contentDescription = "Add Investment")
             }
         }

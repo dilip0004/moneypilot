@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Use Material3 for modern Compose compatibility -->
+    <style name="Theme.MoneyPilot" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Material 3 Colors -->
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorOnSecondary">@color/black</item>
+        
+        <!-- Backward Compatibility for Material 2 / Libraries -->
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorAccent">@color/teal_200</item>
 
-    <style name="Theme.MoneyPilot" parent="android:Theme.Material.Light.NoActionBar" />
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
 </resources>

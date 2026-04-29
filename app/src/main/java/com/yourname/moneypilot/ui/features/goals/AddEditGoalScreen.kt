@@ -1,23 +1,24 @@
 package com.yourname.moneypilot.ui.features.goals
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.components.AppDatePickerField
+import com.yourname.moneypilot.ui.components.EmojiPicker
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,6 +30,7 @@ fun AddEditGoalScreen(
     val state = viewModel.state.value
     val snackbarHostState = remember { SnackbarHostState() }
     var showEmojiPicker by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -39,11 +41,6 @@ fun AddEditGoalScreen(
         }
     }
 
-    val emojis = listOf(
-        "💰", "🏠", "🚗", "✈️", "🎓", "💍", "🏖️", "🎁", "💻", "📱", "⌚", "🎮",
-        "🏋️", "🍔", "🍿", "🎬", "📚", "🎨", "🎸", "⚽", "🏀", "🧘", "💊", "🐶"
-    )
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -51,13 +48,16 @@ fun AddEditGoalScreen(
                 title = { Text(text = if (state.isEditMode) "Edit Goal" else "Add Goal") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.onEvent(AddEditGoalEvent.SaveGoal) }) {
+            FloatingActionButton(
+                onClick = { viewModel.onEvent(AddEditGoalEvent.SaveGoal) },
+                modifier = Modifier.testTag("goal_save_fab")
+            ) {
                 Icon(Icons.Default.Save, contentDescription = "Save")
             }
         }
@@ -66,15 +66,16 @@ fun AddEditGoalScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Emoji picker button
+            // #9: Emoji Picker Button
             Surface(
                 onClick = { showEmojiPicker = !showEmojiPicker },
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("goal_emoji_picker")
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
@@ -87,43 +88,28 @@ fun AddEditGoalScreen(
             }
 
             if (showEmojiPicker) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(6),
-                    modifier = Modifier.height(150.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(emojis) { emoji ->
-                        Surface(
-                            onClick = {
-                                viewModel.onEvent(AddEditGoalEvent.IconChanged(emoji))
-                                showEmojiPicker = false
-                            },
-                            shape = CircleShape,
-                            color = if (state.icon == emoji) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(emoji, fontSize = 24.sp)
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+                EmojiPicker(
+                    selectedEmoji = state.icon,
+                    onEmojiSelected = {
+                        viewModel.onEvent(AddEditGoalEvent.IconChanged(it))
+                        showEmojiPicker = false
+                    },
+                    modifier = Modifier.testTag("goal_emoji_grid")
+                )
             }
 
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredName(it)) },
                 label = { Text("Goal Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("goal_name_input")
             )
 
             OutlinedTextField(
                 value = state.targetAmount,
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredTargetAmount(it)) },
                 label = { Text("Target Amount") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("goal_target_amount_input"),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 prefix = { Text("₹ ") }
             )
@@ -132,7 +118,7 @@ fun AddEditGoalScreen(
                 value = state.currentAmount,
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredCurrentAmount(it)) },
                 label = { Text("Initial Saved Amount") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("goal_current_amount_input"),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 prefix = { Text("₹ ") }
             )
@@ -142,14 +128,15 @@ fun AddEditGoalScreen(
                 value = state.priority.toFloat(),
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.PriorityChanged(it.toInt())) },
                 valueRange = 1f..5f,
-                steps = 3
+                steps = 3,
+                modifier = Modifier.testTag("goal_priority_slider")
             )
 
             AppDatePickerField(
                 label = "Target Date",
                 value = state.targetDate,
                 onChange = { viewModel.onEvent(AddEditGoalEvent.DateChanged(it)) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("goal_date_picker")
             )
         }
     }

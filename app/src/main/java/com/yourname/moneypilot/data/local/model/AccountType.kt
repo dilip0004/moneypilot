@@ -6,5 +6,7 @@ enum class AccountType {
     CREDIT_CARD,
     UPI,
     INVESTMENT,
+    SAVINGS,
+    BACKUP,
     OTHER
 }

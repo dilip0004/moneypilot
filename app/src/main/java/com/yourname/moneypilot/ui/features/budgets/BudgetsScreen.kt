@@ -31,13 +31,16 @@ fun BudgetsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddBudget,
-                modifier = Modifier.navigationBarsPadding()
+            FloatingActionButton(
+                onClick = onAddBudget,
+                // #1: Removed navigationBarsPadding()
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Budget")
             }
         }
     ) { padding ->
+        // #1: Scaffold padding already handles top gap when used with TopAppBar or if it's the root.
+        // Since this is inside a NavHost with padding.bottom in MainActivity, we just use padding here.
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = uiState) {
                 is ScreenState.Loading -> {

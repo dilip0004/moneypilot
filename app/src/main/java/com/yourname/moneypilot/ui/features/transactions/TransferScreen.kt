@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.components.AppDateTimePickerField
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +56,14 @@ fun TransferScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // #37: Added Date/Time selection
+            AppDateTimePickerField(
+                label = "Transfer Date & Time",
+                value = state.dateTime,
+                onChange = { viewModel.onEvent(TransferEvent.DateChanged(it)) },
+                modifier = Modifier.fillMaxWidth()
+            )
+
             // From Wallet Dropdown
             ExposedDropdownMenuBox(
                 expanded = fromWalletExpanded,

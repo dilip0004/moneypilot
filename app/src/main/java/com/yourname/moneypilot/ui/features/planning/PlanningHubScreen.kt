@@ -3,7 +3,9 @@ package com.yourname.moneypilot.ui.features.planning
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
@@ -21,7 +23,8 @@ fun PlanningHubScreen(
     onAddBigBill: () -> Unit,
     onEditBigBill: (Long) -> Unit
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    // #64: Use rememberSaveable to persist the selected tab across navigation
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Distribution")
 
     Scaffold(
@@ -41,7 +44,8 @@ fun PlanningHubScreen(
                             Tab(
                                 selected = selectedTabIndex == index,
                                 onClick = { selectedTabIndex = index },
-                                text = { Text(title) }
+                                text = { Text(title) },
+                                modifier = Modifier.testTag("planning_tab_${title.lowercase().replace(" ", "_")}")
                             )
                         }
                     }

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.MoneyPilotDatabase
 import com.yourname.moneypilot.data.repository.BackupRepository
+import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCase
 import com.yourname.moneypilot.domain.usecase.transaction.ExportTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,6 +22,7 @@ import javax.inject.Inject
 class BackupViewModel @Inject constructor(
     private val exportTransactionsUseCase: ExportTransactionsUseCase,
     private val backupRepository: BackupRepository,
+    private val verifyLedgerIntegrityUseCase: VerifyLedgerIntegrityUseCase, // TASK-42
     @ApplicationContext private val context: Context,
     private val database: MoneyPilotDatabase
 ) : ViewModel() {
@@ -32,6 +34,7 @@ class BackupViewModel @Inject constructor(
         data class ShowSnackbar(val message: String) : UiEvent()
         data class FileReady(val file: File) : UiEvent()
         data class SaveJson(val jsonContent: String, val fileName: String) : UiEvent()
+        data class ShowIntegrityWarning(val mismatchCount: Int, val jsonContent: String, val fileName: String) : UiEvent()
     }
 
     fun exportToCSV() {
@@ -54,13 +57,27 @@ class BackupViewModel @Inject constructor(
     fun exportToJson() {
         viewModelScope.launch {
             try {
+                // TASK-42: Integrity Audit before Export
+                val mismatches = verifyLedgerIntegrityUseCase()
                 val json = backupRepository.createJsonBackup()
                 val date = LocalDate.now().toString()
                 val fileName = "MoneyPilot_Backup_$date.json"
-                _eventFlow.emit(UiEvent.SaveJson(json, fileName))
+
+                if (mismatches.isNotEmpty()) {
+                    Timber.w("Backup initiated with ${mismatches.size} integrity mismatches.")
+                    _eventFlow.emit(UiEvent.ShowIntegrityWarning(mismatches.size, json, fileName))
+                } else {
+                    _eventFlow.emit(UiEvent.SaveJson(json, fileName))
+                }
             } catch (e: Exception) {
                 _eventFlow.emit(UiEvent.ShowSnackbar("Backup failed: ${e.message}"))
             }
+        }
+    }
+
+    fun confirmBackupWithWarnings(json: String, fileName: String) {
+        viewModelScope.launch {
+            _eventFlow.emit(UiEvent.SaveJson(json, fileName))
         }
     }
 

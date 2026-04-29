@@ -14,6 +14,9 @@ interface LoanEventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(event: LoanEventEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(events: List<LoanEventEntity>)
+
     @Update
     suspend fun update(event: LoanEventEntity)
 
@@ -25,4 +28,10 @@ interface LoanEventDao {
 
     @Query("SELECT * FROM loan_events WHERE loan_id = :loanId ORDER BY event_date ASC")
     suspend fun getEventsForLoanOnce(loanId: Long): List<LoanEventEntity>
+
+    @Query("SELECT * FROM loan_events")
+    suspend fun getAllLoanEvents(): List<LoanEventEntity>
+
+    @Query("DELETE FROM loan_events")
+    suspend fun deleteAll(): Int // Return Int to ensure proper generation
 }

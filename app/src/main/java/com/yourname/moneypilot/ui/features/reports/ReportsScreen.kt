@@ -49,6 +49,7 @@ fun ReportsScreen(
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
+                // #1: Restored statusBarsPadding() so selectors are visible under status bar
                 Column(modifier = Modifier.statusBarsPadding()) {
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
@@ -193,7 +194,6 @@ fun ReportsScreen(
                                         text = "₹ $amountStr",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold,
-                                        //color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.income else if (data.reportType == ReportType.EXPENSE) MaterialTheme.colorScheme.expense else MaterialTheme.colorScheme.primary
                                     )
                                     
                                     Spacer(modifier = Modifier.height(16.dp))

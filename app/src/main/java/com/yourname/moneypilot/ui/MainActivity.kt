@@ -5,25 +5,23 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,35 +35,20 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
-import com.yourname.moneypilot.domain.loan.LoanAutoDeductionProcessor
-import com.yourname.moneypilot.domain.monthly.MonthlyRolloverProcessor
-import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCase
-import com.yourname.moneypilot.ui.features.accounts.AccountDetailsScreen
-import com.yourname.moneypilot.ui.features.accounts.AccountsHubScreen
-import com.yourname.moneypilot.ui.features.accounts.AddEditAccountScreen
-import com.yourname.moneypilot.ui.features.accounts.WalletStatementScreen
+import com.yourname.moneypilot.ui.features.accounts.*
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
-import com.yourname.moneypilot.ui.features.budgets.AddEditBudgetScreen
-import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
+import com.yourname.moneypilot.ui.features.budgets.*
 import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
 import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
-import com.yourname.moneypilot.ui.features.investments.AddEditInvestmentScreen
-import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
-import com.yourname.moneypilot.ui.features.loans.AddEditLoanScreen
-import com.yourname.moneypilot.ui.features.loans.LoanDetailsScreen
-import com.yourname.moneypilot.ui.features.planning.AddEditBigBillScreen
-import com.yourname.moneypilot.ui.features.planning.PlanningHubScreen
+import com.yourname.moneypilot.ui.features.investments.*
+import com.yourname.moneypilot.ui.features.loans.*
+import com.yourname.moneypilot.ui.features.planning.*
 import com.yourname.moneypilot.ui.features.reconciliation.ReconciliationScreen
 import com.yourname.moneypilot.ui.features.reports.ReportsScreen
-import com.yourname.moneypilot.ui.features.settings.AppearanceScreen
-import com.yourname.moneypilot.ui.features.settings.DiagnosticsScreen
-import com.yourname.moneypilot.ui.features.settings.NotificationsScreen
-import com.yourname.moneypilot.ui.features.settings.SecurityScreen
-import com.yourname.moneypilot.ui.features.settings.SettingsScreen
-import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
-import com.yourname.moneypilot.ui.features.transactions.TransferScreen
+import com.yourname.moneypilot.ui.features.settings.*
+import com.yourname.moneypilot.ui.features.transactions.*
 import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import com.yourname.moneypilot.util.SecurityPreferences
@@ -74,29 +57,129 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import androidx.activity.compose.rememberLauncherForActivityResult
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
-    @Inject
-    lateinit var loanAutoDeductionProcessor: LoanAutoDeductionProcessor
+    @Inject lateinit var preferencesRepository: com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
+    @Inject lateinit var securityPreferences: SecurityPreferences
 
-    @Inject
-    lateinit var monthlyRolloverProcessor: MonthlyRolloverProcessor
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
-    @Inject
-    lateinit var verifyLedgerIntegrityUseCase: VerifyLedgerIntegrityUseCase
+        // Set initial loading state to avoid crash if auth takes time
+        setContent {
+            MoneyPilotTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+        }
 
-    @Inject
-    lateinit var preferencesRepository: com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
+        checkAuthAndProceed()
+    }
 
-    @Inject
-    lateinit var securityPreferences: SecurityPreferences
+    private fun checkAuthAndProceed() {
+        lifecycleScope.launch {
+            try {
+                val preferences = preferencesRepository.userPreferencesFlow.first()
+                val hasPin = securityPreferences.isPinSet()
+                val isFromWidget = intent?.action == "ACTION_ADD_TRANSACTION"
 
-    private var isAuthenticated = false
-    private lateinit var biometricPrompt: BiometricPrompt
-    private lateinit var promptInfo: BiometricPrompt.PromptInfo
+                if (!isRunningUiTest() && hasPin && !isFromWidget) {
+                    val biometricManager = BiometricManager.from(this@MainActivity)
+                    val canAuth = biometricManager.canAuthenticate(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
+
+                    if (preferences.useBiometrics && canAuth == BiometricManager.BIOMETRIC_SUCCESS) {
+                        showBiometricPrompt()
+                    } else {
+                        showPinAuthScreen()
+                    }
+                } else {
+                    proceedToContent()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Auth flow failed")
+                proceedToContent() // Fallback to content on error
+            }
+        }
+    }
+
+    private fun showBiometricPrompt() {
+        val executor = ContextCompat.getMainExecutor(this)
+        val biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                        showPinAuthScreen()
+                    } else if (errorCode != BiometricPrompt.ERROR_USER_CANCELED) {
+                        finish()
+                    }
+                }
+
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    proceedToContent()
+                }
+            })
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("MoneyPilot")
+            .setSubtitle("Authenticate to continue")
+            .setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
+            .setNegativeButtonText("Use PIN")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
+    }
+
+    private fun showPinAuthScreen() {
+        setContent {
+            MoneyPilotTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    PinAuthenticationScreen(
+                        onSuccess = { proceedToContent() },
+                        onCancel = { finish() }
+                    )
+                }
+            }
+        }
+    }
+
+    private fun proceedToContent() {
+        setContent {
+            val mainViewModel: MainViewModel = hiltViewModel()
+            val preferences by mainViewModel.userPreferences.collectAsState()
+
+            if (preferences == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                val darkTheme = when (preferences?.theme) {
+                    AppTheme.LIGHT -> false
+                    AppTheme.DARK -> true
+                    AppTheme.OLED -> true
+                    AppTheme.SYSTEM -> isSystemInDarkTheme()
+                    else -> isSystemInDarkTheme()
+                }
+
+                MoneyPilotTheme(
+                    darkTheme = darkTheme,
+                    trueBlack = preferences?.useTrueBlack == true || preferences?.theme == AppTheme.OLED,
+                    accentColor = androidx.compose.ui.graphics.Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt())
+                ) {
+                    Surface(modifier = Modifier.fillMaxSize()) {
+                        MainScreen(intent = intent)
+                    }
+                }
+            }
+        }
+    }
 
     private fun isRunningUiTest(): Boolean {
         return try {
@@ -104,137 +187,6 @@ class MainActivity : ComponentActivity() {
             true
         } catch (_: Throwable) {
             false
-        }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-
-        val isFromWidget = intent?.action == "ACTION_ADD_TRANSACTION"
-
-        lifecycleScope.launch {
-            val preferences = preferencesRepository.userPreferencesFlow.first()
-            val hasPin = securityPreferences.isPinSet()
-
-            if (!isRunningUiTest() && preferences.useBiometrics && !isFromWidget && !isAuthenticated && hasPin) {
-                setupBiometricPrompt()
-                biometricPrompt.authenticate(promptInfo)
-            } else if (!isRunningUiTest() && !isFromWidget && !isAuthenticated && hasPin && !preferences.useBiometrics) {
-                showPinDialog()
-            } else {
-                proceedToContent(intent)
-            }
-        }
-    }
-
-    private fun setupBiometricPrompt() {
-        val executor = ContextCompat.getMainExecutor(this)
-        val currentIntent = this.intent
-        biometricPrompt = BiometricPrompt(this as androidx.fragment.app.FragmentActivity, executor,
-            object : BiometricPrompt.AuthenticationCallback() {
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    super.onAuthenticationError(errorCode, errString)
-                    Timber.e("Biometric error: $errString")
-                    if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || errorCode == BiometricPrompt.ERROR_USER_CANCELED) {
-                        showPinDialog()
-                    } else {
-                        finish()
-                    }
-                }
-
-                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    super.onAuthenticationSucceeded(result)
-                    isAuthenticated = true
-                    proceedToContent(currentIntent)
-                }
-
-                override fun onAuthenticationFailed() {
-                    super.onAuthenticationFailed()
-                }
-            })
-
-        promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("MoneyPilot Authentication")
-            .setSubtitle("Verify your identity to access your finances")
-            .setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
-            .setNegativeButtonText("Use PIN")
-            .build()
-    }
-
-    private fun showPinDialog() {
-        setContent {
-            PinAuthenticationScreen(
-                onSuccess = {
-                    isAuthenticated = true
-                    proceedToContent(intent)
-                },
-                onCancel = { finish() }
-            )
-        }
-    }
-
-    private fun proceedToContent(intent: Intent?) {
-        setContent {
-            val mainViewModel: MainViewModel = hiltViewModel()
-            val preferences by mainViewModel.userPreferences.collectAsState()
-
-            val darkTheme = when (preferences?.theme) {
-                AppTheme.LIGHT -> false
-                AppTheme.DARK -> true
-                AppTheme.OLED -> true
-                AppTheme.SYSTEM -> isSystemInDarkTheme()
-                null -> isSystemInDarkTheme()
-            }
-
-            val isOled = preferences?.theme == AppTheme.OLED
-            val useTrueBlackPref = preferences?.useTrueBlack == true
-
-            if (!isRunningUiTest() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val context = LocalContext.current
-                var hasNotificationPermission by remember {
-                    mutableStateOf(
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.POST_NOTIFICATIONS
-                        ) == PackageManager.PERMISSION_GRANTED
-                    )
-                }
-                val permissionLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.RequestPermission(),
-                    onResult = { isGranted -> hasNotificationPermission = isGranted }
-                )
-
-                LaunchedEffect(Unit) {
-                    if (!hasNotificationPermission) {
-                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                }
-            }
-
-            MoneyPilotTheme(
-                darkTheme = darkTheme,
-                trueBlack = useTrueBlackPref || isOled,
-                accentColor = androidx.compose.ui.graphics.Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt()),
-                fontFamilyName = preferences?.fontFamily ?: "DEFAULT"
-            ) {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    MainScreen(intent = intent)
-                }
-            }
-        }
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        lifecycleScope.launch {
-            if (intent?.action == "ACTION_ADD_TRANSACTION") {
-                val preferences = preferencesRepository.userPreferencesFlow.first()
-                if (isAuthenticated || !preferences.useBiometrics) {
-                    proceedToContent(intent)
-                }
-            }
         }
     }
 }
@@ -272,19 +224,16 @@ fun MainScreen(intent: Intent?) {
                             Screen.Accounts -> "bottom_nav_accounts"
                             Screen.Planning -> "bottom_nav_planning"
                             Screen.Settings -> "bottom_nav_settings"
-                            else -> null
                         }
 
                         NavigationBarItem(
-                            modifier = if (tag != null) Modifier.testTag(tag) else Modifier,
-                            icon = { androidx.compose.material3.Icon(screen.icon, contentDescription = null) },
+                            modifier = Modifier.testTag(tag),
+                            icon = { Icon(screen.icon, contentDescription = null) },
                             label = { Text(screen.title) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
                                 navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -299,163 +248,31 @@ fun MainScreen(intent: Intent?) {
             navController = navController,
             startDestination = Screen.Transactions.route,
             modifier = Modifier
-                .padding(innerPadding)
+                .padding(bottom = innerPadding.calculateBottomPadding())
                 .fillMaxSize()
         ) {
-            composable(Screen.Transactions.route) {
-                DashboardHubScreen(
-                    onAddTransaction = { date ->
-                        navController.navigate("add_transaction?date=${date}")
-                    },
-                    onEditTransaction = { transactionId ->
-                        navController.navigate("add_transaction?transactionId=$transactionId")
-                    },
-                    onOpenSettings = {
-                        navController.navigate(Screen.Settings.route) { launchSingleTop = true }
-                    }
-                )
-            }
-
-            composable(Screen.Stats.route) {
-                ReportsScreen(onPopBackStack = { navController.popBackStack() })
-            }
-
-            composable(Screen.Accounts.route) {
-                AccountsHubScreen(
-                    onAddAccount = { navController.navigate("add_account") },
-                    onAddLoan = { navController.navigate("add_loan") },
-                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") },
-                    onEditAccount = { walletId -> navController.navigate("add_account?walletId=$walletId") }
-                )
-            }
-
-            composable(Screen.Planning.route) {
-                PlanningHubScreen(
-                    onAddGoal = { navController.navigate("add_goal") },
-                    onEditGoal = { id -> navController.navigate("add_goal?goalId=$id") },
-                    onAddBudget = { navController.navigate("add_budget") },
-                    onAddInvestment = { navController.navigate("add_investment") },
-                    onAddBigBill = { navController.navigate("add_big_bill") },
-                    onEditBigBill = { id -> navController.navigate("add_big_bill?bigBillId=$id") }
-                )
-            }
-
-            composable(Screen.Settings.route) {
-                SettingsScreen(
-                    onNavigateToCategories = { navController.navigate("categories") },
-                    onNavigateToAppearance = { navController.navigate("appearance") },
-                    onNavigateToSecurity = { navController.navigate("security") },
-                    onNavigateToNotifications = { navController.navigate("notifications") },
-                    onNavigateToBackup = { navController.navigate("backup") },
-                    onNavigateToDiagnostics = { navController.navigate("diagnostics") }
-                )
-            }
-
+            composable(Screen.Transactions.route) { DashboardHubScreen(onAddTransaction = { navController.navigate("add_transaction?date=$it") }, onEditTransaction = { navController.navigate("add_transaction?transactionId=$it") }, onOpenSettings = { navController.navigate(Screen.Settings.route) }) }
+            composable(Screen.Stats.route) { ReportsScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable(Screen.Accounts.route) { AccountsHubScreen(onAddAccount = { navController.navigate("add_account") }, onAddLoan = { navController.navigate("add_loan") }, onLoanClick = { navController.navigate("loan_details/$it") }, onAccountClick = { navController.navigate("wallet_statement/$it") }, onEditAccount = { navController.navigate("add_account?walletId=$it") }) }
+            composable(Screen.Planning.route) { PlanningHubScreen(onAddGoal = { navController.navigate("add_goal") }, onEditGoal = { navController.navigate("add_goal?goalId=$it") }, onAddBudget = { navController.navigate("add_budget") }, onAddInvestment = { navController.navigate("add_investment") }, onAddBigBill = { navController.navigate("add_big_bill") }, onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") }) }
+            composable(Screen.Settings.route) { SettingsScreen(onNavigateToCategories = { navController.navigate("categories") }, onNavigateToAppearance = { navController.navigate("appearance") }, onNavigateToSecurity = { navController.navigate("security") }, onNavigateToNotifications = { navController.navigate("notifications") }, onNavigateToBackup = { navController.navigate("backup") }, onNavigateToDiagnostics = { navController.navigate("diagnostics") }) }
+            
             composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("categories") { CategoryManagerScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("distribution") { DistributionScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("investments") {
-                InvestmentsScreen(onAddInvestment = { navController.navigate("add_investment") })
-            }
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("notifications") { NotificationsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("diagnostics") { DiagnosticsScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToReconciliation = { navController.navigate("reconciliation") }) }
-
-            composable(
-                route = "add_account?walletId={walletId}",
-                arguments = listOf(navArgument("walletId") { type = NavType.LongType; defaultValue = -1L })
-            ) {
-                AddEditAccountScreen(onPopBackStack = { navController.popBackStack() })
-            }
-
             composable("reconciliation") { ReconciliationScreen(onPopBackStack = { navController.popBackStack() }) }
-
-            composable("accounts_list") {
-                AccountsHubScreen(
-                    onAddAccount = { navController.navigate("add_account") },
-                    onAddLoan = { navController.navigate("add_loan") },
-                    onLoanClick = { loanId -> navController.navigate("loan_details/$loanId") },
-                    onAccountClick = { walletId -> navController.navigate("wallet_statement/$walletId") },
-                    onEditAccount = { walletId -> navController.navigate("add_account?walletId=$walletId") }
-                )
-            }
-
-            composable("budgets_list") {
-                BudgetsScreen(onAddBudget = { navController.navigate("add_budget") })
-            }
-
-            composable(
-                route = "account_details/{walletId}",
-                arguments = listOf(navArgument("walletId") { type = NavType.LongType })
-            ) {
-                AccountDetailsScreen(
-                    onPopBackStack = { navController.popBackStack() },
-                    onEditAccount = { id -> navController.navigate("add_account?walletId=$id") }
-                )
-            }
-
-            composable(
-                route = "wallet_statement/{walletId}",
-                arguments = listOf(navArgument("walletId") { type = NavType.LongType })
-            ) {
-                WalletStatementScreen(onPopBackStack = { navController.popBackStack() })
-            }
-
-            composable(
-                route = "add_transaction?date={date}&transactionId={transactionId}",
-                arguments = listOf(
-                    navArgument("date") { type = NavType.StringType; nullable = true; defaultValue = null },
-                    navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null }
-                )
-            ) {
-                AddEditTransactionScreen(
-                    onPopBackStack = { navController.popBackStack() },
-                    onNavigateToTransfer = { navController.navigate("transfer") }
-                )
-            }
-
-            composable(
-                route = "add_goal?goalId={goalId}",
-                arguments = listOf(navArgument("goalId") { type = NavType.LongType; defaultValue = -1L })
-            ) {
-                AddEditGoalScreen(onPopBackStack = { navController.popBackStack() })
-            }
-
-            composable(
-                route = "add_investment?investmentId={investmentId}",
-                arguments = listOf(navArgument("investmentId") { type = NavType.LongType; defaultValue = -1L })
-            ) {
-                AddEditInvestmentScreen(onPopBackStack = { navController.popBackStack() })
-            }
-
-            composable(
-                route = "add_big_bill?bigBillId={bigBillId}",
-                arguments = listOf(navArgument("bigBillId") { type = NavType.LongType; defaultValue = -1L })
-            ) {
-                AddEditBigBillScreen(onPopBackStack = { navController.popBackStack() })
-            }
-
-            composable(
-                route = "add_loan?loanId={loanId}",
-                arguments = listOf(navArgument("loanId") { type = NavType.LongType; defaultValue = -1L })
-            ) {
-                AddEditLoanScreen(onPopBackStack = { navController.popBackStack() })
-            }
-
-            composable(
-                route = "loan_details/{loanId}",
-                arguments = listOf(navArgument("loanId") { type = NavType.LongType })
-            ) { backStackEntry ->
-                val loanId = backStackEntry.arguments?.getLong("loanId") ?: return@composable
-                LoanDetailsScreen(
-                    loanId = loanId,
-                    onBack = { navController.popBackStack() },
-                    onEditLoan = { id -> navController.navigate("add_loan?loanId=$id") }
-                )
-            }
-
+            
+            composable("add_account?walletId={walletId}", arguments = listOf(navArgument("walletId") { type = NavType.LongType; defaultValue = -1L })) { AddEditAccountScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("loan_details/{loanId}", arguments = listOf(navArgument("loanId") { type = NavType.LongType })) { LoanDetailsScreen(loanId = it.arguments?.getLong("loanId") ?: 0L, onBack = { navController.popBackStack() }, onEditLoan = { navController.navigate("add_loan?loanId=$it") }) }
+            composable("wallet_statement/{walletId}", arguments = listOf(navArgument("walletId") { type = NavType.LongType })) { WalletStatementScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("add_transaction?date={date}&transactionId={transactionId}", arguments = listOf(navArgument("date") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null })) { AddEditTransactionScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToTransfer = { navController.navigate("transfer") }) }
+            composable("add_goal?goalId={goalId}", arguments = listOf(navArgument("goalId") { type = NavType.LongType; defaultValue = -1L })) { AddEditGoalScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("add_investment?investmentId={investmentId}", arguments = listOf(navArgument("investmentId") { type = NavType.LongType; defaultValue = -1L })) { AddEditInvestmentScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("add_big_bill?bigBillId={bigBillId}", arguments = listOf(navArgument("bigBillId") { type = NavType.LongType; defaultValue = -1L })) { AddEditBigBillScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("add_loan?loanId={loanId}", arguments = listOf(navArgument("loanId") { type = NavType.LongType; defaultValue = -1L })) { AddEditLoanScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_budget") { AddEditBudgetScreen(onPopBackStack = { navController.popBackStack() }) }
         }

@@ -32,10 +32,10 @@ class GoalsViewModel @Inject constructor(
 ) : BaseViewModel<GoalsState>() {
 
     init {
-        loadGoals()
+        observeGoals()
     }
 
-    private fun loadGoals() {
+    private fun observeGoals() {
         viewModelScope.launch {
             _uiState.value = ScreenState.Loading
             goalRepository.getAllGoals().collectLatest { list ->
@@ -54,16 +54,12 @@ class GoalsViewModel @Inject constructor(
         }
     }
 
-    // Contribute to goal
+    // Contribute to goal (#52: Creates an Expense from Wallet to Goal)
     fun contributeToGoal(goalId: Long, amount: Double) {
         viewModelScope.launch {
-            val goal = goalRepository.getGoalById(goalId)
-            if (goal == null) return@launch
-
-            // Get first non-archived wallet
+            val goal = goalRepository.getGoalById(goalId) ?: return@launch
             val wallets = walletRepository.getAllWallets().first()
-            val wallet = wallets.firstOrNull { !it.isArchived }
-            if (wallet == null) return@launch
+            val wallet = wallets.firstOrNull { !it.isArchived } ?: return@launch
 
             val transaction = TransactionEntity(
                 id = UUID.randomUUID().toString(),
@@ -76,9 +72,29 @@ class GoalsViewModel @Inject constructor(
                 transactionSourceType = "GOAL_CONTRIBUTION"
             )
             transactionRepository.insertTransaction(transaction)
+        }
+    }
 
-            // Refresh goals list
-            loadGoals()
+    // Withdraw from goal (#52: Creates an Income from Goal to Wallet)
+    fun withdrawFromGoal(goalId: Long, amount: Double) {
+        viewModelScope.launch {
+            val goal = goalRepository.getGoalById(goalId) ?: return@launch
+            if (goal.currentAmount < amount) return@launch // Basic safety
+
+            val wallets = walletRepository.getAllWallets().first()
+            val wallet = wallets.firstOrNull { !it.isArchived } ?: return@launch
+
+            val transaction = TransactionEntity(
+                id = UUID.randomUUID().toString(),
+                walletFromId = wallet.id, // We use this as target wallet for impact logic in Repo
+                goalId = goalId,
+                type = TransactionType.Income,
+                amount = amount,
+                note = "Withdrawal from goal: ${goal.name}",
+                dateTime = LocalDateTime.now(),
+                transactionSourceType = "GOAL_WITHDRAWAL"
+            )
+            transactionRepository.insertTransaction(transaction)
         }
     }
 }

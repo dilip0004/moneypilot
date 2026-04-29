@@ -28,9 +28,12 @@ data class MoneyPilotBackup(
     val budgets: List<BudgetEntity>,
     val goals: List<GoalEntity>,
     val loans: List<LoanEntity>,
+    val loanEvents: List<LoanEventEntity> = emptyList(), // #69
     val investments: List<InvestmentEntity>,
     val distributionRules: List<DistributionRuleEntity>,
-    val bigBills: List<BigBillEntity>
+    val bigBills: List<BigBillEntity>,
+    val tags: List<TagEntity> = emptyList(), // #70
+    val tagCrossRefs: List<TransactionTagCrossRef> = emptyList() // #70
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -49,7 +52,7 @@ class BackupRepository @Inject constructor(
 
     suspend fun createJsonBackup(): String {
         val backup = MoneyPilotBackup(
-            version = 12,
+            version = 16, // #71: Match current MoneyPilotDatabase version
             wallets = database.walletDao().getAllWalletsList(),
             categories = database.categoryDao().getAllCategoriesList(),
             subcategories = database.categoryDao().getAllSubcategoriesList(),
@@ -57,9 +60,12 @@ class BackupRepository @Inject constructor(
             budgets = database.budgetDao().getAllBudgetsList(),
             goals = database.goalDao().getAllGoalsList(),
             loans = database.loanDao().getAllLoansList(),
+            loanEvents = database.loanEventDao().getAllLoanEvents(),
             investments = database.investmentDao().getAllInvestmentsList(),
             distributionRules = database.distributionRuleDao().getAllRules(),
-            bigBills = database.bigBillDao().getAllBigBillsList()
+            bigBills = database.bigBillDao().getAllBigBillsList(),
+            tags = database.tagDao().getAllTagsList(),
+            tagCrossRefs = database.tagDao().getAllCrossRefs()
         )
         return json.encodeToString(backup)
     }
@@ -79,9 +85,12 @@ class BackupRepository @Inject constructor(
                 database.budgetDao().insertAll(backup.budgets)
                 database.goalDao().insertAll(backup.goals)
                 database.loanDao().insertAll(backup.loans)
+                database.loanEventDao().insertAll(backup.loanEvents)
                 database.investmentDao().insertAll(backup.investments)
                 database.distributionRuleDao().insertAll(backup.distributionRules)
                 database.bigBillDao().insertAll(backup.bigBills)
+                database.tagDao().insertAllTags(backup.tags)
+                database.tagDao().insertAllCrossRefs(backup.tagCrossRefs)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -109,8 +118,11 @@ class BackupRepository @Inject constructor(
         database.budgetDao().deleteAll()
         database.goalDao().deleteAll()
         database.loanDao().deleteAll()
+        database.loanEventDao().deleteAll()
         database.investmentDao().deleteAll()
         database.distributionRuleDao().deleteAll()
         database.bigBillDao().deleteAll()
+        database.tagDao().deleteAllTags()
+        database.tagDao().deleteAllCrossRefs()
     }
 }

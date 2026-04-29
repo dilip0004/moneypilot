@@ -20,6 +20,8 @@ class LoanRepositoryImpl @Inject constructor(
 
     override suspend fun getLoanById(id: Long): LoanEntity? = loanDao.getLoanById(id)
 
+    override fun getLoanByIdFlow(id: Long): Flow<LoanEntity?> = loanDao.getLoanByIdFlow(id)
+
     override suspend fun insertLoan(loan: LoanEntity): Long = loanDao.insertLoan(loan)
 
     override suspend fun updateLoan(loan: LoanEntity) = loanDao.updateLoan(loan)

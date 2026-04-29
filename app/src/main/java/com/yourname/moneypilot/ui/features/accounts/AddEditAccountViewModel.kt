@@ -23,7 +23,7 @@ data class AddEditAccountState(
     val isPrimary: Boolean = false,
     val currency: String = "INR",
     val color: Int = 0xFF0067FF.toInt(),
-    val icon: String = "account_balance",
+    val icon: String = "💰", // Default to an emoji
     // New fields for billing cycle (TASK-28)
     val billingStartDay: String = "",
     val dueDate: String = "",
@@ -35,6 +35,7 @@ sealed class AddEditAccountEvent {
     data class TypeChanged(val value: String) : AddEditAccountEvent()
     data class EnteredBalance(val value: String) : AddEditAccountEvent()
     data class EnteredMinBalance(val value: String) : AddEditAccountEvent()
+    data class IconChanged(val value: String) : AddEditAccountEvent() // Added for #3
     object TogglePrimary : AddEditAccountEvent()
     // New events for TASK-28
     data class EnteredBillingStartDay(val value: String) : AddEditAccountEvent()
@@ -93,6 +94,7 @@ class AddEditAccountViewModel @Inject constructor(
             is AddEditAccountEvent.TypeChanged -> _state.update { it.copy(type = event.value) }
             is AddEditAccountEvent.EnteredBalance -> _state.update { it.copy(initialBalance = event.value) }
             is AddEditAccountEvent.EnteredMinBalance -> _state.update { it.copy(minBalance = event.value) }
+            is AddEditAccountEvent.IconChanged -> _state.update { it.copy(icon = event.value) }
             is AddEditAccountEvent.TogglePrimary -> _state.update { it.copy(isPrimary = !it.isPrimary) }
             is AddEditAccountEvent.EnteredBillingStartDay -> _state.update { it.copy(billingStartDay = event.value) }
             is AddEditAccountEvent.EnteredDueDate -> _state.update { it.copy(dueDate = event.value) }

@@ -51,6 +51,7 @@ fun DashboardHubScreen(
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
+                // #1: Added statusBarsPadding() back so navigation is visible under status bar
                 Column(modifier = Modifier.statusBarsPadding()) {
                     Row(
                         modifier = Modifier
@@ -161,7 +162,7 @@ fun DashboardHubScreen(
                 shape = CircleShape,
                 modifier = Modifier
                     .testTag("fab_add_transaction")
-                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp) // Standard padding from screen edge
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
@@ -183,6 +184,7 @@ fun DashboardHubScreen(
     }
 }
 
+// ... (Rest of the file remains unchanged)
 @Composable
 fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String) {
     val financeColors = LocalFinanceColors.current

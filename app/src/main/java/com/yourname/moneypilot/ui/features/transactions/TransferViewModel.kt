@@ -23,7 +23,8 @@ data class TransferState(
     val fromWalletId: Long? = null,
     val toWalletId: Long? = null,
     val amount: String = "",
-    val description: String = ""
+    val description: String = "",
+    val dateTime: LocalDateTime = LocalDateTime.now() // #37: Added date field
 )
 
 sealed class TransferEvent {
@@ -31,6 +32,7 @@ sealed class TransferEvent {
     data class ToWalletChanged(val walletId: Long) : TransferEvent()
     data class EnteredAmount(val amount: String) : TransferEvent()
     data class EnteredDescription(val description: String) : TransferEvent()
+    data class DateChanged(val dateTime: LocalDateTime) : TransferEvent() // #37
     object PerformTransfer : TransferEvent()
 }
 
@@ -67,6 +69,7 @@ class TransferViewModel @Inject constructor(
             is TransferEvent.ToWalletChanged -> _state.value = _state.value.copy(toWalletId = event.walletId)
             is TransferEvent.EnteredAmount -> _state.value = _state.value.copy(amount = event.amount)
             is TransferEvent.EnteredDescription -> _state.value = _state.value.copy(description = event.description)
+            is TransferEvent.DateChanged -> _state.value = _state.value.copy(dateTime = event.dateTime)
             is TransferEvent.PerformTransfer -> performTransfer()
         }
     }
@@ -94,7 +97,7 @@ class TransferViewModel @Inject constructor(
 
             val transfer = TransactionEntity(
                 id = UUID.randomUUID().toString(),
-                dateTime = LocalDateTime.now(),
+                dateTime = _state.value.dateTime, // #37: Use selected date
                 amount = amount,
                 type = TransactionType.Transfer,
                 walletFromId = fromWalletId,

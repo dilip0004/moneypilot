@@ -9,6 +9,7 @@ interface LoanRepository {
     fun getAllLoans(): Flow<List<LoanEntity>>
     fun getLoansByStatus(status: String): Flow<List<LoanEntity>>
     suspend fun getLoanById(id: Long): LoanEntity?
+    fun getLoanByIdFlow(id: Long): Flow<LoanEntity?>
     suspend fun insertLoan(loan: LoanEntity): Long
     suspend fun updateLoan(loan: LoanEntity)
     suspend fun deleteLoan(loan: LoanEntity)
