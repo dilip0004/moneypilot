@@ -32,6 +32,7 @@ fun TransactionsScreen(
     showSearchBar: Boolean = true,
     onAddTransaction: () -> Unit,
     onEditTransaction: (String) -> Unit,
+    isPrivacyMode: Boolean = false,
     viewModel: TransactionsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -147,7 +148,8 @@ fun TransactionsScreen(
                             state = currentUiState.data,
                             onEdit = onEditTransaction,
                             onDelete = { viewModel.deleteTransaction(it) },
-                            currencySymbol = currencySymbol
+                            currencySymbol = currencySymbol,
+                            isPrivacyMode = isPrivacyMode
                         )
                     }
                     is ScreenState.Error -> {
@@ -169,7 +171,8 @@ fun TransactionHistoryContent(
     state: TransactionsState,
     onEdit: (String) -> Unit,
     onDelete: (TransactionEntity) -> Unit,
-    currencySymbol: String
+    currencySymbol: String,
+    isPrivacyMode: Boolean
 ) {
     val financeColors = LocalFinanceColors.current
 
@@ -196,8 +199,9 @@ fun TransactionHistoryContent(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
+                    val displayTotal = if (isPrivacyMode) "••••" else "$currencySymbol${String.format("%.2f", grouped.dailyTotal)}"
                     Text(
-                        text = "$currencySymbol${String.format("%.2f", grouped.dailyTotal)}",
+                        text = displayTotal,
                         style = MaterialTheme.typography.labelMedium,
                         color = if (grouped.dailyTotal >= 0) financeColors.income else financeColors.expense
                     )
@@ -207,7 +211,8 @@ fun TransactionHistoryContent(
                 TransactionListItemWithMenu(
                     transactionWithDetails = transactionWithDetails,
                     onEdit = { onEdit(transactionWithDetails.transaction.id) },
-                    onDelete = { onDelete(transactionWithDetails.transaction) }
+                    onDelete = { onDelete(transactionWithDetails.transaction) },
+                    isPrivacyMode = isPrivacyMode
                 )
             }
         }
@@ -218,7 +223,8 @@ fun TransactionHistoryContent(
 fun TransactionListItemWithMenu(
     transactionWithDetails: TransactionWithDetails,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    isPrivacyMode: Boolean
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -234,7 +240,7 @@ fun TransactionListItemWithMenu(
                     )
                 }
         ) {
-            CompactTransactionItem(transactionWithDetails)
+            CompactTransactionItem(transactionWithDetails, isPrivacyMode = isPrivacyMode)
         }
 
         DropdownMenu(

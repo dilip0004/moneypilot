@@ -18,7 +18,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun CompactTransactionItem(
     txWithDetails: TransactionWithDetails,
-    timePattern: String = "HH:mm"
+    timePattern: String = "HH:mm",
+    isPrivacyMode: Boolean = false
 ) {
     val tx = txWithDetails.transaction
     val financeColors = LocalFinanceColors.current
@@ -71,8 +72,10 @@ fun CompactTransactionItem(
                 else -> "" to MaterialTheme.colorScheme.onSurface
             }
 
+            val displayAmount = if (isPrivacyMode) "••••" else "${sign}₹${tx.amount}"
+
             Text(
-                "${sign}₹${tx.amount}",
+                displayAmount,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = color

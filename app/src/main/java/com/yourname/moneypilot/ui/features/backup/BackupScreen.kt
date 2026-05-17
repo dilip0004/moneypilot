@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Restore
@@ -27,6 +28,7 @@ import java.io.FileOutputStream
 @Composable
 fun BackupScreen(
     onPopBackStack: () -> Unit,
+    onNavigateToImport: () -> Unit,
     viewModel: BackupViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -118,7 +120,7 @@ fun BackupScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Backup & Restore") },
+                title = { Text("Data Management") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -132,6 +134,27 @@ fun BackupScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            Text(
+                "Import Tools",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(16.dp)
+            )
+            SettingsItem(
+                title = "Bank Statement Import",
+                subtitle = "Import transactions from bank CSV files",
+                icon = Icons.Default.AccountBalance,
+                onClick = onNavigateToImport
+            )
+            
+            HorizontalDivider()
+            
+            Text(
+                "Export & Backup",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(16.dp)
+            )
             SettingsItem(
                 title = "Export to CSV",
                 subtitle = "Save transactions as a spreadsheet file",
@@ -143,6 +166,15 @@ fun BackupScreen(
                 subtitle = "Export entire database for safe keeping",
                 icon = Icons.Default.CloudDownload,
                 onClick = { viewModel.exportToJson() }
+            )
+            
+            HorizontalDivider()
+            
+            Text(
+                "Recovery",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(16.dp)
             )
             SettingsItem(
                 title = "Restore from JSON",

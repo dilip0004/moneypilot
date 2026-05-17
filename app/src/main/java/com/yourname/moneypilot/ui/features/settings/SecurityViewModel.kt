@@ -39,6 +39,12 @@ class SecurityViewModel @Inject constructor(
         }
     }
 
+    fun updatePrivacyMode(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updatePrivacyMode(enabled)
+        }
+    }
+
     suspend fun setPin(pin: String) {
         securityPreferences.setPin(pin)
     }

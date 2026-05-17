@@ -18,12 +18,12 @@ import com.yourname.moneypilot.ui.features.investments.InvestmentsScreen
 fun PlanningHubScreen(
     onAddGoal: () -> Unit,
     onEditGoal: (Long) -> Unit,
+    onGoalClick: (Long) -> Unit,
     onAddBudget: () -> Unit,
     onAddInvestment: () -> Unit,
     onAddBigBill: () -> Unit,
     onEditBigBill: (Long) -> Unit
 ) {
-    // #64: Use rememberSaveable to persist the selected tab across navigation
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Distribution")
 
@@ -57,7 +57,8 @@ fun PlanningHubScreen(
             when (selectedTabIndex) {
                 0 -> GoalsScreen(
                     onAddGoal = onAddGoal,
-                    onEditGoal = onEditGoal
+                    onEditGoal = onEditGoal,
+                    onGoalClick = onGoalClick
                 )
                 1 -> BudgetsScreen(
                     onAddBudget = onAddBudget

@@ -41,7 +41,8 @@ import com.yourname.moneypilot.ui.features.budgets.*
 import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
 import com.yourname.moneypilot.ui.features.dashboard.DashboardHubScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
-import com.yourname.moneypilot.ui.features.goals.AddEditGoalScreen
+import com.yourname.moneypilot.ui.features.goals.*
+import com.yourname.moneypilot.ui.features.import.BankImportScreen
 import com.yourname.moneypilot.ui.features.investments.*
 import com.yourname.moneypilot.ui.features.loans.*
 import com.yourname.moneypilot.ui.features.planning.*
@@ -264,10 +265,11 @@ fun MainScreen(intent: Intent?) {
             composable(Screen.Transactions.route) { DashboardHubScreen(onAddTransaction = { navController.navigate("add_transaction?date=$it") }, onEditTransaction = { navController.navigate("add_transaction?transactionId=$it") }, onOpenSettings = { navController.navigate(Screen.Settings.route) }) }
             composable(Screen.Stats.route) { ReportsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable(Screen.Accounts.route) { AccountsHubScreen(onAddAccount = { navController.navigate("add_account") }, onAddLoan = { navController.navigate("add_loan") }, onLoanClick = { navController.navigate("loan_details/$it") }, onAccountClick = { navController.navigate("wallet_statement/$it") }, onEditAccount = { navController.navigate("add_account?walletId=$it") }) }
-            composable(Screen.Planning.route) { PlanningHubScreen(onAddGoal = { navController.navigate("add_goal") }, onEditGoal = { navController.navigate("add_goal?goalId=$it") }, onAddBudget = { navController.navigate("add_budget") }, onAddInvestment = { navController.navigate("add_investment") }, onAddBigBill = { navController.navigate("add_big_bill") }, onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") }) }
+            composable(Screen.Planning.route) { PlanningHubScreen(onAddGoal = { navController.navigate("add_goal") }, onEditGoal = { navController.navigate("add_goal?goalId=$it") }, onGoalClick = { navController.navigate("goal_statement/$it") }, onAddBudget = { navController.navigate("add_budget") }, onAddInvestment = { navController.navigate("add_investment") }, onAddBigBill = { navController.navigate("add_big_bill") }, onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") }) }
             composable(Screen.Settings.route) { SettingsScreen(onNavigateToCategories = { navController.navigate("categories") }, onNavigateToAppearance = { navController.navigate("appearance") }, onNavigateToSecurity = { navController.navigate("security") }, onNavigateToNotifications = { navController.navigate("notifications") }, onNavigateToBackup = { navController.navigate("backup") }, onNavigateToDiagnostics = { navController.navigate("diagnostics") }) }
             
-            composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToImport = { navController.navigate("bank_import") }) }
+            composable("bank_import") { BankImportScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("categories") { CategoryManagerScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("appearance") { AppearanceScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("security") { SecurityScreen(onPopBackStack = { navController.popBackStack() }) }
@@ -278,6 +280,7 @@ fun MainScreen(intent: Intent?) {
             composable("add_account?walletId={walletId}", arguments = listOf(navArgument("walletId") { type = NavType.LongType; defaultValue = -1L })) { AddEditAccountScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("loan_details/{loanId}", arguments = listOf(navArgument("loanId") { type = NavType.LongType })) { LoanDetailsScreen(loanId = it.arguments?.getLong("loanId") ?: 0L, onBack = { navController.popBackStack() }, onEditLoan = { navController.navigate("add_loan?loanId=$it") }) }
             composable("wallet_statement/{walletId}", arguments = listOf(navArgument("walletId") { type = NavType.LongType })) { WalletStatementScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("goal_statement/{goalId}", arguments = listOf(navArgument("goalId") { type = NavType.LongType })) { GoalStatementScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_transaction?date={date}&transactionId={transactionId}", arguments = listOf(navArgument("date") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null })) { AddEditTransactionScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToTransfer = { navController.navigate("transfer") }) }
             composable("add_goal?goalId={goalId}", arguments = listOf(navArgument("goalId") { type = NavType.LongType; defaultValue = -1L })) { AddEditGoalScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_investment?investmentId={investmentId}", arguments = listOf(navArgument("investmentId") { type = NavType.LongType; defaultValue = -1L })) { AddEditInvestmentScreen(onPopBackStack = { navController.popBackStack() }) }

@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
@@ -26,9 +27,13 @@ fun AccountsScreen(
     onAddAccount: () -> Unit,
     onAccountClick: (Long) -> Unit,
     onEditAccount: (Long) -> Unit,
-    viewModel: AccountsViewModel = hiltViewModel()
+    viewModel: AccountsViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
+    
     val snackbarHostState = remember { SnackbarHostState() }
     val currencySymbol = rememberCurrencySymbol()
 
@@ -113,7 +118,7 @@ fun AccountsScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddAccount,
-                modifier = Modifier.testTag("account_add_fab") // Removed navigationBarsPadding()
+                modifier = Modifier.testTag("account_add_fab")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Account")
             }
@@ -140,6 +145,7 @@ fun AccountsScreen(
                         items(data.accounts.filter { !it.isArchived }) { acc ->
                             AccountCard(
                                 account = acc,
+                                isPrivacyMode = isPrivacyMode,
                                 onClick = { onAccountClick(acc.id) },
                                 onArchive = { showArchiveDialog = acc },
                                 onDelete = { showDeleteDialog = acc },
@@ -157,6 +163,7 @@ fun AccountsScreen(
 @Composable
 private fun AccountCard(
     account: WalletEntity,
+    isPrivacyMode: Boolean,
     onClick: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
@@ -173,14 +180,15 @@ private fun AccountCard(
                     Text(account.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("account_name_${account.id}"))
                     Text(account.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = onEdit,
                         modifier = Modifier.testTag("account_edit_${account.id}")
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Wallet")
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Wallet", modifier = Modifier.size(20.dp))
                     }
-                    Text("$currencySymbol${account.currentBalance}", style = MaterialTheme.typography.titleMedium)
+                    val balance = if(isPrivacyMode) "••••" else "$currencySymbol${account.currentBalance}"
+                    Text(balance, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             }
 

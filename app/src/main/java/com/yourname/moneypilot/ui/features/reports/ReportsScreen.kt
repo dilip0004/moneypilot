@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -41,15 +43,17 @@ private val CHART_COLORS = listOf(
 @Composable
 fun ReportsScreen(
     onPopBackStack: () -> Unit = {},
-    viewModel: ReportsViewModel = hiltViewModel()
+    viewModel: ReportsViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val reportState by viewModel.reportState.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
 
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                // #1: Restored statusBarsPadding() so selectors are visible under status bar
                 Column(modifier = Modifier.statusBarsPadding()) {
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
@@ -138,10 +142,17 @@ fun ReportsScreen(
                             )
                         }
 
+                        // Anomalies Section
+                        if (data.anomalies.isNotEmpty()) {
+                            item {
+                                AnomalySection(data.anomalies, isPrivacyMode)
+                            }
+                        }
+
                         if (data.reflectionPrompts.isNotEmpty()) {
                             item {
                                 Column(
-                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    modifier = Modifier.padding(vertical = 4.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     data.reflectionPrompts.forEach { prompt ->
@@ -158,13 +169,13 @@ fun ReportsScreen(
                             ) {
                                 InsightTile(
                                     label = "Efficiency",
-                                    value = "${(data.keyAnalytics.efficiency?.times(100))?.toInt() ?: 0}%",
+                                    value = if(isPrivacyMode) "••%" else "${(data.keyAnalytics.efficiency?.times(100))?.toInt() ?: 0}%",
                                     subLabel = "Saved",
                                     modifier = Modifier.weight(1f)
                                 )
                                 InsightTile(
                                     label = "Velocity",
-                                    value = "₹${data.keyAnalytics.expenseVelocity?.toInt() ?: 0}",
+                                    value = if(isPrivacyMode) "••••" else "₹${data.keyAnalytics.expenseVelocity?.toInt() ?: 0}",
                                     subLabel = "per day",
                                     modifier = Modifier.weight(1f)
                                 )
@@ -189,7 +200,7 @@ fun ReportsScreen(
                                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    val amountStr = String.format(Locale.getDefault(), "%,.2f", data.totalAmount)
+                                    val amountStr = if(isPrivacyMode) "••••" else String.format(Locale.getDefault(), "%,.2f", data.totalAmount)
                                     Text(
                                         text = "₹ $amountStr",
                                         style = MaterialTheme.typography.titleLarge,
@@ -224,12 +235,13 @@ fun ReportsScreen(
                                         
                                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                             if (selectedViz == 0) {
-                                                PieChartLabeled(data.categoryBreakdown)
+                                                PieChartLabeled(data.categoryBreakdown, isPrivacyMode)
                                             } else {
                                                 TrendLineGraphCompact(
                                                     data = data.chartData,
                                                     color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                                    timeRange = data.timeRange
+                                                    timeRange = data.timeRange,
+                                                    isPrivacyMode = isPrivacyMode
                                                 )
                                             }
                                         }
@@ -242,7 +254,8 @@ fun ReportsScreen(
                             itemsIndexed(data.categoryBreakdown) { index, rank ->
                                 CategoryRankItemCompact(
                                     rank = rank,
-                                    categoryColor = CHART_COLORS[index % CHART_COLORS.size]
+                                    categoryColor = CHART_COLORS[index % CHART_COLORS.size],
+                                    isPrivacyMode = isPrivacyMode
                                 )
                             }
                         }
@@ -252,6 +265,34 @@ fun ReportsScreen(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("No data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AnomalySection(anomalies: List<com.yourname.moneypilot.domain.usecase.analytics.Anomaly>, isPrivacyMode: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.WarningAmber, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Spending Alerts", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
+            }
+            anomalies.take(2).forEach { anomaly ->
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        text = anomaly.reason, 
+                        style = MaterialTheme.typography.labelSmall, 
+                        modifier = Modifier.weight(1f)
+                    )
+                    val amount = if(isPrivacyMode) "••••" else "₹${anomaly.transaction.transaction.amount.toInt()}"
+                    Text(text = amount, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -327,7 +368,7 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
 }
 
 @Composable
-fun PieChartLabeled(ranks: List<CategoryRank>) {
+fun PieChartLabeled(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
     val total = ranks.sumOf { it.amount }
     val animationProgress = remember { Animatable(0f) }
     val onSurface = MaterialTheme.colorScheme.onSurface
@@ -376,7 +417,7 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
                         )
                         
                         val pct = (rank.percentage * 100).toInt()
-                        val displayText = "${rank.icon} ${rank.name}  $pct%"
+                        val displayText = if(isPrivacyMode) "${rank.icon} •••• $pct%" else "${rank.icon} ${rank.name}  $pct%"
                         
                         drawContext.canvas.nativeCanvas.drawText(
                             displayText,
@@ -399,7 +440,7 @@ fun PieChartLabeled(ranks: List<CategoryRank>) {
 }
 
 @Composable
-fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeRange) {
+fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeRange, isPrivacyMode: Boolean = false) {
     if (data.isEmpty()) return
     
     val values = data.values.toList()
@@ -426,12 +467,14 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
                 this.textSize = 20f
                 this.textAlign = android.graphics.Paint.Align.LEFT
             }
-            val maxStr = String.format(Locale.getDefault(), "₹%.0f", max)
-            val midStr = String.format(Locale.getDefault(), "₹%.0f", max / 2)
             
-            drawContext.canvas.nativeCanvas.drawText(maxStr, 0f, 20f, paint)
-            drawContext.canvas.nativeCanvas.drawText(midStr, 0f, height / 2, paint)
-            drawContext.canvas.nativeCanvas.drawText("0", 0f, height, paint)
+            if (!isPrivacyMode) {
+                val maxStr = String.format(Locale.getDefault(), "₹%.0f", max)
+                val midStr = String.format(Locale.getDefault(), "₹%.0f", max / 2)
+                drawContext.canvas.nativeCanvas.drawText(maxStr, 0f, 20f, paint)
+                drawContext.canvas.nativeCanvas.drawText(midStr, 0f, height / 2, paint)
+                drawContext.canvas.nativeCanvas.drawText("0", 0f, height, paint)
+            }
 
             data.values.forEachIndexed { index, value ->
                 val x = index * stepX
@@ -483,7 +526,7 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
 }
 
 @Composable
-fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color) {
+fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color, isPrivacyMode: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -492,12 +535,13 @@ fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color) {
         Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 val pct = (rank.percentage * 100).toInt()
+                val nameDisplay = if(isPrivacyMode) "••••" else rank.name
                 Text(
-                    text = "${rank.name} ($pct%)", 
+                    text = "$nameDisplay ($pct%)", 
                     fontSize = 13.sp, 
                     fontWeight = FontWeight.Medium
                 )
-                val amountText = String.format(Locale.getDefault(), "%,.2f", rank.amount)
+                val amountText = if(isPrivacyMode) "••••" else String.format(Locale.getDefault(), "%,.2f", rank.amount)
                 Text("₹ $amountText", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             LinearProgressIndicator(

@@ -32,3 +32,5 @@ This document tracks the number of compilation errors and critical runtime bugs.
 -   **CATASTROPHIC RUNTIME BUG:** Persistent startup crashes due to fatal database migration syntax errors and naming mismatches (db vs database). (Resolved)
 -   **Cascading Build Failure:** Incomplete parameter updates in MainActivity and PlanningHubScreen, combined with property name mismatches in LoanDetailsScreen (5 errors). (Resolved)
 -   **Repository Implementation Failure:** Attempted to use `getInvestmentById` in the ViewModel without implementing it in the Dao or Repository layers, causing an unresolved reference compilation error. (Resolved)
+-   **Runtime Bug:** App crash when exporting transactions to CSV due to missing FileProvider configuration. (Resolved)
+-   **UI Bug:** Nested scroll conflict in Add Account screen preventing interaction with bottom fields. (Resolved)

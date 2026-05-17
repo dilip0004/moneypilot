@@ -13,7 +13,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindWalletRepository( // Updated
+    abstract fun bindWalletRepository(
         walletRepositoryImpl: WalletRepositoryImpl
     ): WalletRepository
 
@@ -49,7 +49,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindDistributionRuleRepository( // Added
+    abstract fun bindDistributionRuleRepository(
         distributionRuleRepositoryImpl: DistributionRuleRepositoryImpl
     ): DistributionRuleRepository
 
@@ -64,4 +64,10 @@ abstract class RepositoryModule {
     abstract fun bindBigBillRepository(
         bigBillRepositoryImpl: BigBillRepositoryImpl
     ): BigBillRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBankImportRepository(
+        bankImportRepositoryImpl: BankImportRepositoryImpl
+    ): BankImportRepository
 }

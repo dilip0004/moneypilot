@@ -29,7 +29,8 @@ data class AddEditTransactionState(
     val subcategories: List<SubcategoryEntity> = emptyList(),
     val loans: List<LoanEntity> = emptyList(),
     val goals: List<GoalEntity> = emptyList(),
-    val investments: List<InvestmentEntity> = emptyList()
+    val investments: List<InvestmentEntity> = emptyList(),
+    val isEditing: Boolean = false
 )
 
 sealed class AddEditTransactionEvent {
@@ -61,7 +62,7 @@ class AddEditTransactionViewModel @Inject constructor(
     private val _state = MutableStateFlow(AddEditTransactionState())
     val state: StateFlow<AddEditTransactionState> = _state.asStateFlow()
 
-    private val _typeFlow = MutableStateFlow(TransactionType.Expense)
+    private val _typeFlow = MutableStateFlow<TransactionType?>(null)
     private var currentTransactionId: String? = null
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
@@ -75,15 +76,13 @@ class AddEditTransactionViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             categoryRepository.seedDefaults()
-            loadData()
-            checkExistingTransaction()
-        }
-    }
+            val transactionId = savedStateHandle.get<String>("transactionId")
+            
+            // 1. Load basic dependencies
+            loadStaticData()
 
-    private fun checkExistingTransaction() {
-        val transactionId = savedStateHandle.get<String>("transactionId")
-        if (transactionId != null) {
-            viewModelScope.launch {
+            // 2. Load existing transaction if editing
+            if (transactionId != null) {
                 transactionRepository.getTransactionById(transactionId)?.let { transaction ->
                     currentTransactionId = transaction.id
                     _state.update { it.copy(
@@ -96,25 +95,26 @@ class AddEditTransactionViewModel @Inject constructor(
                         loanId = transaction.loanId,
                         goalId = transaction.goalId,
                         investmentId = transaction.investmentId,
-                        date = transaction.dateTime
+                        date = transaction.dateTime,
+                        isEditing = true
                     ) }
                     _typeFlow.value = transaction.type
                     transaction.categoryId?.let { loadSubcategories(it) }
                 }
+            } else {
+                _typeFlow.value = TransactionType.Expense
             }
+
+            // 3. Start reactive category flow AFTER initial load
+            observeCategories()
         }
     }
 
-    private fun loadData() {
+    private fun loadStaticData() {
         walletRepository.getAllWallets().onEach { wallets ->
-            val defaultWalletId = if (currentTransactionId != null) {
-                _state.value.walletFromId
-            } else {
-                wallets.find { it.isPrimary }?.id ?: wallets.firstOrNull()?.id
-            }
             _state.update { it.copy(
                 wallets = wallets,
-                walletFromId = defaultWalletId
+                walletFromId = if (it.isEditing) it.walletFromId else (wallets.find { w -> w.isPrimary }?.id ?: wallets.firstOrNull()?.id)
             ) }
         }.launchIn(viewModelScope)
 
@@ -129,14 +129,25 @@ class AddEditTransactionViewModel @Inject constructor(
         investmentRepository.getAllInvestments().onEach { investments ->
             _state.update { it.copy(investments = investments) }
         }.launchIn(viewModelScope)
+    }
 
+    private fun observeCategories() {
         viewModelScope.launch {
-            _typeFlow.flatMapLatest { type ->
+            _typeFlow.filterNotNull().flatMapLatest { type ->
                 categoryRepository.getCategoriesByType(if (type == TransactionType.Transfer) "EXPENSE" else type.name.uppercase())
             }.collect { categories ->
-                val newCategoryId = if (currentTransactionId != null) _state.value.categoryId else categories.firstOrNull()?.id
-                _state.update { it.copy(categories = categories, categoryId = newCategoryId) }
-                newCategoryId?.let { loadSubcategories(it) }
+                _state.update { s ->
+                    // If we just changed type manually, the current categoryId might not belong to this new type
+                    val categoryStillValid = categories.any { it.id == s.categoryId }
+                    val newId = if (categoryStillValid) s.categoryId else categories.firstOrNull()?.id
+                    
+                    s.copy(
+                        categories = categories,
+                        categoryId = newId
+                    ).also { 
+                        if (newId != null && newId != s.categoryId) loadSubcategories(newId)
+                    }
+                }
             }
         }
     }
@@ -146,8 +157,8 @@ class AddEditTransactionViewModel @Inject constructor(
             is AddEditTransactionEvent.EnteredDescription -> _state.update { it.copy(description = event.value) }
             is AddEditTransactionEvent.EnteredAmount -> _state.update { it.copy(amount = event.value) }
             is AddEditTransactionEvent.TypeChanged -> {
-                _state.update { it.copy(type = event.value, categoryId = null, subcategoryId = null, goalId = null, investmentId = null) }
                 _typeFlow.value = event.value
+                _state.update { it.copy(type = event.value, subcategoryId = null, goalId = null, investmentId = null) }
             }
             is AddEditTransactionEvent.WalletChanged -> _state.update { it.copy(walletFromId = event.value) }
             is AddEditTransactionEvent.CategoryChanged -> {

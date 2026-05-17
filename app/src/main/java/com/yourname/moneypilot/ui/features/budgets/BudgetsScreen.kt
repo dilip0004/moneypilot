@@ -19,28 +19,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.dao.BudgetWithDetails
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 
 @Composable
 fun BudgetsScreen(
     onAddBudget: () -> Unit,
-    viewModel: BudgetsViewModel = hiltViewModel()
+    viewModel: BudgetsViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
 
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddBudget,
-                // #1: Removed navigationBarsPadding()
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Budget")
             }
         }
     ) { padding ->
-        // #1: Scaffold padding already handles top gap when used with TopAppBar or if it's the root.
-        // Since this is inside a NavHost with padding.bottom in MainActivity, we just use padding here.
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = uiState) {
                 is ScreenState.Loading -> {
@@ -55,7 +56,7 @@ fun BudgetsScreen(
                         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
                     ) {
                         items(state.data.budgets) { budgetDetails ->
-                            BudgetItem(budgetDetails)
+                            BudgetItem(budgetDetails, isPrivacyMode)
                         }
                     }
                 }
@@ -73,7 +74,7 @@ fun BudgetsScreen(
 }
 
 @Composable
-fun BudgetItem(budgetDetails: BudgetWithDetails) {
+fun BudgetItem(budgetDetails: BudgetWithDetails, isPrivacyMode: Boolean) {
     val budget = budgetDetails.budget
     val category = budgetDetails.category
     val subcategory = budgetDetails.subcategory
@@ -145,13 +146,16 @@ fun BudgetItem(budgetDetails: BudgetWithDetails) {
             Spacer(modifier = Modifier.height(12.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                val displaySpent = if(isPrivacyMode) "••••" else "₹${budget.spentAmount}"
+                val displayLimit = if(isPrivacyMode) "••••" else "₹${budget.amount}"
+                
                 Text(
-                    text = "₹${budget.spentAmount} spent",
+                    text = "$displaySpent spent",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = if (isOverBudget) statusColor else MaterialTheme.colorScheme.onSurface
                 )
-                Text(text = "Limit: ₹${budget.amount}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "Limit: $displayLimit", style = MaterialTheme.typography.bodySmall)
             }
         }
     }

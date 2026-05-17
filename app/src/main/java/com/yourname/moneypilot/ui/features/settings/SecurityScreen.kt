@@ -4,13 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.util.SecurityPreferences
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,13 +111,30 @@ fun SecurityScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text("Privacy", style = MaterialTheme.typography.titleMedium)
+            
+            ListItem(
+                headlineContent = { Text("Privacy Mode") },
+                supportingContent = { Text("Mask balances and transaction amounts across the app") },
+                leadingContent = { Icon(Icons.Default.VisibilityOff, contentDescription = null) },
+                trailingContent = {
+                    Switch(
+                        checked = preferences?.isPrivacyModeEnabled ?: false,
+                        onCheckedChange = { viewModel.updatePrivacyMode(it) }
+                    )
+                }
+            )
+
+            HorizontalDivider()
+
             Text("App Lock", style = MaterialTheme.typography.titleMedium)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Use Biometrics")
                 Spacer(modifier = Modifier.weight(1f))
                 Switch(
-                    checked = preferences?.useBiometrics ?: false,
+                    enabled = isPinSet, // Security Governance: PIN must be set first
+                    checked = (preferences?.useBiometrics ?: false) && isPinSet,
                     onCheckedChange = { viewModel.updateUseBiometrics(it) }
                 )
             }

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.Instant
 import java.time.LocalDate
@@ -29,9 +30,13 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun WalletStatementScreen(
     onPopBackStack: () -> Unit,
-    viewModel: WalletStatementViewModel = hiltViewModel()
+    viewModel: WalletStatementViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
+    
     var showDateRangePicker by remember { mutableStateOf(false) }
 
     if (showDateRangePicker) {
@@ -93,7 +98,7 @@ fun WalletStatementScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             // Header Stats Area
-            StatementSummary(state)
+            StatementSummary(state, isPrivacyMode)
 
             // Table Header
             StatementTableHeader()
@@ -106,7 +111,7 @@ fun WalletStatementScreen(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(state.transactions) { txDetails ->
-                        LedgerRow(txDetails, state.wallet?.id ?: -1L)
+                        LedgerRow(txDetails, state.wallet?.id ?: -1L, isPrivacyMode)
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             thickness = 0.5.dp,
@@ -120,7 +125,7 @@ fun WalletStatementScreen(
 }
 
 @Composable
-fun StatementSummary(state: WalletStatementState) {
+fun StatementSummary(state: WalletStatementState, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     val walletId = state.wallet?.id ?: -1L
     
@@ -140,10 +145,10 @@ fun StatementSummary(state: WalletStatementState) {
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            SummaryColumn("Opening", "₹${state.openingBalance}")
-            SummaryColumn("Inflow", "+₹$totalInflow", color = financeColors.income)
-            SummaryColumn("Outflow", "-₹$totalOutflow", color = financeColors.expense)
-            SummaryColumn("Closing", "₹${state.openingBalance + totalInflow - totalOutflow}")
+            SummaryColumn("Opening", if(isPrivacyMode) "••••" else "₹${state.openingBalance}")
+            SummaryColumn("Inflow", if(isPrivacyMode) "••••" else "+₹$totalInflow", color = financeColors.income)
+            SummaryColumn("Outflow", if(isPrivacyMode) "••••" else "-₹$totalOutflow", color = financeColors.expense)
+            SummaryColumn("Closing", if(isPrivacyMode) "••••" else "₹${state.openingBalance + totalInflow - totalOutflow}")
         }
     }
 }
@@ -173,7 +178,11 @@ fun StatementTableHeader() {
 }
 
 @Composable
-fun LedgerRow(txDetails: com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails, currentWalletId: Long) {
+fun LedgerRow(
+    txDetails: com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails, 
+    currentWalletId: Long,
+    isPrivacyMode: Boolean
+) {
     val tx = txDetails.transaction
     val financeColors = LocalFinanceColors.current
     
@@ -231,8 +240,9 @@ fun LedgerRow(txDetails: com.yourname.moneypilot.data.local.database.dao.Transac
         )
 
         // Amount
+        val displayAmount = if(isPrivacyMode) "••••" else "$sign₹${tx.amount}"
         Text(
-            text = "$sign₹${tx.amount}",
+            text = displayAmount,
             modifier = Modifier.weight(0.25f),
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,

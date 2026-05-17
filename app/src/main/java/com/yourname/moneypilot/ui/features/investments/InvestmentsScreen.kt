@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.InvestmentEntity
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 
@@ -25,13 +26,16 @@ import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 @Composable
 fun InvestmentsScreen(
     onAddInvestment: () -> Unit,
-    viewModel: InvestmentsViewModel = hiltViewModel()
+    viewModel: InvestmentsViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddInvestment) { // Removed navigationBarsPadding()
+            FloatingActionButton(onClick = onAddInvestment) {
                 Icon(Icons.Default.Add, contentDescription = "Add Investment")
             }
         }
@@ -42,7 +46,7 @@ fun InvestmentsScreen(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 is ScreenState.Success -> {
-                    InvestmentList(state.data)
+                    InvestmentList(state.data, isPrivacyMode)
                 }
                 is ScreenState.Empty -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -56,14 +60,14 @@ fun InvestmentsScreen(
 }
 
 @Composable
-fun InvestmentList(data: InvestmentState) {
+fun InvestmentList(data: InvestmentState, isPrivacyMode: Boolean) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
     ) {
         item {
-            PortfolioHeroCard(data.totalValue, data.totalGain, data.gainPercentage)
+            PortfolioHeroCard(data.totalValue, data.totalGain, data.gainPercentage, isPrivacyMode)
         }
         
         item {
@@ -71,13 +75,13 @@ fun InvestmentList(data: InvestmentState) {
         }
 
         items(data.investments) { investment ->
-            InvestmentItem(investment)
+            InvestmentItem(investment, isPrivacyMode)
         }
     }
 }
 
 @Composable
-fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
+fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -90,7 +94,7 @@ fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
         ) {
             Text("Total Portfolio Value", style = MaterialTheme.typography.labelMedium)
             Text(
-                text = "₹ $totalValue",
+                text = if(isPrivacyMode) "••••" else "₹ $totalValue",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -106,8 +110,9 @@ fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
+                val gainText = if(isPrivacyMode) "••••" else "${if (isProfit) "+" else ""}₹$gain ($gainPct%)"
                 Text(
-                    text = "${if (isProfit) "+" else ""}₹$gain ($gainPct%)",
+                    text = gainText,
                     color = if (isProfit) financeColors.income else financeColors.expense,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
@@ -118,7 +123,7 @@ fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double) {
 }
 
 @Composable
-fun InvestmentItem(investment: InvestmentEntity) {
+fun InvestmentItem(investment: InvestmentEntity, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     val totalHoldings = investment.quantity * investment.currentPrice
     val totalGain = (investment.currentPrice - investment.averagePrice) * investment.quantity
@@ -135,17 +140,19 @@ fun InvestmentItem(investment: InvestmentEntity) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = investment.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                val quantityLabel = if(isPrivacyMode) "•••• units" else "${investment.quantity} shares"
+                val priceLabel = if(isPrivacyMode) "@ ••••" else "@ ₹${investment.averagePrice}"
                 Text(
-                    text = "${investment.quantity} shares @ ₹${investment.averagePrice}",
+                    text = "$quantityLabel $priceLabel",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
             Column(horizontalAlignment = Alignment.End) {
-                Text(text = "₹ $totalHoldings", fontWeight = FontWeight.ExtraBold)
+                Text(text = if(isPrivacyMode) "••••" else "₹ $totalHoldings", fontWeight = FontWeight.ExtraBold)
                 Text(
-                    text = "${if (isProfit) "+" else ""}₹${totalGain.toInt()}",
+                    text = if(isPrivacyMode) "••••" else "${if (isProfit) "+" else ""}₹${totalGain.toInt()}",
                     color = if (isProfit) financeColors.income else financeColors.expense,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold

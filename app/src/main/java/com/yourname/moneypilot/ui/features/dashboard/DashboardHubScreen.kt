@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.features.calendar.CalendarScreen
 import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
@@ -38,9 +39,13 @@ fun DashboardHubScreen(
     onAddTransaction: (LocalDate) -> Unit,
     onEditTransaction: (String) -> Unit,
     onOpenSettings: () -> Unit,
-    viewModel: DashboardHubViewModel = hiltViewModel()
+    viewModel: DashboardHubViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val hubState by viewModel.state.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
+    
     val financeColors = LocalFinanceColors.current
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Daily", "Calendar", "Monthly", "Yearly", "Total")
@@ -139,16 +144,22 @@ fun DashboardHubScreen(
                     val income = if (isYearlyTab) hubState.yearlyIncome else hubState.monthlyIncome
                     val expense = if (isYearlyTab) hubState.yearlyExpense else hubState.monthlyExpense
                     val net = income - expense
+                    val savingsRate = if (income > 0) (net / income) * 100 else 0.0
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 6.dp, horizontal = 16.dp),
+                            .padding(vertical = 10.dp, horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem(label = "Inflow", value = "$currencySymbol ${income.toInt()}", color = financeColors.income)
-                        SummaryItem(label = "Outflow", value = "$currencySymbol ${expense.toInt()}", color = financeColors.expense)
-                        SummaryItem(label = if (isYearlyTab) "Savings" else "Net", value = "$currencySymbol ${net.toInt()}", color = if (net >= 0) financeColors.income else financeColors.expense)
+                        SummaryItem(label = "Inflow", value = if(isPrivacyMode) "••••" else "$currencySymbol ${income.toInt()}", color = financeColors.income)
+                        SummaryItem(label = "Outflow", value = if(isPrivacyMode) "••••" else "$currencySymbol ${expense.toInt()}", color = financeColors.expense)
+                        SummaryItem(label = "Net", value = if(isPrivacyMode) "••••" else "$currencySymbol ${net.toInt()}", color = if (net >= 0) financeColors.income else financeColors.expense)
+                        SummaryItem(
+                            label = "Saved", 
+                            value = if(isPrivacyMode) "••%" else "${savingsRate.toInt()}%", 
+                            color = if (savingsRate >= 20) financeColors.income else if (savingsRate > 0) Color(0xFFFFA500) else financeColors.expense
+                        )
                     }
                 }
             }
@@ -156,7 +167,6 @@ fun DashboardHubScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { 
-                    // Use the selected date (from calendar or today)
                     onAddTransaction(hubState.selectedDate) 
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -176,25 +186,27 @@ fun DashboardHubScreen(
                     currentMonth = hubState.currentMonth,
                     showSearchBar = false,
                     onAddTransaction = { onAddTransaction(hubState.selectedDate) },
-                    onEditTransaction = onEditTransaction
+                    onEditTransaction = onEditTransaction,
+                    isPrivacyMode = isPrivacyMode
                 )
                 1 -> CalendarScreen(
                     currentMonth = hubState.currentMonth, 
                     selectedDateOverride = hubState.selectedDate,
                     onDateSelected = { viewModel.onDateSelected(it) },
-                    onAddTransaction = onAddTransaction
+                    onAddTransaction = onAddTransaction,
+                    isPrivacyMode = isPrivacyMode
                 )
-                2 -> MonthlySummaryTab(hubState, currencySymbol)
-                3 -> YearlySummaryTab(hubState, currencySymbol)
-                4 -> TotalNetWorthTab(hubState, currencySymbol)
+                2 -> MonthlySummaryTab(hubState, currencySymbol, isPrivacyMode)
+                3 -> YearlySummaryTab(hubState, currencySymbol, isPrivacyMode)
+                4 -> TotalNetWorthTab(hubState, currencySymbol, isPrivacyMode)
             }
         }
     }
 }
 
-// ... rest of the helper functions unchanged
+// ... rest of the file helper functions stay the same
 @Composable
-fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String) {
+fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -208,13 +220,13 @@ fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard(
                     label = "Yearly Income",
-                    value = "$currencySymbol ${state.yearlyIncome.toInt()}",
+                    value = if(isPrivacyMode) "••••" else "$currencySymbol ${state.yearlyIncome.toInt()}",
                     color = financeColors.income,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
                     label = "Yearly Expense",
-                    value = "$currencySymbol ${state.yearlyExpense.toInt()}",
+                    value = if(isPrivacyMode) "••••" else "$currencySymbol ${state.yearlyExpense.toInt()}",
                     color = financeColors.expense,
                     modifier = Modifier.weight(1f)
                 )
@@ -227,7 +239,7 @@ fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Financial Summary (${state.currentYear})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(12.dp))
-                    FlowRow("Net Savings", "$currencySymbol $net", if (net >= 0) financeColors.income else financeColors.expense)
+                    FlowRow("Net Savings", if(isPrivacyMode) "••••" else "$currencySymbol $net", if (net >= 0) financeColors.income else financeColors.expense)
                     val savingsRate = if (state.yearlyIncome > 0) (net / state.yearlyIncome) * 100 else 0.0
                     Spacer(modifier = Modifier.height(8.dp))
                     FlowRow("Avg. Savings Rate", "${String.format("%.1f", savingsRate)}%", if (savingsRate >= 20) financeColors.income else Color(0xFFFFA500))
@@ -238,7 +250,7 @@ fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String) {
 }
 
 @Composable
-fun MonthlySummaryTab(state: DashboardHubState, currencySymbol: String) {
+fun MonthlySummaryTab(state: DashboardHubState, currencySymbol: String, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -258,7 +270,7 @@ fun MonthlySummaryTab(state: DashboardHubState, currencySymbol: String) {
                 )
                 MetricCard(
                     label = "Net Surplus",
-                    value = "$currencySymbol ${state.netSurplus.toInt()}",
+                    value = if(isPrivacyMode) "••••" else "$currencySymbol ${state.netSurplus.toInt()}",
                     color = if (state.netSurplus >= 0) financeColors.income else financeColors.expense,
                     modifier = Modifier.weight(1f)
                 )
@@ -270,11 +282,11 @@ fun MonthlySummaryTab(state: DashboardHubState, currencySymbol: String) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Cash Flow Breakdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(12.dp))
-                    FlowRow("Total Inflow", "$currencySymbol ${state.monthlyIncome}", financeColors.income)
+                    FlowRow("Total Inflow", if(isPrivacyMode) "••••" else "$currencySymbol ${state.monthlyIncome}", financeColors.income)
                     Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow("Total Outflow", "$currencySymbol ${state.monthlyExpense}", financeColors.expense)
+                    FlowRow("Total Outflow", if(isPrivacyMode) "••••" else "$currencySymbol ${state.monthlyExpense}", financeColors.expense)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                    FlowRow("Net Result", "$currencySymbol ${state.netSurplus}", if (state.netSurplus >= 0) financeColors.income else financeColors.expense)
+                    FlowRow("Net Result", if(isPrivacyMode) "••••" else "$currencySymbol ${state.netSurplus}", if (state.netSurplus >= 0) financeColors.income else financeColors.expense)
                 }
             }
         }
@@ -299,7 +311,7 @@ fun MetricCard(label: String, value: String, color: Color, modifier: Modifier = 
 }
 
 @Composable
-fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String) {
+fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -307,7 +319,7 @@ fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String) {
     ) {
         item {
             Text("Net Worth", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("$currencySymbol ${state.totalBalance}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = if (state.totalBalance >= 0) financeColors.income else financeColors.expense)
+            Text(if(isPrivacyMode) "••••" else "$currencySymbol ${state.totalBalance}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = if (state.totalBalance >= 0) financeColors.income else financeColors.expense)
         }
         item { Spacer(modifier = Modifier.height(8.dp)) }
         item { Text("Your Wallets", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -335,7 +347,7 @@ fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String) {
                             Text(wallet.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Text("$currencySymbol ${wallet.currentBalance}", fontWeight = FontWeight.ExtraBold, color = if (wallet.currentBalance >= 0) financeColors.income else financeColors.expense)
+                    Text(if(isPrivacyMode) "••••" else "$currencySymbol ${wallet.currentBalance}", fontWeight = FontWeight.ExtraBold, color = if (wallet.currentBalance >= 0) financeColors.income else financeColors.expense)
                 }
             }
         }

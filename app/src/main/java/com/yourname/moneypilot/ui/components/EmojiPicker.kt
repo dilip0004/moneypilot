@@ -25,12 +25,15 @@ fun EmojiPicker(
         "💻", "⌚", "🎮", "🏋️", "💊", "🐶", "🎨", "🎸"
     )
 
+    // Set userScrollEnabled = false to prevent nested scroll conflicts
+    // when placed inside a scrollable Column.
     LazyVerticalGrid(
         columns = GridCells.Fixed(6),
         modifier = modifier.height(180.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(8.dp)
+        contentPadding = PaddingValues(8.dp),
+        userScrollEnabled = false 
     ) {
         items(emojis) { emoji ->
             Surface(

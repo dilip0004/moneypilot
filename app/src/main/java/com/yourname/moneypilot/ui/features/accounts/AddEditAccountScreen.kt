@@ -65,11 +65,12 @@ fun AddEditAccountScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(scrollState),
+                .imePadding() // Added to handle keyboard overlap
+                .verticalScroll(scrollState)
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // #3: Emoji/Icon Selection
+            // Emoji/Icon Selection
             Surface(
                 onClick = { showEmojiPicker = !showEmojiPicker },
                 shape = MaterialTheme.shapes.medium,
@@ -87,6 +88,7 @@ fun AddEditAccountScreen(
             }
 
             if (showEmojiPicker) {
+                // EmojiPicker updated to disable internal scrolling to fix nested scroll bug
                 EmojiPicker(
                     selectedEmoji = state.icon,
                     onEmojiSelected = {
@@ -147,7 +149,7 @@ fun AddEditAccountScreen(
                 }
             }
 
-            // CREDIT CARD SPECIFIC FIELDS (TASK-28)
+            // CREDIT CARD SPECIFIC FIELDS
             AnimatedVisibility(visible = state.type == "CREDIT") {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
@@ -177,6 +179,8 @@ fun AddEditAccountScreen(
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }

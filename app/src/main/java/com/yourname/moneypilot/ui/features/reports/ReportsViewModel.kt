@@ -32,7 +32,8 @@ data class ReportState(
     val weatherSummary: Map<WeatherState, Int> = emptyMap(),
     val weatherInsight: String = "",
     val keyAnalytics: KeyAnalytics = KeyAnalytics(),
-    val reflectionPrompts: List<String> = emptyList()
+    val reflectionPrompts: List<String> = emptyList(),
+    val anomalies: List<Anomaly> = emptyList()
 )
 
 @HiltViewModel
@@ -41,7 +42,8 @@ class ReportsViewModel @Inject constructor(
     private val getReportDataUseCase: GetReportDataUseCase,
     private val generateReflectionPromptsUseCase: GenerateReflectionPromptsUseCase,
     private val calculateFinancialWeatherUseCase: CalculateFinancialWeatherUseCase,
-    private val calculateKeyAnalyticsUseCase: CalculateKeyAnalyticsUseCase
+    private val calculateKeyAnalyticsUseCase: CalculateKeyAnalyticsUseCase,
+    private val detectAnomaliesUseCase: DetectAnomaliesUseCase
 ) : BaseViewModel<ReportState>() {
 
     private val _reportState = MutableStateFlow(ReportState())
@@ -83,10 +85,8 @@ class ReportsViewModel @Inject constructor(
             combine(currentFlow, prevFlow) { current, previous ->
                 Pair(current, previous)
             }.collect { (currentData, prevData) ->
-                // 1. Core Visual Data
                 val chartDataMap = generateSequentialChartData(currentData.filteredTransactions, currentState.timeRange, start.toLocalDate())
                 
-                // 2. Behavioral Insights (Weather & Reflections)
                 val (weatherSummary, weatherInsight) = calculateFinancialWeatherUseCase(
                     currentData.filteredTransactions, start.toLocalDate(), end.toLocalDate()
                 )
@@ -96,12 +96,13 @@ class ReportsViewModel @Inject constructor(
                     prevTotal = prevData.totalOutflow,
                     ranks = currentData.categoryBreakdown,
                     range = currentState.timeRange,
-                    incomeTotal = currentData.totalAmount // Approximation
+                    incomeTotal = currentData.totalAmount 
                 )
 
-                // 3. Key Analytics (Efficiency, Velocity, etc.)
                 val daysInPeriod = java.time.temporal.ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()).toInt() + 1
                 val keyAnalytics = calculateKeyAnalyticsUseCase(currentData.filteredTransactions, daysInPeriod)
+                
+                val anomalies = detectAnomaliesUseCase(currentData.filteredTransactions)
 
                 _reportState.update { it.copy(
                     totalAmount = currentData.totalAmount,
@@ -113,7 +114,8 @@ class ReportsViewModel @Inject constructor(
                     weatherSummary = weatherSummary,
                     weatherInsight = weatherInsight,
                     keyAnalytics = keyAnalytics,
-                    reflectionPrompts = prompts
+                    reflectionPrompts = prompts,
+                    anomalies = anomalies
                 ) }
                 _uiState.value = ScreenState.Success(_reportState.value)
             }

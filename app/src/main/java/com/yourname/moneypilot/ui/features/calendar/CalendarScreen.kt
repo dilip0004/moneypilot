@@ -35,6 +35,7 @@ fun CalendarScreen(
     selectedDateOverride: LocalDate? = null,
     onDateSelected: (LocalDate) -> Unit,
     onAddTransaction: (LocalDate) -> Unit,
+    isPrivacyMode: Boolean = false,
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val calendarState by viewModel.state.collectAsState()
@@ -84,7 +85,7 @@ fun CalendarScreen(
             val income = selSummary?.totalIncome ?: 0.0
             val expense = selSummary?.totalExpense ?: 0.0
             val total = income - expense
-            TotalsRow(income = income, expense = expense, total = total)
+            TotalsRow(income = income, expense = expense, total = total, isPrivacyMode = isPrivacyMode)
             HorizontalDivider(
                 modifier = Modifier.padding(top = 8.dp),
                 thickness = 0.5.dp,
@@ -108,7 +109,11 @@ fun CalendarScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
-                        CompactTransactionItem(txWithDetails = transactionWithDetails, timePattern = "h:mm a")
+                        CompactTransactionItem(
+                            txWithDetails = transactionWithDetails, 
+                            timePattern = "h:mm a",
+                            isPrivacyMode = isPrivacyMode
+                        )
                     }
                 }
             }
@@ -254,18 +259,23 @@ fun CalendarCell(
 }
 
 @Composable
-fun TotalsRow(income: Double, expense: Double, total: Double) {
+fun TotalsRow(income: Double, expense: Double, total: Double, isPrivacyMode: Boolean = false) {
     val financeColors = LocalFinanceColors.current
+    
+    val displayIncome = if (isPrivacyMode) "••••" else "₹${income.toInt()}"
+    val displayExpense = if (isPrivacyMode) "••••" else "₹${expense.toInt()}"
+    val displayTotal = if (isPrivacyMode) "••••" else "₹${total.toInt()}"
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp), 
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = "In: ₹${income.toInt()}", style = MaterialTheme.typography.labelMedium, color = financeColors.income)
-        Text(text = "Out: ₹${expense.toInt()}", style = MaterialTheme.typography.labelMedium, color = financeColors.expense)
+        Text(text = "In: $displayIncome", style = MaterialTheme.typography.labelMedium, color = financeColors.income)
+        Text(text = "Out: $displayExpense", style = MaterialTheme.typography.labelMedium, color = financeColors.expense)
         Text(
-            text = "Net: ₹${total.toInt()}", 
+            text = "Net: $displayTotal", 
             style = MaterialTheme.typography.labelMedium, 
             fontWeight = FontWeight.Bold,
             color = if (total >= 0) financeColors.income else financeColors.expense

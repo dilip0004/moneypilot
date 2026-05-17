@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import java.time.format.DateTimeFormatter
 
@@ -29,9 +30,12 @@ import java.time.format.DateTimeFormatter
 fun LoansScreen(
     onLoanClick: (Long) -> Unit,
     onAddLoan: () -> Unit,
-    viewModel: LoansViewModel = hiltViewModel()
+    viewModel: LoansViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
 
     Scaffold(
         floatingActionButton = {
@@ -56,11 +60,11 @@ fun LoansScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
                     ) {
-                        // Replace the empty boxes with a meaningful summary header
                         item {
                             LoanSummaryCard(
                                 borrowed = state.data.totalBorrowed,
-                                lent = state.data.totalLent
+                                lent = state.data.totalLent,
+                                isPrivacyMode = isPrivacyMode
                             )
                         }
 
@@ -70,8 +74,9 @@ fun LoansScreen(
                             LoanItem(
                                 loan = loan,
                                 isExpanded = isExpanded,
+                                isPrivacyMode = isPrivacyMode,
                                 onClick = { isExpanded = !isExpanded },
-                                onEdit = { onLoanClick(loan.id) }, // navigate to edit screen
+                                onEdit = { onLoanClick(loan.id) },
                                 repayments = emptyList()
                             )
                         }
@@ -89,7 +94,7 @@ fun LoansScreen(
 }
 
 @Composable
-fun LoanSummaryCard(borrowed: Double, lent: Double) {
+fun LoanSummaryCard(borrowed: Double, lent: Double, isPrivacyMode: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -101,12 +106,14 @@ fun LoanSummaryCard(borrowed: Double, lent: Double) {
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Borrowed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                Text("₹${String.format("%.0f", borrowed)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                val displayBorrowed = if (isPrivacyMode) "••••" else "₹${String.format("%.0f", borrowed)}"
+                Text(displayBorrowed, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
             }
             VerticalDivider(modifier = Modifier.height(40.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Lent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                Text("₹${String.format("%.0f", lent)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                val displayLent = if (isPrivacyMode) "••••" else "₹${String.format("%.0f", lent)}"
+                Text(displayLent, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -116,6 +123,7 @@ fun LoanSummaryCard(borrowed: Double, lent: Double) {
 fun LoanItem(
     loan: LoanEntity,
     isExpanded: Boolean,
+    isPrivacyMode: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     repayments: List<TransactionEntity>
@@ -154,6 +162,7 @@ fun LoanItem(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(6.dp),
                 color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = StrokeCap.Round
             )
 
@@ -162,11 +171,13 @@ fun LoanItem(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text("Remaining", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("₹ ${loan.currentBalance}", fontWeight = FontWeight.ExtraBold)
+                    val displayRemaining = if (isPrivacyMode) "••••" else "₹ ${loan.currentBalance}"
+                    Text(displayRemaining, fontWeight = FontWeight.ExtraBold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Monthly", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("₹ ${loan.monthlyPayment}", fontWeight = FontWeight.Bold)
+                    val displayMonthly = if (isPrivacyMode) "••••" else "₹ ${loan.monthlyPayment}"
+                    Text(displayMonthly, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -197,8 +208,9 @@ fun LoanItem(
                                     text = record.dateTime.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                                val displayAmount = if (isPrivacyMode) "••••" else "₹ ${record.amount}"
                                 Text(
-                                    text = "₹ ${record.amount}",
+                                    text = displayAmount,
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.Bold
                                 )

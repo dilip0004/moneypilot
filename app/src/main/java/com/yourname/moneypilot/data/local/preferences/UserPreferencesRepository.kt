@@ -30,7 +30,8 @@ data class UserPreferences(
     val dailySummaryEnabled: Boolean,
     val dailySummaryTime: String,
     val useTrueBlack: Boolean = false,
-    val fontFamily: String = "DEFAULT"
+    val fontFamily: String = "DEFAULT",
+    val isPrivacyModeEnabled: Boolean = false
 )
 
 @Singleton
@@ -50,6 +51,7 @@ class UserPreferencesRepository @Inject constructor(
         val DAILY_SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
         val DAILY_SUMMARY_TIME = stringPreferencesKey("daily_summary_time")
         val FONT_FAMILY = stringPreferencesKey("font_family")
+        val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -75,11 +77,12 @@ class UserPreferencesRepository @Inject constructor(
             val summaryEnabled = preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] ?: true
             val summaryTime = preferences[PreferencesKeys.DAILY_SUMMARY_TIME] ?: "22:00"
             val fontFamily = preferences[PreferencesKeys.FONT_FAMILY] ?: "DEFAULT"
+            val privacyMode = preferences[PreferencesKeys.PRIVACY_MODE] ?: false
 
             UserPreferences(
                 currency, theme, primaryColor, kbBgColor, kbBoxColor, 
                 useDynamicColor, useBiometrics, threshold, summaryEnabled, 
-                summaryTime, useTrueBlack, fontFamily
+                summaryTime, useTrueBlack, fontFamily, privacyMode
             )
         }
 
@@ -141,6 +144,12 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun updateFontFamily(font: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.FONT_FAMILY] = font
+        }
+    }
+
+    suspend fun updatePrivacyMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PRIVACY_MODE] = enabled
         }
     }
 }
