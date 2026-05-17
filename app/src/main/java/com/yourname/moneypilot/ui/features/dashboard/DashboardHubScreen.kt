@@ -51,7 +51,6 @@ fun DashboardHubScreen(
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                // #1: Added statusBarsPadding() back so navigation is visible under status bar
                 Column(modifier = Modifier.statusBarsPadding()) {
                     Row(
                         modifier = Modifier
@@ -156,13 +155,16 @@ fun DashboardHubScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { onAddTransaction(LocalDate.now()) },
+                onClick = { 
+                    // Use the selected date (from calendar or today)
+                    onAddTransaction(hubState.selectedDate) 
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
                 modifier = Modifier
                     .testTag("fab_add_transaction")
-                    .padding(bottom = 16.dp) // Standard padding from screen edge
+                    .padding(bottom = 16.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
@@ -171,11 +173,17 @@ fun DashboardHubScreen(
         Box(modifier = Modifier.padding(padding)) {
             when (selectedTabIndex) {
                 0 -> TransactionsScreen(
+                    currentMonth = hubState.currentMonth,
                     showSearchBar = false,
-                    onAddTransaction = { onAddTransaction(LocalDate.now()) },
+                    onAddTransaction = { onAddTransaction(hubState.selectedDate) },
                     onEditTransaction = onEditTransaction
                 )
-                1 -> CalendarScreen(currentMonth = hubState.currentMonth, onAddTransaction = onAddTransaction)
+                1 -> CalendarScreen(
+                    currentMonth = hubState.currentMonth, 
+                    selectedDateOverride = hubState.selectedDate,
+                    onDateSelected = { viewModel.onDateSelected(it) },
+                    onAddTransaction = onAddTransaction
+                )
                 2 -> MonthlySummaryTab(hubState, currencySymbol)
                 3 -> YearlySummaryTab(hubState, currencySymbol)
                 4 -> TotalNetWorthTab(hubState, currencySymbol)
@@ -184,7 +192,7 @@ fun DashboardHubScreen(
     }
 }
 
-// ... (Rest of the file remains unchanged)
+// ... rest of the helper functions unchanged
 @Composable
 fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String) {
     val financeColors = LocalFinanceColors.current

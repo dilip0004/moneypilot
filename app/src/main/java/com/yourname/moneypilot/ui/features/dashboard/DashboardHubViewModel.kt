@@ -9,7 +9,7 @@ import com.yourname.moneypilot.data.repository.WalletRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.Year
@@ -25,7 +25,8 @@ data class DashboardHubState(
     val yearlyIncome: Double = 0.0,
     val yearlyExpense: Double = 0.0,
     val currentMonth: YearMonth = YearMonth.now(),
-    val currentYear: Year = Year.now()
+    val currentYear: Year = Year.now(),
+    val selectedDate: LocalDate = LocalDate.now()
 )
 
 @HiltViewModel
@@ -36,6 +37,7 @@ class DashboardHubViewModel @Inject constructor(
 
     private val _currentMonth = MutableStateFlow(YearMonth.now())
     private val _currentYear = MutableStateFlow(Year.now())
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
     
     private val _hubState = MutableStateFlow(DashboardHubState())
     val state: StateFlow<DashboardHubState> = _hubState.asStateFlow()
@@ -45,16 +47,15 @@ class DashboardHubViewModel @Inject constructor(
             combine(
                 walletRepository.getAllWallets(),
                 _currentMonth,
-                _currentYear
-            ) { wallets, month, year ->
-                Triple(wallets, month, year)
-            }.collect { (wallets, month, year) ->
-                updateTotals(wallets, month, year)
-            }
+                _currentYear,
+                _selectedDate
+            ) { wallets, month, year, selectedDate ->
+                updateTotals(wallets, month, year, selectedDate)
+            }.collect()
         }
     }
 
-    private suspend fun updateTotals(wallets: List<WalletEntity>, month: YearMonth, year: Year) {
+    private suspend fun updateTotals(wallets: List<WalletEntity>, month: YearMonth, year: Year, selectedDate: LocalDate) {
         // Monthly Totals
         val mStart = month.atDay(1).atStartOfDay()
         val mEnd = month.atEndOfMonth().atTime(LocalTime.MAX)
@@ -80,15 +81,26 @@ class DashboardHubViewModel @Inject constructor(
             yearlyIncome = yIncome,
             yearlyExpense = yExpense,
             currentMonth = month,
-            currentYear = year
+            currentYear = year,
+            selectedDate = selectedDate
         )
     }
 
     fun onMonthChange(month: YearMonth) {
         _currentMonth.value = month
+        // Reset selected date to 1st of that month if it's not the current month
+        if (month != YearMonth.now()) {
+            _selectedDate.value = month.atDay(1)
+        } else {
+            _selectedDate.value = LocalDate.now()
+        }
     }
 
     fun onYearChange(year: Year) {
         _currentYear.value = year
+    }
+
+    fun onDateSelected(date: LocalDate) {
+        _selectedDate.value = date
     }
 }

@@ -23,10 +23,12 @@ import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
+import java.time.YearMonth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
+    currentMonth: YearMonth = YearMonth.now(),
     showSearchBar: Boolean = true,
     onAddTransaction: () -> Unit,
     onEditTransaction: (String) -> Unit,
@@ -36,6 +38,11 @@ fun TransactionsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var walletExpanded by remember { mutableStateOf(false) }
     val currencySymbol = rememberCurrencySymbol()
+
+    // Sync current month from parent to ViewModel
+    LaunchedEffect(currentMonth) {
+        viewModel.updateMonth(currentMonth)
+    }
 
     LaunchedEffect(key1 = true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -148,7 +155,7 @@ fun TransactionsScreen(
                     }
                     is ScreenState.Empty -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(text = "No transactions found")
+                            Text(text = "No transactions for this period")
                         }
                     }
                 }
@@ -190,7 +197,7 @@ fun TransactionHistoryContent(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "$currencySymbol${grouped.dailyTotal}",
+                        text = "$currencySymbol${String.format("%.2f", grouped.dailyTotal)}",
                         style = MaterialTheme.typography.labelMedium,
                         color = if (grouped.dailyTotal >= 0) financeColors.income else financeColors.expense
                     )

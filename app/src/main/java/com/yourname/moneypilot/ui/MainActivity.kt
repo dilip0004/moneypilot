@@ -68,7 +68,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Set initial loading state to avoid crash if auth takes time
+        // Set initial loading state
         setContent {
             MoneyPilotTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -89,21 +89,23 @@ class MainActivity : AppCompatActivity() {
                 val hasPin = securityPreferences.isPinSet()
                 val isFromWidget = intent?.action == "ACTION_ADD_TRANSACTION"
 
-                if (!isRunningUiTest() && hasPin && !isFromWidget) {
+                if (hasPin && !isFromWidget && !isRunningUiTest()) {
                     val biometricManager = BiometricManager.from(this@MainActivity)
                     val canAuth = biometricManager.canAuthenticate(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
 
                     if (preferences.useBiometrics && canAuth == BiometricManager.BIOMETRIC_SUCCESS) {
                         showBiometricPrompt()
                     } else {
+                        // If biometrics disabled or unavailable, but PIN exists -> Show PIN screen
                         showPinAuthScreen()
                     }
                 } else {
+                    // No PIN set or coming from Widget -> Proceed
                     proceedToContent()
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Auth flow failed")
-                proceedToContent() // Fallback to content on error
+                proceedToContent()
             }
         }
     }
@@ -114,10 +116,13 @@ class MainActivity : AppCompatActivity() {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
+                    // If user cancels biometric or hits "Negative Button" (Use PIN), fall back to PIN screen
+                    if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || 
+                        errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                        errorCode == BiometricPrompt.ERROR_LOCKOUT) {
                         showPinAuthScreen()
-                    } else if (errorCode != BiometricPrompt.ERROR_USER_CANCELED) {
-                        finish()
+                    } else {
+                        finish() // Critical error
                     }
                 }
 
@@ -125,12 +130,17 @@ class MainActivity : AppCompatActivity() {
                     super.onAuthenticationSucceeded(result)
                     proceedToContent()
                 }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    // Biometric failed (e.g., wrong finger), system usually allows retries
+                }
             })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("MoneyPilot")
-            .setSubtitle("Authenticate to continue")
-            .setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)
+            .setSubtitle("Unlock your financial data")
+            .setAllowedAuthenticators(BIOMETRIC_STRONG) // Remove DEVICE_CREDENTIAL here to force our custom PIN fallback
             .setNegativeButtonText("Use PIN")
             .build()
 

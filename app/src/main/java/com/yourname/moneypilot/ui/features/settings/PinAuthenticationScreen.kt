@@ -1,11 +1,13 @@
 package com.yourname.moneypilot.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,16 @@ fun PinAuthenticationScreen(
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
+    val verifyAndProceed = {
+        if (pin.length == 4 || pin.length == 6) {
+            viewModel.verifyPin(pin) { success ->
+                if (success) onSuccess() else error = "Incorrect PIN"
+            }
+        } else {
+            error = "PIN must be 4 or 6 digits"
+        }
+    }
+
     Dialog(
         onDismissRequest = onCancel,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -48,10 +60,19 @@ fun PinAuthenticationScreen(
 
                 OutlinedTextField(
                     value = pin,
-                    onValueChange = { if (it.length <= 6) pin = it },
+                    onValueChange = { 
+                        if (it.length <= 6) pin = it 
+                        if (error != null) error = null // Clear error on change
+                    },
                     label = { Text("PIN") },
                     visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.NumberPassword,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { verifyAndProceed() }
+                    ),
                     isError = error != null,
                     supportingText = { error?.let { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
@@ -64,20 +85,12 @@ fun PinAuthenticationScreen(
                     Button(
                         onClick = onCancel,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
                     ) {
                         Text("Cancel")
                     }
                     Button(
-                        onClick = {
-                            if (pin.length == 4 || pin.length == 6) {
-                                viewModel.verifyPin(pin) { success ->
-                                    if (success) onSuccess() else error = "Incorrect PIN"
-                                }
-                            } else {
-                                error = "PIN must be 4 or 6 digits"
-                            }
-                        },
+                        onClick = { verifyAndProceed() },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Unlock")

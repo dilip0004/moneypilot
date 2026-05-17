@@ -7,9 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.common.CompactTransactionItem
-import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.LocalDate
 import java.time.YearMonth
@@ -36,6 +32,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun CalendarScreen(
     currentMonth: YearMonth,
+    selectedDateOverride: LocalDate? = null,
+    onDateSelected: (LocalDate) -> Unit,
     onAddTransaction: (LocalDate) -> Unit,
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
@@ -44,6 +42,10 @@ fun CalendarScreen(
     LaunchedEffect(currentMonth) {
         viewModel.onMonthChange(currentMonth)
     }
+    
+    LaunchedEffect(selectedDateOverride) {
+        selectedDateOverride?.let { viewModel.onDateSelected(it) }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -51,8 +53,6 @@ fun CalendarScreen(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // REMOVED: Top Monthly TotalsRow (Redundant with Dashboard Hub)
-
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -63,7 +63,7 @@ fun CalendarScreen(
                         currentMonth = calendarState.currentMonth,
                         dailySummaries = calendarState.dailySummaries,
                         selectedDate = calendarState.selectedDate,
-                        onDateSelected = { viewModel.onDateSelected(it) }
+                        onDateSelected = onDateSelected
                     )
                 }
             }
@@ -79,7 +79,6 @@ fun CalendarScreen(
             )
         }
 
-        // Daily totals for selected date
         item {
             val selSummary = calendarState.dailySummaries[calendarState.selectedDate]
             val income = selSummary?.totalIncome ?: 0.0
@@ -127,7 +126,7 @@ fun CalendarGrid(
     onDateSelected: (LocalDate) -> Unit
 ) {
     val daysInMonth = currentMonth.lengthOfMonth()
-    val firstDayOfMonth = currentMonth.atDay(1).dayOfWeek.value % 7
+    val firstDayOfMonth = currentMonth.atDay(1).dayOfWeek.value % 7 // 0=Sun, 1=Mon...
     val weekDays = listOf("S", "M", "T", "W", "T", "F", "S")
     
     val maxMonthExpense = remember(dailySummaries) {
@@ -150,29 +149,31 @@ fun CalendarGrid(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        val totalGridCells = (daysInMonth + firstDayOfMonth + 6) / 7 * 7
-        val gridItems = List(totalGridCells) { index ->
-            val dayNumber = index - firstDayOfMonth + 1
-            if (dayNumber in 1..daysInMonth) currentMonth.atDay(dayNumber) else null
-        }
+        // Dynamic Row Calculation
+        val totalCellsNeeded = firstDayOfMonth + daysInMonth
+        val numRows = (totalCellsNeeded + 6) / 7
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(7),
-            modifier = Modifier.height(240.dp),
-            userScrollEnabled = false
-        ) {
-            items(gridItems) { date ->
-                if (date != null) {
-                    CalendarCell(
-                        date = date,
-                        summary = dailySummaries[date],
-                        maxMonthExpense = maxMonthExpense,
-                        isSelected = date == selectedDate,
-                        isToday = date == LocalDate.now(),
-                        onClick = { onDateSelected(date) }
-                    )
-                } else {
-                    Box(modifier = Modifier.aspectRatio(1f))
+        repeat(numRows) { rowIndex ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                repeat(7) { colIndex ->
+                    val cellIndex = rowIndex * 7 + colIndex
+                    val dayNumber = cellIndex - firstDayOfMonth + 1
+                    
+                    if (dayNumber in 1..daysInMonth) {
+                        val date = currentMonth.atDay(dayNumber)
+                        Box(modifier = Modifier.weight(1f)) {
+                            CalendarCell(
+                                date = date,
+                                summary = dailySummaries[date],
+                                maxMonthExpense = maxMonthExpense,
+                                isSelected = date == selectedDate,
+                                isToday = date == LocalDate.now(),
+                                onClick = { onDateSelected(date) }
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }

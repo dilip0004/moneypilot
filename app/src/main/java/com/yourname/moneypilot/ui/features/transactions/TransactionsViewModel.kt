@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
@@ -29,7 +30,8 @@ data class TransactionsState(
     val groupedTransactions: List<GroupedTransactions> = emptyList(),
     val searchQuery: String = "",
     val selectedWalletId: Long? = null,
-    val wallets: List<com.yourname.moneypilot.data.local.database.entities.WalletEntity> = emptyList()
+    val wallets: List<com.yourname.moneypilot.data.local.database.entities.WalletEntity> = emptyList(),
+    val currentMonth: YearMonth = YearMonth.now()
 )
 
 @HiltViewModel
@@ -40,6 +42,7 @@ class TransactionsViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     private val _selectedWalletId = MutableStateFlow<Long?>(null)
+    private val _currentMonth = MutableStateFlow(YearMonth.now())
     private var lastDeletedTransaction: TransactionEntity? = null
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
@@ -55,17 +58,9 @@ class TransactionsViewModel @Inject constructor(
 
     private fun loadWalletsAndTransactions() {
         viewModelScope.launch {
-            // Load wallets first
+            // Load wallets
             walletRepository.getAllWallets().collect { wallets ->
-                _uiState.value = (_uiState.value as? ScreenState.Success)?.let {
-                    it.copy(data = (it.data as TransactionsState).copy(wallets = wallets))
-                } ?: ScreenState.Success(TransactionsState(wallets = wallets))
-
-                // Auto-select primary wallet if none selected
-                if (_selectedWalletId.value == null) {
-                    val primary = wallets.find { it.isPrimary }?.id ?: wallets.firstOrNull()?.id
-                    primary?.let { onWalletSelected(it) }
-                }
+                _uiState.updateSuccess { it.copy(wallets = wallets) }
             }
         }
 
@@ -73,18 +68,27 @@ class TransactionsViewModel @Inject constructor(
             combine(
                 transactionRepository.getAllTransactionsWithDetails(),
                 _searchQuery,
-                _selectedWalletId
-            ) { transactions, query, walletId ->
-                // Filter by wallet if selected
-                val walletFiltered = if (walletId != null) {
-                    transactions.filter {
+                _selectedWalletId,
+                _currentMonth
+            ) { transactions, query, walletId, month ->
+                
+                // 1. Filter by Month/Year
+                val monthFiltered = transactions.filter {
+                    val txDate = it.transaction.dateTime.toLocalDate()
+                    txDate.year == month.year && txDate.month == month.month
+                }
+
+                // 2. Filter by wallet if selected
+                val walletFiltered = if (walletId != null && walletId != -1L) {
+                    monthFiltered.filter {
                         it.transaction.walletFromId == walletId ||
                                 it.transaction.walletToId == walletId
                     }
                 } else {
-                    transactions
+                    monthFiltered
                 }
 
+                // 3. Filter by Search Query
                 val filtered = if (query.isBlank()) walletFiltered
                 else walletFiltered.filter {
                     it.transaction.note?.contains(query, ignoreCase = true) == true ||
@@ -94,7 +98,11 @@ class TransactionsViewModel @Inject constructor(
                 val grouped = filtered.groupBy { it.transaction.dateTime.toLocalDate() }
                     .map { (date, items) ->
                         val total = items.sumOf {
-                            if (it.transaction.type == TransactionType.Expense) -it.transaction.amount else it.transaction.amount
+                            when (it.transaction.type) {
+                                TransactionType.Expense -> -it.transaction.amount
+                                TransactionType.Income -> it.transaction.amount
+                                TransactionType.Transfer -> 0.0 // Transfers don't change net total usually, or handle as needed
+                            }
                         }
                         GroupedTransactions(
                             dateLabel = getRelativeDateLabel(date),
@@ -105,12 +113,18 @@ class TransactionsViewModel @Inject constructor(
                     }
                     .sortedByDescending { it.date }
 
-                TransactionsState(grouped, query, walletId, (_uiState.value as? ScreenState.Success)?.data?.wallets ?: emptyList())
+                TransactionsState(
+                    groupedTransactions = grouped,
+                    searchQuery = query,
+                    selectedWalletId = walletId,
+                    wallets = (_uiState.value as? ScreenState.Success)?.data?.wallets ?: emptyList(),
+                    currentMonth = month
+                )
             }.collect { state ->
-                if (state.groupedTransactions.isEmpty() && state.searchQuery.isBlank()) {
-                    _uiState.value = ScreenState.Empty
+                _uiState.value = if (state.groupedTransactions.isEmpty() && state.searchQuery.isBlank()) {
+                    ScreenState.Empty
                 } else {
-                    _uiState.value = ScreenState.Success(state)
+                    ScreenState.Success(state)
                 }
             }
         }
@@ -123,6 +137,10 @@ class TransactionsViewModel @Inject constructor(
             today.minusDays(1) -> "Yesterday"
             else -> date.format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy"))
         }
+    }
+
+    fun updateMonth(month: YearMonth) {
+        _currentMonth.value = month
     }
 
     fun onSearchQueryChange(query: String) {
@@ -147,6 +165,16 @@ class TransactionsViewModel @Inject constructor(
                 transactionRepository.insertTransaction(it)
                 lastDeletedTransaction = null
             }
+        }
+    }
+    
+    // Helper to update Success state safely
+    private fun MutableStateFlow<ScreenState<TransactionsState>>.updateSuccess(
+        transform: (TransactionsState) -> TransactionsState
+    ) {
+        val current = value
+        if (current is ScreenState.Success) {
+            value = ScreenState.Success(transform(current.data))
         }
     }
 }
