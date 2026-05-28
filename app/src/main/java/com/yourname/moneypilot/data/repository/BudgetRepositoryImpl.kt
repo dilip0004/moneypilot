@@ -13,9 +13,11 @@ import javax.inject.Inject
 
 class BudgetRepositoryImpl @Inject constructor(
     private val budgetDao: BudgetDao,
-    private val transactionDao: TransactionDao // Injected for calculating spent amounts
+    private val transactionDao: TransactionDao
 ) : BudgetRepository {
     override fun getAllBudgets(): Flow<List<BudgetEntity>> = budgetDao.getAllBudgets()
+
+    override suspend fun getAllBudgetsList(): List<BudgetEntity> = budgetDao.getAllBudgetsList()
 
     override fun getActiveBudgets(date: LocalDate): Flow<List<BudgetEntity>> = budgetDao.getActiveBudgets(date)
 
@@ -41,13 +43,12 @@ class BudgetRepositoryImpl @Inject constructor(
             val spent = transactionDao.getCategoryExpenseSum(budget.categoryId, budget.startDate.atStartOfDay(), budget.endDate.atTime(LocalTime.MAX)) ?: 0.0
             val leftover = budget.amount - spent
 
-            // Create a new budget for the next period with the adjusted amount
             val newBudget = budget.copy(
-                id = 0, // Auto-generate new primary key
+                id = 0,
                 startDate = to,
                 endDate = to.plusMonths(1).minusDays(1),
-                amount = budget.amount + leftover, // Carry over the leftover amount
-                spentAmount = 0.0 // Reset spent amount for the new period
+                amount = budget.amount + leftover,
+                spentAmount = 0.0
             )
             budgetDao.insert(newBudget)
         }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -19,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.dao.BudgetWithDetails
+import com.yourname.moneypilot.domain.usecase.budget.AdvisoryType
+import com.yourname.moneypilot.domain.usecase.budget.BudgetAdvisory
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
@@ -55,6 +58,21 @@ fun BudgetsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
                     ) {
+                        // Section 3.6 Compliance: Advisory Planning
+                        if (state.data.advisories.isNotEmpty()) {
+                            item {
+                                Text("Planning Insights", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                            items(state.data.advisories) { advisory ->
+                                BudgetAdvisoryCard(advisory, isPrivacyMode)
+                            }
+                            item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+                        }
+
+                        item {
+                            Text("Active Budgets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+
                         items(state.data.budgets) { budgetDetails ->
                             BudgetItem(budgetDetails, isPrivacyMode)
                         }
@@ -68,6 +86,38 @@ fun BudgetsScreen(
                         Text(text = "No budgets set for this month")
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun BudgetAdvisoryCard(advisory: BudgetAdvisory, isPrivacyMode: Boolean) {
+    val colors = LocalFinanceColors.current
+    val cardColor = when(advisory.type) {
+        AdvisoryType.OPTIMIZE -> Color(0xFF00A36C).copy(alpha = 0.1f)
+        AdvisoryType.INCREASE -> colors.warning.copy(alpha = 0.1f)
+        AdvisoryType.CAUTION -> colors.expense.copy(alpha = 0.1f)
+    }
+    val iconColor = when(advisory.type) {
+        AdvisoryType.OPTIMIZE -> Color(0xFF00A36C)
+        AdvisoryType.INCREASE -> colors.warning
+        AdvisoryType.CAUTION -> colors.expense
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        border = androidx.compose.foundation.BorderStroke(1.dp, iconColor.copy(alpha = 0.3f))
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoAwesome, null, tint = iconColor, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(advisory.categoryName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(advisory.reason, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(4.dp))
+                val suggestion = if(isPrivacyMode) "••••" else "₹${advisory.suggestedLimit.toInt()}"
+                Text("Suggested limit: $suggestion", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = iconColor)
             }
         }
     }
@@ -146,8 +196,8 @@ fun BudgetItem(budgetDetails: BudgetWithDetails, isPrivacyMode: Boolean) {
             Spacer(modifier = Modifier.height(12.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                val displaySpent = if(isPrivacyMode) "••••" else "₹${budget.spentAmount}"
-                val displayLimit = if(isPrivacyMode) "••••" else "₹${budget.amount}"
+                val displaySpent = if(isPrivacyMode) "••••" else "₹${budget.spentAmount.toInt()}"
+                val displayLimit = if(isPrivacyMode) "••••" else "₹${budget.amount.toInt()}"
                 
                 Text(
                     text = "$displaySpent spent",

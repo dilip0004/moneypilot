@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
 import com.yourname.moneypilot.domain.model.CsvColumnMapping
+import com.yourname.moneypilot.domain.model.ImportedTransaction
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,7 +69,7 @@ fun BankImportScreen(
             if (state.importSuccessCount != null) {
                 ImportSuccessView(state.importSuccessCount!!, onPopBackStack)
             } else {
-                if (state.importedTransactions.isEmpty()) {
+                if (state.importedTransactions.isEmpty() && !state.isLoading) {
                     Button(
                         onClick = { filePickerLauncher.launch("*/*") },
                         modifier = Modifier.fillMaxWidth(),
@@ -140,7 +141,7 @@ fun MappingConfigSection(mapping: CsvColumnMapping, onMappingChange: (CsvColumnM
 
 @Composable
 fun MappingChip(label: String, index: Int, onIndexChange: (Int) -> Unit) {
-    var text by remember { mutableStateOf(if (index == -1) "" else index.toString()) }
+    var text by remember(index) { mutableStateOf(if (index == -1) "" else index.toString()) }
     OutlinedTextField(
         value = text,
         onValueChange = { 
@@ -157,7 +158,7 @@ fun MappingChip(label: String, index: Int, onIndexChange: (Int) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportedTransactionItem(
-    tx: com.yourname.moneypilot.domain.model.ImportedTransaction, 
+    tx: ImportedTransaction, 
     categories: List<CategoryEntity>,
     onToggle: () -> Unit,
     onCategorySelect: (Long) -> Unit
@@ -218,7 +219,7 @@ fun ImportedTransactionItem(
                         label = { Text("Category") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
+                        textStyle = MaterialTheme.typography.bodySmall
                     )
                     ExposedDropdownMenu(expanded = expandedCategory, onDismissRequest = { expandedCategory = false }) {
                         categories.forEach { category ->
@@ -271,7 +272,7 @@ fun WalletSelector(
             label = { Text("Import To Wallet") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+            textStyle = MaterialTheme.typography.bodyMedium
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             wallets.forEach { wallet ->

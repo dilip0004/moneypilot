@@ -20,40 +20,54 @@ data class AggregatedReportData(
 class GetReportDataUseCase @Inject constructor(
     private val transactionRepository: TransactionRepository
 ) {
+    /**
+     * Section 4.0: Accounting Doctrine Compliance.
+     * Section 5.3: Credit Card Model (Refund -> Reverse original expense).
+     * 
+     * This UseCase treats "Refunds" as negative expenses to ensure they don't inflate
+     * income metrics but correctly reduce consumption totals.
+     */
     operator fun invoke(
         start: LocalDateTime,
         end: LocalDateTime,
         reportType: ReportType
     ): Flow<AggregatedReportData> {
         return transactionRepository.getTransactionsWithDetailsByDateRange(start, end).map { transactions ->
-            val nonTransfer = transactions.filter { it.transaction.type != TransactionType.Transfer }
             
-            val incomeSum = nonTransfer.filter { it.transaction.type == TransactionType.Income }.sumOf { it.transaction.amount }
-            val expenseSum = nonTransfer.filter { it.transaction.type == TransactionType.Expense }.sumOf { it.transaction.amount }
+            val totalInflow = transactions.filter { 
+                it.transaction.type == TransactionType.Income && !it.transaction.isRefund 
+            }.sumOf { it.transaction.amount }
+
+            // Consumption = sum of Expenses - sum of Refunds (negative impact)
+            val consumptionSum = transactions.filter { it.transaction.type == TransactionType.Expense }.sumOf { 
+                if (it.transaction.isRefund) -it.transaction.amount else it.transaction.amount
+            }
             
-            // In v5, we simplify outflow to just expenses for now
-            val totalOutflow = expenseSum
+            val totalOutflow = consumptionSum
 
             val totalDisplay = when (reportType) {
-                ReportType.INCOME -> incomeSum
-                ReportType.EXPENSE -> expenseSum
-                ReportType.CASH_FLOW -> incomeSum - totalOutflow
+                ReportType.INCOME -> totalInflow
+                ReportType.EXPENSE -> consumptionSum
+                ReportType.CASH_FLOW -> totalInflow - consumptionSum
             }
 
             val listFiltered = when (reportType) {
-                ReportType.INCOME -> nonTransfer.filter { it.transaction.type == TransactionType.Income }
-                ReportType.EXPENSE -> nonTransfer.filter { it.transaction.type == TransactionType.Expense }
-                ReportType.CASH_FLOW -> nonTransfer // Show all for cash flow context
+                ReportType.INCOME -> transactions.filter { it.transaction.type == TransactionType.Income && !it.transaction.isRefund }
+                ReportType.EXPENSE -> transactions.filter { it.transaction.type == TransactionType.Expense }
+                ReportType.CASH_FLOW -> transactions.filter { it.transaction.type != TransactionType.Transfer }
             }
 
             val ranks = listFiltered
                 .groupBy { it.transaction.categoryId }
                 .map { (id, items) ->
-                    val sum = items.sumOf { it.transaction.amount }
+                    val sum = items.sumOf { 
+                        if (it.transaction.type == TransactionType.Expense && it.transaction.isRefund) -it.transaction.amount 
+                        else it.transaction.amount 
+                    }
                     val denom = when (reportType) {
-                        ReportType.INCOME -> incomeSum
-                        ReportType.EXPENSE -> expenseSum
-                        ReportType.CASH_FLOW -> totalOutflow
+                        ReportType.INCOME -> totalInflow
+                        ReportType.EXPENSE -> consumptionSum
+                        ReportType.CASH_FLOW -> consumptionSum
                     }
                     CategoryRank(
                         categoryId = id,
@@ -63,6 +77,7 @@ class GetReportDataUseCase @Inject constructor(
                         percentage = if (denom > 0) (sum / denom).toFloat() else 0f
                     )
                 }
+                .filter { it.amount != 0.0 }
                 .sortedByDescending { it.amount }
 
             AggregatedReportData(

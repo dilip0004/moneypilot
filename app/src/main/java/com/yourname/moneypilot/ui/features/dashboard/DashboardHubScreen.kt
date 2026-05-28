@@ -204,7 +204,94 @@ fun DashboardHubScreen(
     }
 }
 
-// ... rest of the file helper functions stay the same
+@Composable
+fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String, isPrivacyMode: Boolean) {
+    val financeColors = LocalFinanceColors.current
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Text("Net Worth Overview", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+
+        // Section 7.0 Breakdown Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Total Net Worth", style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        text = if(isPrivacyMode) "••••" else "$currencySymbol ${state.totalNetWorth.toInt()}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (state.totalNetWorth >= 0) financeColors.income else financeColors.expense
+                    )
+                    
+                    Spacer(Modifier.height(24.dp))
+                    
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Total Assets", style = MaterialTheme.typography.labelSmall, color = financeColors.income)
+                            Text(
+                                if(isPrivacyMode) "••••" else "$currencySymbol ${state.totalAssets.toInt()}", 
+                                fontWeight = FontWeight.Bold,
+                                color = financeColors.income
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Total Liabilities", style = MaterialTheme.typography.labelSmall, color = financeColors.expense)
+                            Text(
+                                if(isPrivacyMode) "••••" else "$currencySymbol ${state.totalLiabilities.toInt()}", 
+                                fontWeight = FontWeight.Bold,
+                                color = financeColors.expense
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item { Text("Wallet Assets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
+
+        items(state.wallets) { wallet ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = Color(wallet.color).copy(alpha = 0.2f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(wallet.icon, fontSize = 20.sp)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(wallet.name, fontWeight = FontWeight.Bold)
+                            Text(wallet.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    val isLiability = wallet.type == "CREDIT" || wallet.type == "CREDIT_CARD"
+                    Text(
+                        if(isPrivacyMode) "••••" else "$currencySymbol ${wallet.currentBalance}", 
+                        fontWeight = FontWeight.ExtraBold, 
+                        color = if (isLiability) financeColors.expense else financeColors.income
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun YearlySummaryTab(state: DashboardHubState, currencySymbol: String, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
@@ -306,50 +393,6 @@ fun MetricCard(label: String, value: String, color: Color, modifier: Modifier = 
         ) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.8f))
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = color)
-        }
-    }
-}
-
-@Composable
-fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String, isPrivacyMode: Boolean) {
-    val financeColors = LocalFinanceColors.current
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text("Net Worth", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(if(isPrivacyMode) "••••" else "$currencySymbol ${state.totalBalance}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold, color = if (state.totalBalance >= 0) financeColors.income else financeColors.expense)
-        }
-        item { Spacer(modifier = Modifier.height(8.dp)) }
-        item { Text("Your Wallets", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-
-        items(state.wallets) { wallet ->
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            modifier = Modifier.size(40.dp),
-                            shape = CircleShape,
-                            color = Color(wallet.color).copy(alpha = 0.2f)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(wallet.icon, fontSize = 20.sp)
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(wallet.name, fontWeight = FontWeight.Bold)
-                            Text(wallet.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Text(if(isPrivacyMode) "••••" else "$currencySymbol ${wallet.currentBalance}", fontWeight = FontWeight.ExtraBold, color = if (wallet.currentBalance >= 0) financeColors.income else financeColors.expense)
-                }
-            }
         }
     }
 }

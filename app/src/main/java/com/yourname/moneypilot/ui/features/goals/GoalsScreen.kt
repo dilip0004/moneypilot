@@ -159,9 +159,11 @@ fun GoalItem(
     onContribute: () -> Unit,
     onWithdraw: () -> Unit
 ) {
-    val targetProgress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
+    // Section 16.0 Compliance: Handle goal overshoot by clamping progress bar only, while showing real amount
+    val rawProgress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
+    val targetProgress = rawProgress.coerceIn(0f, 1f)
     val animatedProgress by animateFloatAsState(
-        targetValue = targetProgress.coerceAtMost(1f),
+        targetValue = targetProgress,
         label = "goal_progress_animation"
     )
 
@@ -200,9 +202,9 @@ fun GoalItem(
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "${(targetProgress * 100).toInt()}%",
+                        text = "${(rawProgress * 100).toInt()}%",
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (goal.status == "COMPLETED") Color(0xFF00A36C) else MaterialTheme.colorScheme.primary,
+                        color = if (goal.status == "COMPLETED" || rawProgress >= 1f) Color(0xFF00A36C) else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.testTag("goal_progress_${goal.id}")
                     )
                     IconButton(onClick = onEditGoal) {
@@ -217,7 +219,7 @@ fun GoalItem(
                 progress = { animatedProgress },
                 modifier = Modifier.fillMaxWidth().height(10.dp).testTag("goal_progress_bar_${goal.id}"),
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                color = if (goal.status == "COMPLETED") Color(0xFF00A36C) else MaterialTheme.colorScheme.primary,
+                color = if (goal.status == "COMPLETED" || rawProgress >= 1f) Color(0xFF00A36C) else MaterialTheme.colorScheme.primary,
                 strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
             )
 

@@ -23,13 +23,19 @@ data class AddEditTransactionState(
     val loanId: Long? = null,
     val goalId: Long? = null,
     val investmentId: Long? = null,
+    val isInterestPosting: Boolean = false,
+    val isRefund: Boolean = false,
     val date: LocalDateTime = LocalDateTime.now(),
+    val isDateConfirmed: Boolean = false,
+    val reviewMode: Boolean = false,
     val wallets: List<WalletEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
     val subcategories: List<SubcategoryEntity> = emptyList(),
     val loans: List<LoanEntity> = emptyList(),
     val goals: List<GoalEntity> = emptyList(),
     val investments: List<InvestmentEntity> = emptyList(),
+    val availableTags: List<TagEntity> = emptyList(),
+    val selectedTagIds: Set<Long> = emptySet(),
     val isEditing: Boolean = false
 )
 
@@ -43,7 +49,12 @@ sealed class AddEditTransactionEvent {
     data class LoanChanged(val value: Long?) : AddEditTransactionEvent()
     data class GoalChanged(val value: Long?) : AddEditTransactionEvent()
     data class InvestmentChanged(val value: Long?) : AddEditTransactionEvent()
+    data class ToggleInterestPosting(val value: Boolean) : AddEditTransactionEvent()
+    data class ToggleRefund(val value: Boolean) : AddEditTransactionEvent()
+    data class ToggleTag(val tagId: Long) : AddEditTransactionEvent()
     data class DateChanged(val value: LocalDateTime) : AddEditTransactionEvent()
+    object ConfirmDate : AddEditTransactionEvent()
+    object AcceptSmsReview : AddEditTransactionEvent()
     object SaveTransaction : AddEditTransactionEvent()
 }
 
@@ -77,14 +88,17 @@ class AddEditTransactionViewModel @Inject constructor(
         viewModelScope.launch {
             categoryRepository.seedDefaults()
             val transactionId = savedStateHandle.get<String>("transactionId")
+            val fromSms = savedStateHandle.get<Boolean>("fromSms") ?: false
             
-            // 1. Load basic dependencies
             loadStaticData()
 
-            // 2. Load existing transaction if editing
             if (transactionId != null) {
                 transactionRepository.getTransactionById(transactionId)?.let { transaction ->
                     currentTransactionId = transaction.id
+                    
+                    // Load existing tags
+                    val existingTags = transactionRepository.getTagsForTransaction(transaction.id).first()
+                    
                     _state.update { it.copy(
                         description = transaction.note ?: "",
                         amount = transaction.amount.toString(),
@@ -95,7 +109,11 @@ class AddEditTransactionViewModel @Inject constructor(
                         loanId = transaction.loanId,
                         goalId = transaction.goalId,
                         investmentId = transaction.investmentId,
+                        isInterestPosting = transaction.transactionSourceType == "INTEREST_POSTING",
+                        isRefund = transaction.isRefund,
                         date = transaction.dateTime,
+                        selectedTagIds = existingTags.map { t -> t.id }.toSet(),
+                        isDateConfirmed = true,
                         isEditing = true
                     ) }
                     _typeFlow.value = transaction.type
@@ -103,9 +121,11 @@ class AddEditTransactionViewModel @Inject constructor(
                 }
             } else {
                 _typeFlow.value = TransactionType.Expense
+                if (fromSms) {
+                    _state.update { it.copy(reviewMode = true) }
+                }
             }
 
-            // 3. Start reactive category flow AFTER initial load
             observeCategories()
         }
     }
@@ -129,6 +149,10 @@ class AddEditTransactionViewModel @Inject constructor(
         investmentRepository.getAllInvestments().onEach { investments ->
             _state.update { it.copy(investments = investments) }
         }.launchIn(viewModelScope)
+        
+        transactionRepository.getAllTags().onEach { tags ->
+            _state.update { it.copy(availableTags = tags) }
+        }.launchIn(viewModelScope)
     }
 
     private fun observeCategories() {
@@ -137,7 +161,6 @@ class AddEditTransactionViewModel @Inject constructor(
                 categoryRepository.getCategoriesByType(if (type == TransactionType.Transfer) "EXPENSE" else type.name.uppercase())
             }.collect { categories ->
                 _state.update { s ->
-                    // If we just changed type manually, the current categoryId might not belong to this new type
                     val categoryStillValid = categories.any { it.id == s.categoryId }
                     val newId = if (categoryStillValid) s.categoryId else categories.firstOrNull()?.id
                     
@@ -158,7 +181,7 @@ class AddEditTransactionViewModel @Inject constructor(
             is AddEditTransactionEvent.EnteredAmount -> _state.update { it.copy(amount = event.value) }
             is AddEditTransactionEvent.TypeChanged -> {
                 _typeFlow.value = event.value
-                _state.update { it.copy(type = event.value, subcategoryId = null, goalId = null, investmentId = null) }
+                _state.update { it.copy(type = event.value, subcategoryId = null, goalId = null, investmentId = null, isRefund = false, isInterestPosting = false) }
             }
             is AddEditTransactionEvent.WalletChanged -> _state.update { it.copy(walletFromId = event.value) }
             is AddEditTransactionEvent.CategoryChanged -> {
@@ -166,10 +189,21 @@ class AddEditTransactionViewModel @Inject constructor(
                 loadSubcategories(event.value)
             }
             is AddEditTransactionEvent.SubcategoryChanged -> _state.update { it.copy(subcategoryId = event.value) }
-            is AddEditTransactionEvent.LoanChanged -> _state.update { it.copy(loanId = event.value) }
+            is AddEditTransactionEvent.LoanChanged -> _state.update { it.copy(loanId = event.value, isInterestPosting = false) }
             is AddEditTransactionEvent.GoalChanged -> _state.update { it.copy(goalId = event.value) }
             is AddEditTransactionEvent.InvestmentChanged -> _state.update { it.copy(investmentId = event.value) }
-            is AddEditTransactionEvent.DateChanged -> _state.update { it.copy(date = event.value) }
+            is AddEditTransactionEvent.ToggleInterestPosting -> _state.update { it.copy(isInterestPosting = event.value) }
+            is AddEditTransactionEvent.ToggleRefund -> _state.update { it.copy(isRefund = event.value) }
+            is AddEditTransactionEvent.ToggleTag -> {
+                _state.update { s ->
+                    val newTags = s.selectedTagIds.toMutableSet()
+                    if (newTags.contains(event.tagId)) newTags.remove(event.tagId) else newTags.add(event.tagId)
+                    s.copy(selectedTagIds = newTags)
+                }
+            }
+            is AddEditTransactionEvent.DateChanged -> _state.update { it.copy(date = event.value, isDateConfirmed = true) }
+            is AddEditTransactionEvent.ConfirmDate -> _state.update { it.copy(isDateConfirmed = true) }
+            is AddEditTransactionEvent.AcceptSmsReview -> _state.update { it.copy(reviewMode = false) }
             is AddEditTransactionEvent.SaveTransaction -> saveTransaction()
         }
     }
@@ -186,6 +220,17 @@ class AddEditTransactionViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentState = _state.value
+                
+                if (!currentState.isDateConfirmed) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Please confirm the transaction date."))
+                    return@launch
+                }
+                
+                if (currentState.reviewMode) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("Please accept the parsed data before saving."))
+                    return@launch
+                }
+
                 val amountValue = currentState.amount.toDoubleOrNull()
 
                 if (amountValue == null || amountValue <= 0) {
@@ -219,8 +264,10 @@ class AddEditTransactionViewModel @Inject constructor(
                     type = finalType,
                     amount = amountValue,
                     note = currentState.description,
+                    isRefund = currentState.isRefund,
                     dateTime = currentState.date,
                     transactionSourceType = when {
+                        currentState.isInterestPosting -> "INTEREST_POSTING"
                         currentState.loanId != null -> "LOAN_REPAYMENT"
                         currentState.goalId != null -> "GOAL_CONTRIBUTION"
                         currentState.investmentId != null -> "INVESTMENT_BUY"
@@ -228,7 +275,8 @@ class AddEditTransactionViewModel @Inject constructor(
                     }
                 )
 
-                saveTransactionUseCase(transaction, isEdit = currentTransactionId != null)
+                // Pass tag IDs to Use Case
+                saveTransactionUseCase(transaction, isEdit = currentTransactionId != null, tagIds = currentState.selectedTagIds.toList())
                 _eventFlow.emit(UiEvent.SaveTransaction)
             } catch (e: Exception) {
                 _eventFlow.emit(UiEvent.ShowSnackbar("Save failed: ${e.message}"))

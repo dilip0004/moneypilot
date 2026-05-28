@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.BigBillEntity
+import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.LocalDate
@@ -32,15 +33,18 @@ import kotlin.math.ceil
 fun BigBillsScreen(
     onAddBigBill: () -> Unit,
     onEditBigBill: (Long) -> Unit,
-    viewModel: BigBillsViewModel = hiltViewModel()
+    viewModel: BigBillsViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val preferences by mainViewModel.userPreferences.collectAsState()
+    val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
 
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddBigBill,
-                modifier = Modifier.navigationBarsPadding().testTag("big_bill_add_fab")
+                modifier = Modifier.testTag("big_bill_add_fab")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Big Bill")
             }
@@ -48,12 +52,11 @@ fun BigBillsScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (val state = uiState) {
-                is ScreenState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
+                is ScreenState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 is ScreenState.Success -> {
                     BigBillList(
                         state.data,
+                        isPrivacyMode = isPrivacyMode,
                         onMarkPaid = { viewModel.markAsPaid(it) },
                         onDelete = { viewModel.deleteBill(it) },
                         onEdit = onEditBigBill,
@@ -74,6 +77,7 @@ fun BigBillsScreen(
 @Composable
 fun BigBillList(
     data: BigBillsState,
+    isPrivacyMode: Boolean,
     onMarkPaid: (BigBillEntity) -> Unit,
     onDelete: (BigBillEntity) -> Unit,
     onEdit: (Long) -> Unit,
@@ -85,7 +89,7 @@ fun BigBillList(
         contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
     ) {
         item {
-            PendingBillsHeader(data.totalPendingAmount)
+            PendingBillsHeader(data.totalPendingAmount, isPrivacyMode)
         }
 
         if (data.unpaidBills.isNotEmpty()) {
@@ -95,6 +99,7 @@ fun BigBillList(
             items(data.unpaidBills) { bill ->
                 BigBillItem(
                     bill = bill,
+                    isPrivacyMode = isPrivacyMode,
                     onMarkPaid = onMarkPaid,
                     onDelete = onDelete,
                     onEdit = onEdit,
@@ -110,6 +115,7 @@ fun BigBillList(
             items(data.paidBills) { bill ->
                 BigBillItem(
                     bill = bill,
+                    isPrivacyMode = isPrivacyMode,
                     onMarkPaid = onMarkPaid,
                     onDelete = onDelete,
                     onEdit = onEdit,
@@ -121,7 +127,7 @@ fun BigBillList(
 }
 
 @Composable
-fun PendingBillsHeader(amount: Double) {
+fun PendingBillsHeader(amount: Double, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     val hasPending = amount > 0
     val statusColor = if (hasPending) financeColors.expense else financeColors.income
@@ -140,8 +146,9 @@ fun PendingBillsHeader(amount: Double) {
                 style = MaterialTheme.typography.labelMedium,
                 color = statusColor
             )
+            val displayAmount = if(isPrivacyMode) "••••" else "₹ $amount"
             Text(
-                text = "₹ $amount",
+                text = displayAmount,
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = statusColor,
@@ -154,6 +161,7 @@ fun PendingBillsHeader(amount: Double) {
 @Composable
 fun BigBillItem(
     bill: BigBillEntity,
+    isPrivacyMode: Boolean,
     onMarkPaid: (BigBillEntity) -> Unit,
     onDelete: (BigBillEntity) -> Unit,
     onEdit: (Long) -> Unit,
@@ -201,8 +209,9 @@ fun BigBillItem(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    val displayAmount = if(isPrivacyMode) "••••" else "₹ ${bill.amount}"
                     Text(
-                        text = "₹ ${bill.amount}",
+                        text = displayAmount,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else financeColors.expense,
                         modifier = Modifier.testTag("big_bill_amount_${bill.id}")
@@ -216,7 +225,6 @@ fun BigBillItem(
                 }
             }
 
-            // Auto-Reserve Calculation UI
             if (!bill.isPaid && bill.autoReserveFlag) {
                 val monthsRemaining = ChronoUnit.MONTHS.between(LocalDate.now(), bill.dueDate).coerceAtLeast(1)
                 val monthlyTarget = ceil(bill.amount / monthsRemaining)
@@ -234,21 +242,21 @@ fun BigBillItem(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Savings, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
+                        val reserveLabel = if(isPrivacyMode) "••••" else "₹ $monthlyTarget"
                         Text(
-                            text = "Reserve target: ₹ $monthlyTarget / month",
+                            text = "Reserve: $reserveLabel / month",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.testTag("big_bill_reserve_target_${bill.id}")
                         )
                     }
-                    // NEW: Button to create monthly transfer
                     Button(
                         onClick = { onCreateMonthlyTransfer(bill) },
                         modifier = Modifier.height(32.dp).testTag("big_bill_create_transfer_${bill.id}"),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Create Monthly Transfer", fontSize = 10.sp)
+                        Text("Reserve Now", fontSize = 10.sp)
                     }
                 }
             }

@@ -24,8 +24,9 @@ fun PlanningHubScreen(
     onAddBigBill: () -> Unit,
     onEditBigBill: (Long) -> Unit
 ) {
+    // Persist selected tab across navigation
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Distribution")
+    val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Forecast", "Simulate", "Distribution")
 
     Scaffold(
         topBar = {
@@ -70,7 +71,9 @@ fun PlanningHubScreen(
                     onAddBigBill = onAddBigBill,
                     onEditBigBill = onEditBigBill
                 )
-                4 -> DistributionScreen(
+                4 -> ForecastScreen()
+                5 -> WhatIfSimulationScreen()
+                6 -> DistributionScreen(
                     onPopBackStack = {}
                 )
             }

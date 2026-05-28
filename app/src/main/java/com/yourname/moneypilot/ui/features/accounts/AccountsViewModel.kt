@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.data.repository.TransactionRepository
 import com.yourname.moneypilot.data.repository.WalletRepository
+import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCase
 import com.yourname.moneypilot.ui.common.BaseViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,13 +16,15 @@ import javax.inject.Inject
 
 
 data class AccountsState(
-    val accounts: List<WalletEntity> = emptyList()
+    val accounts: List<WalletEntity> = emptyList(),
+    val mismatchedWalletIds: Set<Long> = emptySet()
 )
 
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
+    private val verifyLedgerIntegrityUseCase: VerifyLedgerIntegrityUseCase
 ) : BaseViewModel<AccountsState>() {
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
@@ -41,7 +44,16 @@ class AccountsViewModel @Inject constructor(
                 if (list.isEmpty()) {
                     _uiState.value = ScreenState.Empty
                 } else {
-                    _uiState.value = ScreenState.Success(AccountsState(list))
+                    // Section 9.0: Governance Integrity Audit for the Position Layer
+                    val mismatches = verifyLedgerIntegrityUseCase()
+                    val mismatchedIds = mismatches.map { it.walletId }.toSet()
+                    
+                    _uiState.value = ScreenState.Success(
+                        AccountsState(
+                            accounts = list,
+                            mismatchedWalletIds = mismatchedIds
+                        )
+                    )
                 }
             }
         }

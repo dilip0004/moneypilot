@@ -31,7 +31,11 @@ data class UserPreferences(
     val dailySummaryTime: String,
     val useTrueBlack: Boolean = false,
     val fontFamily: String = "DEFAULT",
-    val isPrivacyModeEnabled: Boolean = false
+    val isPrivacyModeEnabled: Boolean = false,
+    val includeGoalsInNetWorth: Boolean = true,
+    val lastRolloverMonth: String = "",
+    val lastDistributionMonth: String = "",
+    val lastAutoReserveMonth: String = ""
 )
 
 @Singleton
@@ -52,6 +56,10 @@ class UserPreferencesRepository @Inject constructor(
         val DAILY_SUMMARY_TIME = stringPreferencesKey("daily_summary_time")
         val FONT_FAMILY = stringPreferencesKey("font_family")
         val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
+        val INCLUDE_GOALS_NET_WORTH = booleanPreferencesKey("include_goals_net_worth")
+        val LAST_ROLLOVER_MONTH = stringPreferencesKey("last_rollover_month")
+        val LAST_DISTRIBUTION_MONTH = stringPreferencesKey("last_distribution_month")
+        val LAST_AUTO_RESERVE_MONTH = stringPreferencesKey("last_auto_reserve_month")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -78,78 +86,72 @@ class UserPreferencesRepository @Inject constructor(
             val summaryTime = preferences[PreferencesKeys.DAILY_SUMMARY_TIME] ?: "22:00"
             val fontFamily = preferences[PreferencesKeys.FONT_FAMILY] ?: "DEFAULT"
             val privacyMode = preferences[PreferencesKeys.PRIVACY_MODE] ?: false
+            val includeGoals = preferences[PreferencesKeys.INCLUDE_GOALS_NET_WORTH] ?: true
+            val lastRollover = preferences[PreferencesKeys.LAST_ROLLOVER_MONTH] ?: ""
+            val lastDist = preferences[PreferencesKeys.LAST_DISTRIBUTION_MONTH] ?: ""
+            val lastReserve = preferences[PreferencesKeys.LAST_AUTO_RESERVE_MONTH] ?: ""
 
             UserPreferences(
                 currency, theme, primaryColor, kbBgColor, kbBoxColor, 
                 useDynamicColor, useBiometrics, threshold, summaryEnabled, 
-                summaryTime, useTrueBlack, fontFamily, privacyMode
+                summaryTime, useTrueBlack, fontFamily, privacyMode, includeGoals,
+                lastRollover, lastDist, lastReserve
             )
         }
 
     suspend fun updateCurrency(currency: String) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.CURRENCY] = currency
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.CURRENCY] = currency }
     }
 
     suspend fun updateTheme(theme: AppTheme) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.THEME] = theme.name
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.THEME] = theme.name }
     }
 
     suspend fun updatePrimaryColor(color: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.PRIMARY_COLOR] = color
-        }
-    }
-
-    suspend fun updateKeyboardColors(bgColor: Int?, boxColor: Int?) {
-        context.dataStore.edit { preferences ->
-            if (bgColor != null) preferences[PreferencesKeys.KEYBOARD_BG_COLOR] = bgColor
-            if (boxColor != null) preferences[PreferencesKeys.KEYBOARD_BOX_COLOR] = boxColor
-        }
-    }
-
-    suspend fun updateUseDynamicColor(use: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.USE_DYNAMIC_COLOR] = use
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.PRIMARY_COLOR] = color }
     }
 
     suspend fun updateUseBiometrics(use: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.USE_BIOMETRICS] = use
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.USE_BIOMETRICS] = use }
+    }
+
+    suspend fun updateUseDynamicColor(use: Boolean) {
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.USE_DYNAMIC_COLOR] = use }
     }
 
     suspend fun updateDailySummaryEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] = enabled
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] = enabled }
     }
 
     suspend fun updateDailySummaryTime(time: String) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.DAILY_SUMMARY_TIME] = time
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.DAILY_SUMMARY_TIME] = time }
     }
 
     suspend fun updateUseTrueBlack(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.USE_TRUE_BLACK] = enabled
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.USE_TRUE_BLACK] = enabled }
     }
 
     suspend fun updateFontFamily(font: String) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.FONT_FAMILY] = font
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.FONT_FAMILY] = font }
     }
 
     suspend fun updatePrivacyMode(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.PRIVACY_MODE] = enabled
-        }
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.PRIVACY_MODE] = enabled }
+    }
+
+    suspend fun updateIncludeGoalsInNetWorth(enabled: Boolean) {
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.INCLUDE_GOALS_NET_WORTH] = enabled }
+    }
+
+    suspend fun updateLastRolloverMonth(monthStr: String) {
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.LAST_ROLLOVER_MONTH] = monthStr }
+    }
+
+    suspend fun updateLastDistributionMonth(monthStr: String) {
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.LAST_DISTRIBUTION_MONTH] = monthStr }
+    }
+
+    suspend fun updateLastAutoReserveMonth(monthStr: String) {
+        context.dataStore.edit { preferences -> preferences[PreferencesKeys.LAST_AUTO_RESERVE_MONTH] = monthStr }
     }
 }

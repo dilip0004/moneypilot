@@ -8,7 +8,9 @@ import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.*
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
+import com.yourname.moneypilot.worker.BigBillAutoReserveWorker
 import com.yourname.moneypilot.worker.MonthlyRolloverWorker
+import com.yourname.moneypilot.worker.SurplusDistributionWorker
 import com.yourname.moneypilot.worker.NotificationScheduler
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -57,11 +59,23 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
     private fun scheduleBackgroundTasks() {
         val workManager = WorkManager.getInstance(this)
 
-        // Budget Rollover Task - run roughly once every 30 days instead of daily
+        // Budget Rollover Task
         val monthlyRequest = PeriodicWorkRequestBuilder<MonthlyRolloverWorker>(30, TimeUnit.DAYS)
             .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
             .build()
         workManager.enqueueUniquePeriodicWork("MonthlyRolloverWork", ExistingPeriodicWorkPolicy.KEEP, monthlyRequest)
+
+        // Surplus Distribution Task (Architectural Intent Layer)
+        val distributionRequest = PeriodicWorkRequestBuilder<SurplusDistributionWorker>(1, TimeUnit.DAYS)
+            .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
+            .build()
+        workManager.enqueueUniquePeriodicWork("SurplusDistributionWork", ExistingPeriodicWorkPolicy.KEEP, distributionRequest)
+
+        // Big Bill Auto-Reserve Task (Section 3.8 Compliance)
+        val reserveRequest = PeriodicWorkRequestBuilder<BigBillAutoReserveWorker>(1, TimeUnit.DAYS)
+            .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
+            .build()
+        workManager.enqueueUniquePeriodicWork("BigBillAutoReserveWork", ExistingPeriodicWorkPolicy.KEEP, reserveRequest)
 
         // Daily Summary Notification (preference-aware)
         CoroutineScope(Dispatchers.IO).launch {

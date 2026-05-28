@@ -5,7 +5,6 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.yourname.moneypilot.BuildConfig
 import com.yourname.moneypilot.data.local.database.dao.*
 import com.yourname.moneypilot.data.local.database.entities.*
 import com.yourname.moneypilot.data.local.database.converters.LocalDateConverter
@@ -14,6 +13,8 @@ import com.yourname.moneypilot.data.local.database.converters.TransactionTypeCon
 import android.util.Log
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import net.sqlcipher.database.SupportFactory
+import net.sqlcipher.database.SQLiteDatabase
 
 @Database(
     entities = [
@@ -31,7 +32,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BigBillEntity::class,
         LoanEventEntity::class
     ],
-    version = 16, // Incremented for Goal/Investment Transaction Linking
+    version = 17,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class, TransactionTypeConverter::class)
@@ -55,11 +56,15 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): MoneyPilotDatabase {
             return INSTANCE ?: synchronized(this) {
+                val passphrase = SQLiteDatabase.getBytes("MoneyPilotSecureLedgerKey".toCharArray())
+                val factory = SupportFactory(passphrase)
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     MoneyPilotDatabase::class.java,
                     "moneypilot.db"
                 )
+                .openHelperFactory(factory)
                 .addMigrations(*DatabaseMigrations.ALL)
                 .build()
                 INSTANCE = instance
@@ -175,11 +180,65 @@ object DatabaseMigrations {
             db.execSQL("ALTER TABLE transactions ADD COLUMN investment_id INTEGER")
         }
     }
-    val MIGRATION_16_17 = object : Migration(16, 17) {
+
+    val MIGRATION_16_17: Migration = object : Migration(16, 17) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("DELETE FROM transactions WHERE transactionSourceType IN ('AUTO_EMI_PRINCIPAL', 'AUTO_EMI_INTEREST')")
+            // FIX: Re-create table with hardened constraints AND the new is_refund column
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS transactions_v17 (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    dateTime TEXT NOT NULL,
+                    amount REAL NOT NULL CHECK (amount != 0),
+                    type TEXT NOT NULL,
+                    category_id INTEGER,
+                    subcategory_id INTEGER,
+                    loan_id INTEGER,
+                    goal_id INTEGER,
+                    investment_id INTEGER,
+                    wallet_from_id INTEGER,
+                    wallet_to_id INTEGER,
+                    transaction_source_type TEXT NOT NULL,
+                    note TEXT,
+                    is_refund INTEGER NOT NULL DEFAULT 0,
+                    soft_deleted INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    CHECK (
+                        (type = 'Transfer' AND wallet_from_id IS NOT NULL AND wallet_to_id IS NOT NULL) OR
+                        (type = 'Expense' AND wallet_from_id IS NOT NULL) OR
+                        (type = 'Income' AND wallet_to_id IS NOT NULL)
+                    ),
+                    FOREIGN KEY(wallet_from_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(wallet_to_id) REFERENCES wallets(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(category_id) REFERENCES categories(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(subcategory_id) REFERENCES subcategories(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(loan_id) REFERENCES loans(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(goal_id) REFERENCES goals(id) ON UPDATE NO ACTION ON DELETE SET NULL,
+                    FOREIGN KEY(investment_id) REFERENCES investments(id) ON UPDATE NO ACTION ON DELETE SET NULL
+                )
+            """)
+            
+            // Note: Since is_refund is new, we default it to 0 for old data
+            db.execSQL("INSERT INTO transactions_v17 (id, dateTime, amount, type, category_id, subcategory_id, loan_id, goal_id, investment_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) SELECT id, dateTime, amount, type, category_id, subcategory_id, loan_id, goal_id, investment_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at FROM transactions WHERE amount != 0")
+            db.execSQL("DROP TABLE transactions")
+            db.execSQL("ALTER TABLE transactions_v17 RENAME TO transactions")
+            
+            // Recreate Indices
+            db.execSQL("CREATE INDEX index_transactions_wallet_from_id ON transactions (wallet_from_id)")
+            db.execSQL("CREATE INDEX index_transactions_wallet_to_id ON transactions (wallet_to_id)")
+            db.execSQL("CREATE INDEX index_transactions_category_id ON transactions (category_id)")
+            db.execSQL("CREATE INDEX index_transactions_subcategory_id ON transactions (subcategory_id)")
+            db.execSQL("CREATE INDEX index_transactions_loan_id ON transactions (loan_id)")
+            db.execSQL("CREATE INDEX index_transactions_goal_id ON transactions (goal_id)")
+            db.execSQL("CREATE INDEX index_transactions_investment_id ON transactions (investment_id)")
+            db.execSQL("CREATE INDEX index_transactions_dateTime ON transactions (dateTime)")
+            db.execSQL("CREATE INDEX index_transactions_type ON transactions (type)")
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, 
+        MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, 
+        MIGRATION_15_16, MIGRATION_16_17
+    )
 }

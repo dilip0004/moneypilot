@@ -96,7 +96,8 @@ class ReportsViewModel @Inject constructor(
                     prevTotal = prevData.totalOutflow,
                     ranks = currentData.categoryBreakdown,
                     range = currentState.timeRange,
-                    incomeTotal = currentData.totalAmount 
+                    incomeTotal = currentData.totalAmount,
+                    transactions = currentData.filteredTransactions
                 )
 
                 val daysInPeriod = java.time.temporal.ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()).toInt() + 1

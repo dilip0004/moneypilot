@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Warning
@@ -68,13 +69,14 @@ fun BackupScreen(
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
                 is BackupViewModel.UiEvent.FileReady -> {
+                    // Using hardcoded authority to match AndroidManifest.xml configuration
                     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", event.file)
                     val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/csv"
+                        type = event.mimeType
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(Intent.createChooser(intent, "Export Transactions"))
+                    context.startActivity(Intent.createChooser(intent, "Export Ledger"))
                 }
                 is BackupViewModel.UiEvent.SaveJson -> {
                     pendingJsonContent = event.jsonContent
@@ -157,13 +159,19 @@ fun BackupScreen(
             )
             SettingsItem(
                 title = "Export to CSV",
-                subtitle = "Save transactions as a spreadsheet file",
+                subtitle = "Save ledger as a comma-separated file",
                 icon = Icons.Default.FileDownload,
                 onClick = { viewModel.exportToCSV() }
             )
             SettingsItem(
+                title = "Export to Excel",
+                subtitle = "Professional ledger format (.xml/xlsx)",
+                icon = Icons.Default.Description,
+                onClick = { viewModel.exportToExcel() }
+            )
+            SettingsItem(
                 title = "Create JSON Backup",
-                subtitle = "Export entire database for safe keeping",
+                subtitle = "Full database snapshot for safe keeping",
                 icon = Icons.Default.CloudDownload,
                 onClick = { viewModel.exportToJson() }
             )
@@ -178,7 +186,7 @@ fun BackupScreen(
             )
             SettingsItem(
                 title = "Restore from JSON",
-                subtitle = "Import data and rebuild your database",
+                subtitle = "Rebuild database from a backup file",
                 icon = Icons.Default.Restore,
                 onClick = { openFileLauncher.launch(arrayOf("application/json")) }
             )

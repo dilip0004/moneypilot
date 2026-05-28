@@ -18,6 +18,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,6 +56,7 @@ import com.yourname.moneypilot.ui.navigation.Screen
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
 import com.yourname.moneypilot.util.SecurityPreferences
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -185,7 +188,7 @@ class MainActivity : AppCompatActivity() {
                     accentColor = androidx.compose.ui.graphics.Color(preferences?.primaryColor ?: 0xFF7B5CFA.toInt())
                 ) {
                     Surface(modifier = Modifier.fillMaxSize()) {
-                        MainScreen(intent = intent)
+                        MainScreen(intent = intent, mainViewModel = mainViewModel)
                     }
                 }
             }
@@ -203,8 +206,23 @@ class MainActivity : AppCompatActivity() {
 }
 
 @Composable
-fun MainScreen(intent: Intent?) {
+fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
     val navController = rememberNavController()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Section 9.0: Integrity Alert UI (Governance Layer)
+    LaunchedEffect(Unit) {
+        mainViewModel.integrityAlert.collectLatest { mismatchCount ->
+            val result = snackbarHostState.showSnackbar(
+                message = "Ledger Integrity Warning: $mismatchCount wallets have drifted balances.",
+                actionLabel = "Repair",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                navController.navigate("reconciliation")
+            }
+        }
+    }
 
     LaunchedEffect(intent) {
         if (intent?.action == "ACTION_ADD_TRANSACTION") {
@@ -224,6 +242,7 @@ fun MainScreen(intent: Intent?) {
     val currentDestination = navBackStackEntry?.destination
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             val showBottomBar = navItems.any { it.route == currentDestination?.route }
             if (showBottomBar) {

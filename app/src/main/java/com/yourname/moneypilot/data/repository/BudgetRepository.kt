@@ -7,6 +7,7 @@ import java.time.LocalDate
 
 interface BudgetRepository {
     fun getAllBudgets(): Flow<List<BudgetEntity>>
+    suspend fun getAllBudgetsList(): List<BudgetEntity>
     fun getActiveBudgets(date: LocalDate): Flow<List<BudgetEntity>>
     fun getActiveBudgetsWithDetails(date: LocalDate): Flow<List<BudgetWithDetails>>
     suspend fun getBudgetById(id: Long): BudgetEntity?

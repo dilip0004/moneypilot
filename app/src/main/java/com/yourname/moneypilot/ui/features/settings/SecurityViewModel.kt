@@ -45,6 +45,12 @@ class SecurityViewModel @Inject constructor(
         }
     }
 
+    fun updateIncludeGoalsInNetWorth(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateIncludeGoalsInNetWorth(enabled)
+        }
+    }
+
     suspend fun setPin(pin: String) {
         securityPreferences.setPin(pin)
     }

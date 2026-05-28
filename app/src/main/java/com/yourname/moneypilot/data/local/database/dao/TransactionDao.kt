@@ -79,7 +79,7 @@ interface TransactionDao {
         SELECT SUM(
             CASE 
                 WHEN type = 'Income' AND wallet_to_id = :walletId THEN amount
-                WHEN type = 'Expense' AND wallet_from_id = :walletId THEN -amount
+                WHEN type = 'Expense' AND wallet_from_id = :walletId THEN (CASE WHEN is_refund = 1 THEN amount ELSE -amount END)
                 WHEN type = 'Transfer' AND wallet_from_id = :walletId THEN -amount
                 WHEN type = 'Transfer' AND wallet_to_id = :walletId THEN amount
                 ELSE 0
@@ -105,7 +105,7 @@ interface TransactionDao {
 
     @Query(
         """
-        SELECT SUM(amount) FROM transactions
+        SELECT SUM(CASE WHEN is_refund = 1 THEN -amount ELSE amount END) FROM transactions
         WHERE type = :type
         AND dateTime BETWEEN :startDate AND :endDate
         AND soft_deleted = 0
@@ -119,7 +119,7 @@ interface TransactionDao {
 
     @Query(
         """
-        SELECT SUM(amount) FROM transactions
+        SELECT SUM(CASE WHEN is_refund = 1 THEN -amount ELSE amount END) FROM transactions
         WHERE category_id = :categoryId
         AND type = 'Expense'
         AND dateTime BETWEEN :startDate AND :endDate
@@ -134,7 +134,7 @@ interface TransactionDao {
 
     @Query(
         """
-        SELECT SUM(amount) FROM transactions
+        SELECT SUM(CASE WHEN is_refund = 1 THEN -amount ELSE amount END) FROM transactions
         WHERE subcategory_id = :subcategoryId
         AND type = 'Expense'
         AND dateTime BETWEEN :startDate AND :endDate

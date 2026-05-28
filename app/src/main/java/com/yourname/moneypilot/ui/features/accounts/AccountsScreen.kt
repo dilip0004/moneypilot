@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.GppBad
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -146,6 +147,7 @@ fun AccountsScreen(
                             AccountCard(
                                 account = acc,
                                 isPrivacyMode = isPrivacyMode,
+                                hasMismatch = data.mismatchedWalletIds.contains(acc.id),
                                 onClick = { onAccountClick(acc.id) },
                                 onArchive = { showArchiveDialog = acc },
                                 onDelete = { showDeleteDialog = acc },
@@ -164,6 +166,7 @@ fun AccountsScreen(
 private fun AccountCard(
     account: WalletEntity,
     isPrivacyMode: Boolean,
+    hasMismatch: Boolean,
     onClick: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
@@ -172,12 +175,26 @@ private fun AccountCard(
 ) {
     Card(
         modifier = Modifier.clickable(onClick = onClick).testTag("account_card_${account.id}"),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        colors = if (hasMismatch) 
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
+            else CardDefaults.cardColors()
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text(account.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("account_name_${account.id}"))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(account.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("account_name_${account.id}"))
+                        if (hasMismatch) {
+                            Spacer(Modifier.width(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.GppBad, 
+                                contentDescription = "Integrity Mismatch", 
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                     Text(account.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {

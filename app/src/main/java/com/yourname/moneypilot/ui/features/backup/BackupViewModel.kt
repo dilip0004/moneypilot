@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.MoneyPilotDatabase
 import com.yourname.moneypilot.data.repository.BackupRepository
 import com.yourname.moneypilot.domain.usecase.ledger.VerifyLedgerIntegrityUseCase
+import com.yourname.moneypilot.domain.usecase.transaction.ExportToExcelUseCase
 import com.yourname.moneypilot.domain.usecase.transaction.ExportTransactionsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,8 +22,9 @@ import javax.inject.Inject
 @HiltViewModel
 class BackupViewModel @Inject constructor(
     private val exportTransactionsUseCase: ExportTransactionsUseCase,
+    private val exportToExcelUseCase: ExportToExcelUseCase,
     private val backupRepository: BackupRepository,
-    private val verifyLedgerIntegrityUseCase: VerifyLedgerIntegrityUseCase, // TASK-42
+    private val verifyLedgerIntegrityUseCase: VerifyLedgerIntegrityUseCase,
     @ApplicationContext private val context: Context,
     private val database: MoneyPilotDatabase
 ) : ViewModel() {
@@ -32,7 +34,7 @@ class BackupViewModel @Inject constructor(
 
     sealed class UiEvent {
         data class ShowSnackbar(val message: String) : UiEvent()
-        data class FileReady(val file: File) : UiEvent()
+        data class FileReady(val file: File, val mimeType: String) : UiEvent()
         data class SaveJson(val jsonContent: String, val fileName: String) : UiEvent()
         data class ShowIntegrityWarning(val mismatchCount: Int, val jsonContent: String, val fileName: String) : UiEvent()
     }
@@ -42,8 +44,7 @@ class BackupViewModel @Inject constructor(
             try {
                 val file = exportTransactionsUseCase()
                 if (file != null) {
-                    _eventFlow.emit(UiEvent.FileReady(file))
-                    _eventFlow.emit(UiEvent.ShowSnackbar("Export successful! File saved to cache."))
+                    _eventFlow.emit(UiEvent.FileReady(file, "text/csv"))
                 } else {
                     _eventFlow.emit(UiEvent.ShowSnackbar("No transactions to export."))
                 }
@@ -54,10 +55,26 @@ class BackupViewModel @Inject constructor(
         }
     }
 
+    fun exportToExcel() {
+        viewModelScope.launch {
+            try {
+                val file = exportToExcelUseCase()
+                if (file != null) {
+                    // Using application/vnd.ms-excel for XML-based SpreadsheetML compatibility
+                    _eventFlow.emit(UiEvent.FileReady(file, "application/vnd.ms-excel"))
+                } else {
+                    _eventFlow.emit(UiEvent.ShowSnackbar("No transactions to export."))
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Excel export failed")
+                _eventFlow.emit(UiEvent.ShowSnackbar("Excel export failed: ${e.message}"))
+            }
+        }
+    }
+
     fun exportToJson() {
         viewModelScope.launch {
             try {
-                // TASK-42: Integrity Audit before Export
                 val mismatches = verifyLedgerIntegrityUseCase()
                 val json = backupRepository.createJsonBackup()
                 val date = LocalDate.now().toString()

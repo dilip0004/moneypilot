@@ -7,9 +7,9 @@ import com.yourname.moneypilot.data.repository.LoanRepository
 import com.yourname.moneypilot.data.repository.TransactionRepository
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.YearMonth
 import java.util.UUID
 import javax.inject.Inject
-import kotlin.math.max
 import timber.log.Timber
 
 class LoanAutoDeductionProcessor @Inject constructor(
@@ -26,48 +26,66 @@ class LoanAutoDeductionProcessor @Inject constructor(
 
             if (asOf.isBefore(currentMonthDue)) continue
 
-            // Idempotency check: already processed this month?
-            val startOfMonth = currentMonthDue.withDayOfMonth(1).atStartOfDay()
-            val endOfMonth = currentMonthDue.withDayOfMonth(currentMonthDue.lengthOfMonth()).atTime(23, 59)
-            val existingTxs = transactionRepository.getTransactionsForWallet(loan.linkedWalletId!!)
-                .filter {
-                    it.loanId == loan.id &&
-                            it.transactionSourceType == "LOAN_REPAYMENT" &&
-                            it.dateTime.isAfter(startOfMonth) &&
-                            it.dateTime.isBefore(endOfMonth)
-                }
-            if (existingTxs.isNotEmpty()) continue
+            // Section 16.0: Hardened Idempotency (TASK-40)
+            // Use deterministic UUIDs based on the month/year to prevent double-counting
+            val monthStr = YearMonth.from(currentMonthDue).toString()
+            val baseId = "EMI_${loan.id}_$monthStr"
+            val interestTxId = UUID.nameUUIDFromBytes("${baseId}_INT".toByteArray()).toString()
+            val principalTxId = UUID.nameUUIDFromBytes("${baseId}_PRIN".toByteArray()).toString()
 
-            // Single transaction for the full EMI
-            transactionRepository.insertTransaction(
-                TransactionEntity(
-                    id = UUID.randomUUID().toString(),
-                    walletFromId = loan.linkedWalletId,
-                    loanId = loan.id,
-                    type = TransactionType.Expense,
-                    amount = loan.monthlyPayment,
-                    note = "EMI: ${loan.name}",
-                    dateTime = LocalDateTime.now(),
-                    transactionSourceType = "LOAN_REPAYMENT"
+            // 1. Check if already exists (Optimization, but DB Primary Key is the real guard)
+            val existing = transactionRepository.getTransactionById(interestTxId) ?: 
+                           transactionRepository.getTransactionById(principalTxId)
+            if (existing != null) continue
+
+            // 2. Calculate Split
+            val monthlyRate = loan.interestRate / 12.0 / 100.0
+            val interestAmount = loan.currentBalance * monthlyRate
+            val principalAmount = (loan.monthlyPayment - interestAmount).coerceIn(0.0, loan.currentBalance)
+
+            // 3. Commit Transactions
+            if (interestAmount > 0) {
+                transactionRepository.insertTransaction(
+                    TransactionEntity(
+                        id = interestTxId,
+                        walletFromId = loan.linkedWalletId,
+                        loanId = loan.id,
+                        type = TransactionType.Expense,
+                        amount = interestAmount,
+                        note = "EMI Interest: ${loan.name} ($monthStr)",
+                        dateTime = LocalDateTime.now(),
+                        transactionSourceType = "AUTO_EMI_INTEREST"
+                    )
                 )
-            )
+            }
 
-            // Update loan balance
-            val newBalance = (loan.currentBalance - loan.monthlyPayment).coerceAtLeast(0.0)
-            loanRepository.updateLoan(loan.copy(currentBalance = newBalance))
+            if (principalAmount > 0) {
+                transactionRepository.insertTransaction(
+                    TransactionEntity(
+                        id = principalTxId,
+                        walletFromId = loan.linkedWalletId,
+                        loanId = loan.id,
+                        type = TransactionType.Expense,
+                        amount = principalAmount,
+                        note = "EMI Principal: ${loan.name} ($monthStr)",
+                        dateTime = LocalDateTime.now(),
+                        transactionSourceType = "AUTO_EMI_PRINCIPAL"
+                    )
+                )
+            }
 
-            // Log audit event
+            // 4. Log audit event
             loanRepository.insertLoanEvent(
                 LoanEventEntity(
                     loanId = loan.id,
                     eventType = "REPAYMENT_POSTED",
                     eventDate = LocalDate.now(),
                     amount = loan.monthlyPayment,
-                    note = "Automated EMI processed"
+                    note = "Auto-Processed EMI for $monthStr"
                 )
             )
 
-            Timber.i("LoanAutoDeduction: Processed single EMI for ${loan.name}")
+            Timber.i("LoanAutoDeduction: Deterministic processing complete for ${loan.name} ($monthStr)")
         }
     }
 }

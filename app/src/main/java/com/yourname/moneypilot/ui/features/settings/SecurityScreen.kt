@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -95,7 +96,7 @@ fun SecurityScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Security") },
+                title = { Text("Security & Privacy") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -115,12 +116,25 @@ fun SecurityScreen(
             
             ListItem(
                 headlineContent = { Text("Privacy Mode") },
-                supportingContent = { Text("Mask balances and transaction amounts across the app") },
+                supportingContent = { Text("Mask balances and transaction amounts") },
                 leadingContent = { Icon(Icons.Default.VisibilityOff, contentDescription = null) },
                 trailingContent = {
                     Switch(
                         checked = preferences?.isPrivacyModeEnabled ?: false,
                         onCheckedChange = { viewModel.updatePrivacyMode(it) }
+                    )
+                }
+            )
+
+            // #7.0: Configurable Net Worth Toggle
+            ListItem(
+                headlineContent = { Text("Include Goals in Net Worth") },
+                supportingContent = { Text("Count active savings goals as assets in your total balance") },
+                leadingContent = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
+                trailingContent = {
+                    Switch(
+                        checked = preferences?.includeGoalsInNetWorth ?: true,
+                        onCheckedChange = { viewModel.updateIncludeGoalsInNetWorth(it) }
                     )
                 }
             )
@@ -133,7 +147,7 @@ fun SecurityScreen(
                 Text("Use Biometrics")
                 Spacer(modifier = Modifier.weight(1f))
                 Switch(
-                    enabled = isPinSet, // Security Governance: PIN must be set first
+                    enabled = isPinSet,
                     checked = (preferences?.useBiometrics ?: false) && isPinSet,
                     onCheckedChange = { viewModel.updateUseBiometrics(it) }
                 )
@@ -161,12 +175,6 @@ fun SecurityScreen(
                     Text("Remove PIN", color = MaterialTheme.colorScheme.error)
                 }
             }
-
-            Text(
-                text = "Secure your financial data with biometric authentication or a custom PIN.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

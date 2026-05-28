@@ -22,7 +22,8 @@ data class WalletStatementState(
     val openingBalance: Double = 0.0,
     val startDate: LocalDate = LocalDate.now().withDayOfMonth(1),
     val endDate: LocalDate = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val isCreditCard: Boolean = false
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -35,8 +36,8 @@ class WalletStatementViewModel @Inject constructor(
 
     private val walletId: Long = checkNotNull(savedStateHandle["walletId"])
     
-    private val _startDate = MutableStateFlow(LocalDate.now().withDayOfMonth(1))
-    private val _endDate = MutableStateFlow(LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()))
+    private val _startDate = MutableStateFlow<LocalDate?>(null)
+    private val _endDate = MutableStateFlow<LocalDate?>(null)
 
     private val _state = MutableStateFlow(WalletStatementState())
     val state: StateFlow<WalletStatementState> = _state.asStateFlow()
@@ -48,9 +49,31 @@ class WalletStatementViewModel @Inject constructor(
     private fun loadData() {
         viewModelScope.launch {
             val wallet = walletRepository.getWalletById(walletId)
-            _state.update { it.copy(wallet = wallet) }
+            val isCC = wallet?.type == "CREDIT" || wallet?.type == "CREDIT_CARD"
             
-            combine(_startDate, _endDate) { start, end ->
+            // #5.2: Credit Card Billing Cycle Logic
+            if (_startDate.value == null && isCC && wallet?.billingStartDay != null) {
+                val today = LocalDate.now()
+                val startDay = wallet.billingStartDay
+                
+                val currentCycleStart = if (today.dayOfMonth >= startDay) {
+                    today.withDayOfMonth(startDay)
+                } else {
+                    today.minusMonths(1).withDayOfMonth(startDay)
+                }
+                val currentCycleEnd = currentCycleStart.plusMonths(1).minusDays(1)
+                
+                _startDate.value = currentCycleStart
+                _endDate.value = currentCycleEnd
+            } else if (_startDate.value == null) {
+                // Default to Calendar Month for non-CC
+                _startDate.value = LocalDate.now().withDayOfMonth(1)
+                _endDate.value = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth())
+            }
+
+            _state.update { it.copy(wallet = wallet, isCreditCard = isCC) }
+            
+            combine(_startDate.filterNotNull(), _endDate.filterNotNull()) { start, end ->
                 Pair(start, end)
             }.flatMapLatest { (start, end) ->
                 _state.update { it.copy(isLoading = true, startDate = start, endDate = end) }

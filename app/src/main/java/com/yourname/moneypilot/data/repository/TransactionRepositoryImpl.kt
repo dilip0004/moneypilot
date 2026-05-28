@@ -1,9 +1,9 @@
 package com.yourname.moneypilot.data.repository
 
-import androidx.room.Transaction
+import androidx.room.withTransaction
+import com.yourname.moneypilot.data.local.database.MoneyPilotDatabase
 import com.yourname.moneypilot.data.local.database.dao.*
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
-import com.yourname.moneypilot.data.local.database.entities.TransactionType
+import com.yourname.moneypilot.data.local.database.entities.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
@@ -11,12 +11,14 @@ import java.time.LocalTime
 import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(
+    private val database: MoneyPilotDatabase,
     private val transactionDao: TransactionDao,
     private val walletDao: WalletDao,
     private val goalDao: GoalDao,
     private val loanDao: LoanDao,
     private val investmentDao: InvestmentDao,
-    private val budgetDao: BudgetDao
+    private val budgetDao: BudgetDao,
+    private val tagDao: TagDao
 ) : TransactionRepository {
 
     override fun getAllTransactionsWithDetails(): Flow<List<TransactionWithDetails>> =
@@ -47,90 +49,124 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getSumBeforeDate(walletId: Long, startDate: LocalDateTime): Double =
         transactionDao.getSumBeforeDate(walletId, startDate) ?: 0.0
 
-    @Transaction
-    override suspend fun insertTransaction(transaction: TransactionEntity) {
-        transactionDao.insert(transaction)
-        applyFinancialImpact(transaction, 1.0)
-    }
-
-    @Transaction
-    override suspend fun createTransfer(transaction: TransactionEntity) {
-        require(transaction.type == TransactionType.Transfer) { "Transaction type must be Transfer" }
-        require(transaction.walletFromId != null && transaction.walletToId != null) { "Transfer must have from and to wallets" }
-
-        transactionDao.insert(transaction)
-        walletDao.updateBalance(transaction.walletFromId!!, -transaction.amount)
-        walletDao.updateBalance(transaction.walletToId!!, transaction.amount)
-    }
-
-    @Transaction
-    override suspend fun updateTransaction(transaction: TransactionEntity) {
-        val oldTx = transactionDao.getTransactionById(transaction.id)
-        if (oldTx != null) {
-            if (oldTx.type == TransactionType.Transfer) {
-                walletDao.updateBalance(oldTx.walletFromId!!, oldTx.amount)
-                walletDao.updateBalance(oldTx.walletToId!!, -oldTx.amount)
-            } else {
-                applyFinancialImpact(oldTx, -1.0)
+    override suspend fun insertTransaction(transaction: TransactionEntity, tagIds: List<Long>) {
+        database.withTransaction {
+            transactionDao.insert(transaction)
+            // Section 3.2: Tag Association
+            tagIds.forEach { tagId ->
+                tagDao.insertTransactionTagCrossRef(TransactionTagCrossRef(transaction.id, tagId))
             }
-        }
-
-        transactionDao.update(transaction)
-
-        if (transaction.type == TransactionType.Transfer) {
-            walletDao.updateBalance(transaction.walletFromId!!, -transaction.amount)
-            walletDao.updateBalance(transaction.walletToId!!, transaction.amount)
-        } else {
             applyFinancialImpact(transaction, 1.0)
         }
     }
 
-    @Transaction
-    override suspend fun deleteTransaction(transaction: TransactionEntity) {
-        if (transaction.type == TransactionType.Transfer) {
-            walletDao.updateBalance(transaction.walletFromId!!, transaction.amount)
-            walletDao.updateBalance(transaction.walletToId!!, -transaction.amount)
-        } else {
-            applyFinancialImpact(transaction, -1.0)
+    override suspend fun createTransfer(transaction: TransactionEntity) {
+        require(transaction.type == TransactionType.Transfer) { "Transaction type must be Transfer" }
+        require(transaction.walletFromId != null && transaction.walletToId != null) { "Transfer must have from and to wallets" }
+
+        database.withTransaction {
+            transactionDao.insert(transaction)
+            walletDao.updateBalance(transaction.walletFromId!!, -transaction.amount)
+            walletDao.updateBalance(transaction.walletToId!!, transaction.amount)
         }
-        transactionDao.delete(transaction)
     }
+
+    override suspend fun updateTransaction(transaction: TransactionEntity, tagIds: List<Long>) {
+        database.withTransaction {
+            val oldTx = transactionDao.getTransactionById(transaction.id)
+            if (oldTx != null) {
+                if (oldTx.type == TransactionType.Transfer) {
+                    walletDao.updateBalance(oldTx.walletFromId!!, oldTx.amount)
+                    walletDao.updateBalance(oldTx.walletToId!!, -oldTx.amount)
+                } else {
+                    applyFinancialImpact(oldTx, -1.0)
+                }
+            }
+
+            transactionDao.update(transaction)
+            
+            // Update tags: clear existing and re-add
+            tagDao.deleteTagsForTransaction(transaction.id)
+            tagIds.forEach { tagId ->
+                tagDao.insertTransactionTagCrossRef(TransactionTagCrossRef(transaction.id, tagId))
+            }
+
+            if (transaction.type == TransactionType.Transfer) {
+                walletDao.updateBalance(transaction.walletFromId!!, -transaction.amount)
+                walletDao.updateBalance(transaction.walletToId!!, transaction.amount)
+            } else {
+                applyFinancialImpact(transaction, 1.0)
+            }
+        }
+    }
+
+    override suspend fun deleteTransaction(transaction: TransactionEntity) {
+        database.withTransaction {
+            if (transaction.type == TransactionType.Transfer) {
+                walletDao.updateBalance(transaction.walletFromId!!, transaction.amount)
+                walletDao.updateBalance(transaction.walletToId!!, -transaction.amount)
+            } else {
+                applyFinancialImpact(transaction, -1.0)
+            }
+            tagDao.deleteTagsForTransaction(transaction.id)
+            transactionDao.delete(transaction)
+        }
+    }
+
+    override fun getTagsForTransaction(transactionId: String): Flow<List<TagEntity>> =
+        tagDao.getTagsForTransaction(transactionId)
+
+    override fun getAllTags(): Flow<List<TagEntity>> = tagDao.getAllTags()
+
+    override suspend fun insertTag(tag: TagEntity): Long = tagDao.insertTag(tag)
 
     private suspend fun applyFinancialImpact(tx: TransactionEntity, multiplier: Double) {
         val amount = tx.amount * multiplier
 
         // 1. Wallet Balance Impact
         if (tx.walletFromId != null) {
-            val balanceChange = if (tx.type == TransactionType.Income) amount else -amount
+            val balanceChange = if (tx.type == TransactionType.Income || tx.isRefund) amount else -amount
             walletDao.updateBalance(tx.walletFromId, balanceChange)
+        }
+        
+        if (tx.type == TransactionType.Income && tx.walletToId != null) {
+            walletDao.updateBalance(tx.walletToId, amount)
         }
 
         // 2. Loan Impact
         if (tx.loanId != null) {
-            loanDao.getLoanById(tx.loanId)?.let { loan ->
-                val newOutstanding = (loan.currentBalance - amount).coerceAtLeast(0.0)
-                loanDao.updateLoan(loan.copy(currentBalance = newOutstanding))
+            if (tx.transactionSourceType != "AUTO_EMI_INTEREST" && tx.transactionSourceType != "INTEREST_POSTING") {
+                loanDao.getLoanById(tx.loanId)?.let { loan ->
+                    val loanChange = if (tx.isRefund) -amount else amount
+                    val newOutstanding = (loan.currentBalance - loanChange).coerceAtLeast(0.0)
+                    loanDao.updateLoan(loan.copy(currentBalance = newOutstanding))
+                }
             }
         }
 
-        // 3. Goal Impact (#52: Expense adds to goal, Income withdraws from goal)
+        // 3. Goal Impact
         if (tx.goalId != null) {
             goalDao.getGoalById(tx.goalId)?.let { goal ->
-                val goalChange = if (tx.type == TransactionType.Expense) amount else -amount
+                val goalChange = if (tx.type == TransactionType.Expense) {
+                    if (tx.isRefund) -amount else amount
+                } else {
+                    if (tx.isRefund) amount else -amount
+                }
                 val newAmount = (goal.currentAmount + goalChange).coerceAtLeast(0.0)
                 goalDao.update(goal.copy(currentAmount = newAmount))
             }
         }
 
-        // 4. Investment Impact (FIX #22: use averagePrice as purchase price)
+        // 4. Investment Impact
         if (tx.investmentId != null) {
             investmentDao.getInvestmentById(tx.investmentId)?.let { investment ->
                 if (tx.type == TransactionType.Expense) {
                     val priceToUse = if (investment.averagePrice > 0) investment.averagePrice else 1.0
                     val addedQuantity = amount / priceToUse
-
-                    val newQuantity = investment.quantity + addedQuantity
-                    val totalCostBasis = (investment.quantity * investment.averagePrice) + amount
+                    val quantityChange = if (tx.isRefund) -addedQuantity else addedQuantity
+                    val newQuantity = (investment.quantity + quantityChange).coerceAtLeast(0.0)
+                    
+                    val totalCostBasis = (investment.quantity * investment.averagePrice) + (if (tx.isRefund) -amount else amount)
                     val newAveragePrice = if (newQuantity > 0) totalCostBasis / newQuantity else investment.averagePrice
 
                     investmentDao.updateInvestment(investment.copy(

@@ -118,6 +118,9 @@ data class TransactionEntity(
     @ColumnInfo(name = "note")
     val note: String? = null,
 
+    @ColumnInfo(name = "is_refund", defaultValue = "0")
+    val isRefund: Boolean = false,
+
     @ColumnInfo(name = "soft_deleted", defaultValue = "0")
     val softDeleted: Boolean = false,
 

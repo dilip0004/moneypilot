@@ -34,7 +34,10 @@ interface TagDao {
         JOIN transaction_tag_cross_ref ON tags.id = transaction_tag_cross_ref.tagId 
         WHERE transaction_tag_cross_ref.transactionId = :transactionId
     """)
-    fun getTagsForTransaction(transactionId: Long): Flow<List<TagEntity>>
+    fun getTagsForTransaction(transactionId: String): Flow<List<TagEntity>>
+
+    @Query("DELETE FROM transaction_tag_cross_ref WHERE transactionId = :transactionId")
+    suspend fun deleteTagsForTransaction(transactionId: String)
 
     @Query("DELETE FROM tags")
     suspend fun deleteAllTags()
