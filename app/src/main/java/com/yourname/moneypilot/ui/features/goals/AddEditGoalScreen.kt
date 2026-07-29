@@ -54,11 +54,13 @@ fun AddEditGoalScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.onEvent(AddEditGoalEvent.SaveGoal) },
-                modifier = Modifier.testTag("goal_save_fab")
-            ) {
-                Icon(Icons.Default.Save, contentDescription = "Save")
+            if (!showEmojiPicker) {
+                FloatingActionButton(
+                    onClick = { viewModel.onEvent(AddEditGoalEvent.SaveGoal) },
+                    modifier = Modifier.testTag("goal_save_fab")
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = "Save")
+                }
             }
         }
     ) { padding ->
@@ -70,7 +72,7 @@ fun AddEditGoalScreen(
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // #9: Emoji Picker Button
+            // Icon Picker
             Surface(
                 onClick = { showEmojiPicker = !showEmojiPicker },
                 shape = MaterialTheme.shapes.medium,
@@ -114,16 +116,63 @@ fun AddEditGoalScreen(
                 prefix = { Text("₹ ") }
             )
 
-            OutlinedTextField(
-                value = state.currentAmount,
-                onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredCurrentAmount(it)) },
-                label = { Text("Initial Saved Amount") },
-                modifier = Modifier.fillMaxWidth().testTag("goal_current_amount_input"),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                prefix = { Text("₹ ") }
-            )
+            // Initial contribution logic (Only for new goals)
+            if (!state.isEditMode) {
+                OutlinedTextField(
+                    value = state.currentAmount,
+                    onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredCurrentAmount(it)) },
+                    label = { Text("Initial Saved Amount (Contribution)") },
+                    modifier = Modifier.fillMaxWidth().testTag("goal_current_amount_input"),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    prefix = { Text("₹ ") }
+                )
 
-            Text("Priority (1-5): ${state.priority}", style = MaterialTheme.typography.bodyLarge)
+                if ((state.currentAmount.toDoubleOrNull() ?: 0.0) > 0) {
+                    var expandedWallet by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = expandedWallet,
+                        onExpandedChange = { expandedWallet = it }
+                    ) {
+                        OutlinedTextField(
+                            value = state.wallets.find { it.id == state.linkedWalletId }?.name ?: "Select Source Wallet",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Deduct Initial Contribution From") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWallet) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedWallet,
+                            onDismissRequest = { expandedWallet = false }
+                        ) {
+                            state.wallets.forEach { wallet ->
+                                DropdownMenuItem(
+                                    text = { Text(wallet.name) },
+                                    onClick = {
+                                        viewModel.onEvent(AddEditGoalEvent.WalletChanged(wallet.id))
+                                        expandedWallet = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // In Edit Mode, show progress read-only
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Current Progress", style = MaterialTheme.typography.labelSmall)
+                        Text("₹ ${state.currentAmount}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("To add more, create a transaction linked to this goal.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
+            Text("Priority (1-5): ${state.priority}", style = MaterialTheme.typography.labelMedium)
             Slider(
                 value = state.priority.toFloat(),
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.PriorityChanged(it.toInt())) },
@@ -138,6 +187,8 @@ fun AddEditGoalScreen(
                 onChange = { viewModel.onEvent(AddEditGoalEvent.DateChanged(it)) },
                 modifier = Modifier.fillMaxWidth().testTag("goal_date_picker")
             )
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

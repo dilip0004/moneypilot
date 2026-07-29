@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.yourname.moneypilot.BuildConfig
 import com.yourname.moneypilot.data.local.database.dao.*
 import com.yourname.moneypilot.data.local.database.entities.*
 import com.yourname.moneypilot.data.local.database.converters.LocalDateConverter
@@ -56,6 +57,9 @@ abstract class MoneyPilotDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): MoneyPilotDatabase {
             return INSTANCE ?: synchronized(this) {
+                // Ensure SQLCipher libraries are loaded (Fix for emulator crashes)
+                SQLiteDatabase.loadLibs(context)
+                
                 val passphrase = SQLiteDatabase.getBytes("MoneyPilotSecureLedgerKey".toCharArray())
                 val factory = SupportFactory(passphrase)
 
@@ -106,10 +110,7 @@ object DatabaseMigrations {
             try {
                 db.execSQL("""
                     INSERT INTO transactions_new (id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) 
-                    SELECT id, date, amount, 
-                    CASE WHEN type = 'INCOME' THEN 'Income' WHEN type = 'EXPENSE' THEN 'Expense' ELSE 'Transfer' END, 
-                    category_id, account_id, transfer_to_account_id, 'MANUAL', note, 0, datetime('now'), datetime('now') 
-                    FROM transactions
+                    SELECT id, dateTime, amount, type, category_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at FROM transactions
                 """)
             } catch (e: Exception) {
                 Log.w("Migrations", "Could not migrate transaction data: ${e.message}")
@@ -183,7 +184,6 @@ object DatabaseMigrations {
 
     val MIGRATION_16_17: Migration = object : Migration(16, 17) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            // FIX: Re-create table with hardened constraints AND the new is_refund column
             db.execSQL("""
                 CREATE TABLE IF NOT EXISTS transactions_v17 (
                     id TEXT PRIMARY KEY NOT NULL,
@@ -217,13 +217,9 @@ object DatabaseMigrations {
                     FOREIGN KEY(investment_id) REFERENCES investments(id) ON UPDATE NO ACTION ON DELETE SET NULL
                 )
             """)
-            
-            // Note: Since is_refund is new, we default it to 0 for old data
             db.execSQL("INSERT INTO transactions_v17 (id, dateTime, amount, type, category_id, subcategory_id, loan_id, goal_id, investment_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at) SELECT id, dateTime, amount, type, category_id, subcategory_id, loan_id, goal_id, investment_id, wallet_from_id, wallet_to_id, transaction_source_type, note, soft_deleted, created_at, updated_at FROM transactions WHERE amount != 0")
             db.execSQL("DROP TABLE transactions")
             db.execSQL("ALTER TABLE transactions_v17 RENAME TO transactions")
-            
-            // Recreate Indices
             db.execSQL("CREATE INDEX index_transactions_wallet_from_id ON transactions (wallet_from_id)")
             db.execSQL("CREATE INDEX index_transactions_wallet_to_id ON transactions (wallet_to_id)")
             db.execSQL("CREATE INDEX index_transactions_category_id ON transactions (category_id)")

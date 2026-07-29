@@ -100,58 +100,58 @@ class UserPreferencesRepository @Inject constructor(
         }
 
     suspend fun updateCurrency(currency: String) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.CURRENCY] = currency }
+        context.dataStore.edit { it[PreferencesKeys.CURRENCY] = currency }
     }
 
     suspend fun updateTheme(theme: AppTheme) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.THEME] = theme.name }
+        context.dataStore.edit { it[PreferencesKeys.THEME] = theme.name }
     }
 
     suspend fun updatePrimaryColor(color: Int) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.PRIMARY_COLOR] = color }
+        context.dataStore.edit { it[PreferencesKeys.PRIMARY_COLOR] = color }
     }
 
     suspend fun updateUseBiometrics(use: Boolean) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.USE_BIOMETRICS] = use }
+        context.dataStore.edit { it[PreferencesKeys.USE_BIOMETRICS] = use }
     }
 
     suspend fun updateUseDynamicColor(use: Boolean) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.USE_DYNAMIC_COLOR] = use }
+        context.dataStore.edit { it[PreferencesKeys.USE_DYNAMIC_COLOR] = use }
     }
 
     suspend fun updateDailySummaryEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.DAILY_SUMMARY_ENABLED] = enabled }
+        context.dataStore.edit { it[PreferencesKeys.DAILY_SUMMARY_ENABLED] = enabled }
     }
 
     suspend fun updateDailySummaryTime(time: String) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.DAILY_SUMMARY_TIME] = time }
+        context.dataStore.edit { it[PreferencesKeys.DAILY_SUMMARY_TIME] = time }
     }
 
     suspend fun updateUseTrueBlack(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.USE_TRUE_BLACK] = enabled }
+        context.dataStore.edit { it[PreferencesKeys.USE_TRUE_BLACK] = enabled }
     }
 
     suspend fun updateFontFamily(font: String) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.FONT_FAMILY] = font }
+        context.dataStore.edit { it[PreferencesKeys.FONT_FAMILY] = font }
     }
 
     suspend fun updatePrivacyMode(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.PRIVACY_MODE] = enabled }
+        context.dataStore.edit { it[PreferencesKeys.PRIVACY_MODE] = enabled }
     }
 
     suspend fun updateIncludeGoalsInNetWorth(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.INCLUDE_GOALS_NET_WORTH] = enabled }
+        context.dataStore.edit { it[PreferencesKeys.INCLUDE_GOALS_NET_WORTH] = enabled }
     }
 
     suspend fun updateLastRolloverMonth(monthStr: String) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.LAST_ROLLOVER_MONTH] = monthStr }
+        context.dataStore.edit { it[PreferencesKeys.LAST_ROLLOVER_MONTH] = monthStr }
     }
 
     suspend fun updateLastDistributionMonth(monthStr: String) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.LAST_DISTRIBUTION_MONTH] = monthStr }
+        context.dataStore.edit { it[PreferencesKeys.LAST_DISTRIBUTION_MONTH] = monthStr }
     }
 
     suspend fun updateLastAutoReserveMonth(monthStr: String) {
-        context.dataStore.edit { preferences -> preferences[PreferencesKeys.LAST_AUTO_RESERVE_MONTH] = monthStr }
+        context.dataStore.edit { it[PreferencesKeys.LAST_AUTO_RESERVE_MONTH] = monthStr }
     }
 }

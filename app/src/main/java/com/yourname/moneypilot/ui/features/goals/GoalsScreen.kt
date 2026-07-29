@@ -6,11 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.GoalEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
+import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import java.time.format.DateTimeFormatter
@@ -45,12 +42,14 @@ fun GoalsScreen(
 
     // Contribution dialog
     if (showContributeDialog != null) {
+        val wallets = (uiState as? ScreenState.Success)?.data?.wallets ?: emptyList()
         GoalTransactionDialog(
             title = "Contribute to ${showContributeDialog!!.name}",
             confirmLabel = "Add",
+            wallets = wallets,
             onDismiss = { showContributeDialog = null },
-            onConfirm = { amount ->
-                viewModel.contributeToGoal(showContributeDialog!!.id, amount)
+            onConfirm = { amount, walletId ->
+                viewModel.contributeToGoal(showContributeDialog!!.id, amount, walletId)
                 showContributeDialog = null
             }
         )
@@ -58,12 +57,14 @@ fun GoalsScreen(
 
     // Withdrawal dialog
     if (showWithdrawDialog != null) {
+        val wallets = (uiState as? ScreenState.Success)?.data?.wallets ?: emptyList()
         GoalTransactionDialog(
             title = "Withdraw from ${showWithdrawDialog!!.name}",
             confirmLabel = "Withdraw",
+            wallets = wallets,
             onDismiss = { showWithdrawDialog = null },
-            onConfirm = { amount ->
-                viewModel.withdrawFromGoal(showWithdrawDialog!!.id, amount)
+            onConfirm = { amount, walletId ->
+                viewModel.withdrawFromGoal(showWithdrawDialog!!.id, amount, walletId)
                 showWithdrawDialog = null
             }
         )
@@ -150,6 +151,79 @@ fun GoalsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GoalTransactionDialog(
+    title: String,
+    confirmLabel: String,
+    wallets: List<WalletEntity>,
+    onDismiss: () -> Unit,
+    onConfirm: (Double, Long) -> Unit
+) {
+    var amountStr by remember { mutableStateOf("") }
+    var selectedWalletId by remember { mutableStateOf(wallets.find { it.isPrimary }?.id ?: wallets.firstOrNull()?.id) }
+    var expanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = amountStr,
+                    onValueChange = { amountStr = it },
+                    label = { Text("Amount (₹)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("goal_dialog_amount_input"),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    val walletName = wallets.find { it.id == selectedWalletId }?.name ?: "Select Wallet"
+                    OutlinedTextField(
+                        value = walletName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Wallet") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        wallets.forEach { wallet ->
+                            DropdownMenuItem(
+                                text = { Text(wallet.name) },
+                                onClick = {
+                                    selectedWalletId = wallet.id
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amount = amountStr.toDoubleOrNull()
+                    if (amount != null && amount > 0 && selectedWalletId != null) {
+                        onConfirm(amount, selectedWalletId!!)
+                    }
+                },
+                modifier = Modifier.testTag("goal_dialog_confirm_button")
+            ) {
+                Text(confirmLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("goal_dialog_cancel_button")) { Text("Cancel") }
+        }
+    )
+}
+
 @Composable
 fun GoalItem(
     goal: GoalEntity,
@@ -159,7 +233,6 @@ fun GoalItem(
     onContribute: () -> Unit,
     onWithdraw: () -> Unit
 ) {
-    // Section 16.0 Compliance: Handle goal overshoot by clamping progress bar only, while showing real amount
     val rawProgress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
     val targetProgress = rawProgress.coerceIn(0f, 1f)
     val animatedProgress by animateFloatAsState(
@@ -269,46 +342,6 @@ fun GoalItem(
             }
         }
     }
-}
-
-@Composable
-fun GoalTransactionDialog(
-    title: String,
-    confirmLabel: String,
-    onDismiss: () -> Unit,
-    onConfirm: (Double) -> Unit
-) {
-    var amountStr by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(
-                value = amountStr,
-                onValueChange = { amountStr = it },
-                label = { Text("Amount (₹)") },
-                singleLine = true,
-                modifier = Modifier.testTag("goal_dialog_amount_input"),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val amount = amountStr.toDoubleOrNull()
-                    if (amount != null && amount > 0) {
-                        onConfirm(amount)
-                    }
-                },
-                modifier = Modifier.testTag("goal_dialog_confirm_button")
-            ) {
-                Text(confirmLabel)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.testTag("goal_dialog_cancel_button")) { Text("Cancel") }
-        }
-    )
 }
 
 @Composable

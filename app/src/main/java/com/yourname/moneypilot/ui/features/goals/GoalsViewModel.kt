@@ -1,9 +1,7 @@
 package com.yourname.moneypilot.ui.features.goals
 
 import androidx.lifecycle.viewModelScope
-import com.yourname.moneypilot.data.local.database.entities.GoalEntity
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
-import com.yourname.moneypilot.data.local.database.entities.TransactionType
+import com.yourname.moneypilot.data.local.database.entities.*
 import com.yourname.moneypilot.data.repository.GoalRepository
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.repository.TransactionRepository
@@ -11,17 +9,15 @@ import com.yourname.moneypilot.data.repository.WalletRepository
 import com.yourname.moneypilot.ui.common.BaseViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
 
 data class GoalsState(
-    val goals: List<GoalEntity> = emptyList()
+    val goals: List<GoalEntity> = emptyList(),
+    val wallets: List<WalletEntity> = emptyList()
 )
 
 @HiltViewModel
@@ -32,18 +28,23 @@ class GoalsViewModel @Inject constructor(
 ) : BaseViewModel<GoalsState>() {
 
     init {
-        observeGoals()
+        observeGoalsAndWallets()
     }
 
-    private fun observeGoals() {
+    private fun observeGoalsAndWallets() {
         viewModelScope.launch {
             _uiState.value = ScreenState.Loading
-            goalRepository.getAllGoals().collectLatest { list ->
-                if (list.isEmpty()) {
-                    _uiState.value = ScreenState.Empty
+            combine(
+                goalRepository.getAllGoals(),
+                walletRepository.getAllWallets()
+            ) { goals, wallets ->
+                if (goals.isEmpty()) {
+                    ScreenState.Empty
                 } else {
-                    _uiState.value = ScreenState.Success(GoalsState(list))
+                    ScreenState.Success(GoalsState(goals, wallets))
                 }
+            }.collect { newState ->
+                _uiState.value = newState
             }
         }
     }
@@ -54,16 +55,13 @@ class GoalsViewModel @Inject constructor(
         }
     }
 
-    // Contribute to goal (#52: Creates an Expense from Wallet to Goal)
-    fun contributeToGoal(goalId: Long, amount: Double) {
+    fun contributeToGoal(goalId: Long, amount: Double, walletId: Long) {
         viewModelScope.launch {
             val goal = goalRepository.getGoalById(goalId) ?: return@launch
-            val wallets = walletRepository.getAllWallets().first()
-            val wallet = wallets.firstOrNull { !it.isArchived } ?: return@launch
 
             val transaction = TransactionEntity(
                 id = UUID.randomUUID().toString(),
-                walletFromId = wallet.id,
+                walletFromId = walletId,
                 goalId = goalId,
                 type = TransactionType.Expense,
                 amount = amount,
@@ -75,18 +73,14 @@ class GoalsViewModel @Inject constructor(
         }
     }
 
-    // Withdraw from goal (#52: Creates an Income from Goal to Wallet)
-    fun withdrawFromGoal(goalId: Long, amount: Double) {
+    fun withdrawFromGoal(goalId: Long, amount: Double, walletId: Long) {
         viewModelScope.launch {
             val goal = goalRepository.getGoalById(goalId) ?: return@launch
-            if (goal.currentAmount < amount) return@launch // Basic safety
-
-            val wallets = walletRepository.getAllWallets().first()
-            val wallet = wallets.firstOrNull { !it.isArchived } ?: return@launch
-
+            
+            // Note: Withdrawal from goal is modeled as an Income to the target wallet
             val transaction = TransactionEntity(
                 id = UUID.randomUUID().toString(),
-                walletFromId = wallet.id, // We use this as target wallet for impact logic in Repo
+                walletFromId = walletId, // Acts as destination wallet in this case
                 goalId = goalId,
                 type = TransactionType.Income,
                 amount = amount,

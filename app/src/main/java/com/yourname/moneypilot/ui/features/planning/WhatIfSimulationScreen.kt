@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoGraph
 import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.domain.usecase.analytics.SimulationImpact
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.format.DateTimeFormatter
@@ -39,7 +39,7 @@ fun WhatIfSimulationScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        SimulationHeaderCard(data.totalSimulatedSavings, financeColors)
+                        SimulationHeaderCard(data.totalSimulatedSavings)
                     }
 
                     item {
@@ -47,7 +47,7 @@ fun WhatIfSimulationScreen(
                         Text("Reduce monthly spend in these categories to see the impact on your goals.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
-                    items(data.categories) { category ->
+                    items(data.categories, key = { it.categoryId ?: 0L }) { category ->
                         CategoryReductionSlider(
                             categoryName = category.name,
                             categoryIcon = category.icon,
@@ -62,8 +62,8 @@ fun WhatIfSimulationScreen(
                             Text("Goal Acceleration Impact", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
 
-                        items(data.simulationResults) { impact ->
-                            GoalImpactCard(impact, financeColors)
+                        items(data.simulationResults, key = { it.goalId }) { impact ->
+                            GoalImpactCard(impact)
                         }
                     }
 
@@ -76,7 +76,7 @@ fun WhatIfSimulationScreen(
 }
 
 @Composable
-fun SimulationHeaderCard(addedSavings: Double, colors: com.yourname.moneypilot.ui.theme.FinanceColors) {
+fun SimulationHeaderCard(addedSavings: Double) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -120,7 +120,7 @@ fun CategoryReductionSlider(
                 value = reductionPercentage,
                 onValueChange = onReductionChange,
                 valueRange = 0f..1f,
-                steps = 19 // 5% increments
+                steps = 19
             )
             
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -133,7 +133,7 @@ fun CategoryReductionSlider(
 }
 
 @Composable
-fun GoalImpactCard(impact: com.yourname.moneypilot.domain.usecase.analytics.SimulationImpact, colors: com.yourname.moneypilot.ui.theme.FinanceColors) {
+fun GoalImpactCard(impact: SimulationImpact) {
     val dateFmt = DateTimeFormatter.ofPattern("MMM yyyy")
     Card(
         modifier = Modifier.fillMaxWidth(),

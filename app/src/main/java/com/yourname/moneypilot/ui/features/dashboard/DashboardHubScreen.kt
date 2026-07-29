@@ -56,7 +56,7 @@ fun DashboardHubScreen(
     Scaffold(
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                Column(modifier = Modifier.statusBarsPadding()) {
+                Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -164,6 +164,7 @@ fun DashboardHubScreen(
                 }
             }
         },
+        floatingActionButtonPosition = FabPosition.End,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { 
@@ -172,15 +173,17 @@ fun DashboardHubScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
-                modifier = Modifier
-                    .testTag("fab_add_transaction")
-                    .padding(bottom = 16.dp)
+                modifier = Modifier.testTag("fab_add_transaction")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
             when (selectedTabIndex) {
                 0 -> TransactionsScreen(
                     currentMonth = hubState.currentMonth,
@@ -215,7 +218,6 @@ fun TotalNetWorthTab(state: DashboardHubState, currencySymbol: String, isPrivacy
             Text("Net Worth Overview", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
-        // Section 7.0 Breakdown Card
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),

@@ -15,9 +15,7 @@ import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -72,7 +70,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Set initial loading state
         setContent {
             MoneyPilotTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -100,11 +97,9 @@ class MainActivity : AppCompatActivity() {
                     if (preferences.useBiometrics && canAuth == BiometricManager.BIOMETRIC_SUCCESS) {
                         showBiometricPrompt()
                     } else {
-                        // If biometrics disabled or unavailable, but PIN exists -> Show PIN screen
                         showPinAuthScreen()
                     }
                 } else {
-                    // No PIN set or coming from Widget -> Proceed
                     proceedToContent()
                 }
             } catch (e: Exception) {
@@ -120,13 +115,12 @@ class MainActivity : AppCompatActivity() {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
-                    // If user cancels biometric or hits "Negative Button" (Use PIN), fall back to PIN screen
                     if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON || 
                         errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
                         errorCode == BiometricPrompt.ERROR_LOCKOUT) {
                         showPinAuthScreen()
                     } else {
-                        finish() // Critical error
+                        finish()
                     }
                 }
 
@@ -137,14 +131,13 @@ class MainActivity : AppCompatActivity() {
 
                 override fun onAuthenticationFailed() {
                     super.onAuthenticationFailed()
-                    // Biometric failed (e.g., wrong finger), system usually allows retries
                 }
             })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("MoneyPilot")
             .setSubtitle("Unlock your financial data")
-            .setAllowedAuthenticators(BIOMETRIC_STRONG) // Remove DEVICE_CREDENTIAL here to force our custom PIN fallback
+            .setAllowedAuthenticators(BIOMETRIC_STRONG)
             .setNegativeButtonText("Use PIN")
             .build()
 
@@ -210,7 +203,6 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Section 9.0: Integrity Alert UI (Governance Layer)
     LaunchedEffect(Unit) {
         mainViewModel.integrityAlert.collectLatest { mismatchCount ->
             val result = snackbarHostState.showSnackbar(
@@ -274,18 +266,26 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
             }
         }
     ) { innerPadding ->
+        // ARCHITECTURE FIX: Apply innerPadding to the NavHost.
+        // This ensures all screens start where the TopBar ends and finish where the BottomBar begins.
         NavHost(
             navController = navController,
             startDestination = Screen.Transactions.route,
             modifier = Modifier
-                .padding(bottom = innerPadding.calculateBottomPadding())
+                .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            composable(Screen.Transactions.route) { DashboardHubScreen(onAddTransaction = { navController.navigate("add_transaction?date=$it") }, onEditTransaction = { navController.navigate("add_transaction?transactionId=$it") }, onOpenSettings = { navController.navigate(Screen.Settings.route) }) }
+            composable(Screen.Transactions.route) { 
+                DashboardHubScreen(
+                    onAddTransaction = { navController.navigate("add_transaction?date=$it") }, 
+                    onEditTransaction = { navController.navigate("add_transaction?transactionId=$it") }, 
+                    onOpenSettings = { navController.navigate(Screen.Settings.route) }
+                ) 
+            }
             composable(Screen.Stats.route) { ReportsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable(Screen.Accounts.route) { AccountsHubScreen(onAddAccount = { navController.navigate("add_account") }, onAddLoan = { navController.navigate("add_loan") }, onLoanClick = { navController.navigate("loan_details/$it") }, onAccountClick = { navController.navigate("wallet_statement/$it") }, onEditAccount = { navController.navigate("add_account?walletId=$it") }) }
             composable(Screen.Planning.route) { PlanningHubScreen(onAddGoal = { navController.navigate("add_goal") }, onEditGoal = { navController.navigate("add_goal?goalId=$it") }, onGoalClick = { navController.navigate("goal_statement/$it") }, onAddBudget = { navController.navigate("add_budget") }, onAddInvestment = { navController.navigate("add_investment") }, onAddBigBill = { navController.navigate("add_big_bill") }, onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") }) }
-            composable(Screen.Settings.route) { SettingsScreen(onNavigateToCategories = { navController.navigate("categories") }, onNavigateToAppearance = { navController.navigate("appearance") }, onNavigateToSecurity = { navController.navigate("security") }, onNavigateToNotifications = { navController.navigate("notifications") }, onNavigateToBackup = { navController.navigate("backup") }, onNavigateToDiagnostics = { navController.navigate("diagnostics") }) }
+            composable(Screen.Settings.route) { SettingsScreen(onNavigateToCategories = { navController.navigate("categories") }, onNavigateToAppearance = { navController.navigate("appearance") }, onNavigateToSecurity = { navController.navigate("security") }, onNavigateToNotifications = { navController.navigate("notifications") }, onNavigateToBackup = { navController.navigate("backup") }, onNavigateToDiagnostics = { navController.navigate("diagnostics") } ) }
             
             composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToImport = { navController.navigate("bank_import") }) }
             composable("bank_import") { BankImportScreen(onPopBackStack = { navController.popBackStack() }) }

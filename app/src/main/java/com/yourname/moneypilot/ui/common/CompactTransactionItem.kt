@@ -24,11 +24,13 @@ fun CompactTransactionItem(
     val tx = txWithDetails.transaction
     val financeColors = LocalFinanceColors.current
 
-    // Semantic label based on transaction source type
+    // Semantic label based on transaction source type (TASK-LEDGER-LABELS)
     val semanticLabel = when (tx.transactionSourceType) {
         "LOAN_REPAYMENT" -> "Repaid"
         "GOAL_CONTRIBUTION" -> "Saved"
+        "GOAL_WITHDRAWAL" -> "Withdrawn"
         "INVESTMENT_BUY" -> "Invested"
+        "INVESTMENT_SELL" -> "Sold"
         "BIG_BILL_SETTLEMENT" -> "Reserved"
         else -> when (tx.type) {
             TransactionType.Expense -> "Spent"

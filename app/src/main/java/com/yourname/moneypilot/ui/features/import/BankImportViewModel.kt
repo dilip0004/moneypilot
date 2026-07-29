@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.InputStream
 import javax.inject.Inject
+import timber.log.Timber
 
 data class BankImportState(
     val isLoading: Boolean = false,
@@ -52,17 +53,20 @@ class BankImportViewModel @Inject constructor(
 
     private fun loadInitialData() {
         viewModelScope.launch {
-            walletRepository.getAllWallets().collect { wallets ->
-                _state.update { it.copy(
-                    wallets = wallets,
-                    selectedWalletId = it.selectedWalletId ?: wallets.find { it.isPrimary }?.id ?: wallets.firstOrNull()?.id
-                ) }
-            }
-        }
-        viewModelScope.launch {
-            // Load all expense categories as default
-            categoryRepository.getCategoriesByType("EXPENSE").collect { categories ->
-                _state.update { it.copy(categories = categories) }
+            try {
+                // Combine data loading into a single stream to prevent race conditions on emulator init
+                combine(
+                    walletRepository.getAllWallets(),
+                    categoryRepository.getCategoriesByType("EXPENSE")
+                ) { wallets, categories ->
+                    _state.update { it.copy(
+                        wallets = wallets,
+                        categories = categories,
+                        selectedWalletId = it.selectedWalletId ?: wallets.find { w -> w.isPrimary }?.id ?: wallets.firstOrNull()?.id
+                    ) }
+                }.collect()
+            } catch (e: Exception) {
+                Timber.e(e, "BankImportViewModel: Initial data load failed")
             }
         }
     }
@@ -83,16 +87,20 @@ class BankImportViewModel @Inject constructor(
             is BankImportEvent.CategorySelected -> {
                 _state.update { s ->
                     val newList = s.importedTransactions.toMutableList()
-                    val item = newList[event.index]
-                    newList[event.index] = item.copy(categoryId = event.categoryId)
+                    if (event.index in newList.indices) {
+                        val item = newList[event.index]
+                        newList[event.index] = item.copy(categoryId = event.categoryId)
+                    }
                     s.copy(importedTransactions = newList)
                 }
             }
             is BankImportEvent.ToggleTransactionSelection -> {
                 _state.update { s ->
                     val newList = s.importedTransactions.toMutableList()
-                    val item = newList[event.index]
-                    newList[event.index] = item.copy(isSelected = !item.isSelected)
+                    if (event.index in newList.indices) {
+                        val item = newList[event.index]
+                        newList[event.index] = item.copy(isSelected = !item.isSelected)
+                    }
                     s.copy(importedTransactions = newList)
                 }
             }
@@ -113,8 +121,6 @@ class BankImportViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                // In a real app, reset InputStream or read bytes first. 
-                // For simplicity here, we assume it can be read.
                 val transactions = importRepository.parseCsv(inputStream, mapping)
                 val deduped = importRepository.detectDuplicates(transactions)
                 
@@ -131,14 +137,18 @@ class BankImportViewModel @Inject constructor(
     private fun commitImport() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            val transactionsToCommit = _state.value.importedTransactions.map { 
-                it.copy(walletId = _state.value.selectedWalletId) 
-            }
-            val result = importRepository.commitImports(transactionsToCommit)
-            result.onSuccess { count ->
-                _state.update { it.copy(isLoading = false, importSuccessCount = count) }
-            }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, error = "Import failed: ${e.message}") }
+            try {
+                val transactionsToCommit = _state.value.importedTransactions.map { 
+                    it.copy(walletId = _state.value.selectedWalletId) 
+                }
+                val result = importRepository.commitImports(transactionsToCommit)
+                result.onSuccess { count ->
+                    _state.update { it.copy(isLoading = false, importSuccessCount = count) }
+                }.onFailure { e ->
+                    _state.update { it.copy(isLoading = false, error = "Import failed: ${e.message}") }
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(isLoading = false, error = "Critical system failure during commit") }
             }
         }
     }

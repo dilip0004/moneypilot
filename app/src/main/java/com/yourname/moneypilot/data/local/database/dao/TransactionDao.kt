@@ -55,10 +55,10 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE wallet_from_id = :walletId OR wallet_to_id = :walletId")
     suspend fun getTransactionCountForWallet(walletId: Long): Int
 
-    @Query("SELECT COUNT(*) FROM transactions WHERE category_id = :categoryId")
+    @Query("SELECT COUNT(*) FROM transactions WHERE category_id = :categoryId AND soft_deleted = 0")
     suspend fun getTransactionCountForCategory(categoryId: Long): Int
 
-    @Query("SELECT COUNT(*) FROM transactions WHERE subcategory_id = :subcategoryId")
+    @Query("SELECT COUNT(*) FROM transactions WHERE subcategory_id = :subcategoryId AND soft_deleted = 0")
     suspend fun getTransactionCountForSubcategory(subcategoryId: Long): Int
 
     @Transaction
@@ -109,6 +109,7 @@ interface TransactionDao {
         WHERE type = :type
         AND dateTime BETWEEN :startDate AND :endDate
         AND soft_deleted = 0
+        AND transaction_source_type NOT IN ('AUTO_EMI_PRINCIPAL', 'LOAN_REPAYMENT', 'INVESTMENT_BUY', 'GOAL_CONTRIBUTION')
         """
     )
     suspend fun getTotalSumByType(
