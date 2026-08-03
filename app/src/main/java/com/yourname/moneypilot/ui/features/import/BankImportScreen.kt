@@ -30,20 +30,21 @@ import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BankImportScreen(
-    onPopBackStack: () -> Unit,
-    viewModel: BankImportViewModel = hiltViewModel()
+    onPopBackStack: () -> Unit
 ) {
+    val viewModel: BankImportViewModel = hiltViewModel()
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.loadCategories()
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            val inputStream = context.contentResolver.openInputStream(it)
-            if (inputStream != null) {
-                viewModel.onEvent(BankImportEvent.FileSelected(inputStream))
-            }
+            viewModel.onEvent(BankImportEvent.FileSelected(it), context)
         }
     }
 
@@ -69,7 +70,11 @@ fun BankImportScreen(
             if (state.importSuccessCount != null) {
                 ImportSuccessView(state.importSuccessCount!!, onPopBackStack)
             } else {
-                if (state.importedTransactions.isEmpty() && !state.isLoading) {
+                state.error?.let {
+                    ErrorMessage(it)
+                }
+
+                if (!state.isFileSelected && !state.isLoading) {
                     Button(
                         onClick = { filePickerLauncher.launch("*/*") },
                         modifier = Modifier.fillMaxWidth(),
@@ -81,7 +86,7 @@ fun BankImportScreen(
                     }
                 }
 
-                if (state.importedTransactions.isNotEmpty() || state.isLoading) {
+                if (state.isFileSelected || state.isLoading) {
                     MappingConfigSection(state.mapping) { newMapping ->
                         viewModel.onEvent(BankImportEvent.ColumnMappingChanged(newMapping))
                     }
@@ -95,6 +100,10 @@ fun BankImportScreen(
                     Box(modifier = Modifier.weight(1f)) {
                         if (state.isLoading) {
                             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        } else if (state.importedTransactions.isEmpty()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("Enter column indices to see a preview", style = MaterialTheme.typography.bodySmall)
+                            }
                         } else {
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 itemsIndexed(state.importedTransactions) { index, tx ->
@@ -124,12 +133,35 @@ fun BankImportScreen(
 }
 
 @Composable
+fun ErrorMessage(message: String) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            Text(message, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
 fun MappingConfigSection(mapping: CsvColumnMapping, onMappingChange: (CsvColumnMapping) -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("CSV Columns (0-indexed)", style = MaterialTheme.typography.titleSmall)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("CSV Columns (0-indexed)", style = MaterialTheme.typography.titleSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Has Header", style = MaterialTheme.typography.labelSmall)
+                    Checkbox(checked = mapping.hasHeader, onCheckedChange = { onMappingChange(mapping.copy(hasHeader = it)) })
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MappingChip("Date", mapping.dateIndex) { onMappingChange(mapping.copy(dateIndex = it)) }
                 MappingChip("Desc", mapping.descriptionIndex) { onMappingChange(mapping.copy(descriptionIndex = it)) }

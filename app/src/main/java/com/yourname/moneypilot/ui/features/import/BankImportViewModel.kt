@@ -1,24 +1,29 @@
 package com.yourname.moneypilot.ui.features.import
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
+import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.data.repository.BankImportRepository
 import com.yourname.moneypilot.data.repository.CategoryRepository
 import com.yourname.moneypilot.data.repository.WalletRepository
 import com.yourname.moneypilot.domain.model.CsvColumnMapping
 import com.yourname.moneypilot.domain.model.ImportedTransaction
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.io.InputStream
 import javax.inject.Inject
 import timber.log.Timber
 
 data class BankImportState(
     val isLoading: Boolean = false,
+    val isFileSelected: Boolean = false,
     val importedTransactions: List<ImportedTransaction> = emptyList(),
-    val wallets: List<com.yourname.moneypilot.data.local.database.entities.WalletEntity> = emptyList(),
+    val wallets: List<WalletEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList(),
     val selectedWalletId: Long? = null,
     val mapping: CsvColumnMapping = CsvColumnMapping(),
@@ -27,7 +32,7 @@ data class BankImportState(
 )
 
 sealed class BankImportEvent {
-    data class FileSelected(val inputStream: InputStream) : BankImportEvent()
+    data class FileSelected(val uri: Uri) : BankImportEvent()
     data class ColumnMappingChanged(val mapping: CsvColumnMapping) : BankImportEvent()
     data class WalletSelected(val walletId: Long) : BankImportEvent()
     data class CategorySelected(val index: Int, val categoryId: Long?) : BankImportEvent()
@@ -45,41 +50,53 @@ class BankImportViewModel @Inject constructor(
     private val _state = MutableStateFlow(BankImportState())
     val state: StateFlow<BankImportState> = _state.asStateFlow()
 
-    private var currentInputStream: InputStream? = null
+    private var parsedLines: List<List<String>> = emptyList()
+    private var parseJob: Job? = null
 
     init {
-        loadInitialData()
-    }
-
-    private fun loadInitialData() {
+        // Safe initialization
         viewModelScope.launch {
             try {
-                // Combine data loading into a single stream to prevent race conditions on emulator init
-                combine(
-                    walletRepository.getAllWallets(),
-                    categoryRepository.getCategoriesByType("EXPENSE")
-                ) { wallets, categories ->
-                    _state.update { it.copy(
-                        wallets = wallets,
-                        categories = categories,
-                        selectedWalletId = it.selectedWalletId ?: wallets.find { w -> w.isPrimary }?.id ?: wallets.firstOrNull()?.id
-                    ) }
-                }.collect()
-            } catch (e: Exception) {
-                Timber.e(e, "BankImportViewModel: Initial data load failed")
+                loadInitialData()
+            } catch (e: Throwable) {
+                Timber.e(e, "BankImportViewModel: Init failed critical")
             }
         }
     }
 
-    fun onEvent(event: BankImportEvent) {
+    private suspend fun loadInitialData() {
+        // Fetch wallets
+        walletRepository.getAllWallets()
+            .catch { e -> Timber.e(e, "Wallets flow error") }
+            .collectLatest { wallets ->
+                _state.update { currentState ->
+                    currentState.copy(
+                        wallets = wallets,
+                        selectedWalletId = currentState.selectedWalletId ?: wallets.find { it.isPrimary }?.id ?: wallets.firstOrNull()?.id
+                    )
+                }
+            }
+    }
+
+    // Separate launch for categories to avoid blocking
+    fun loadCategories() {
+        viewModelScope.launch {
+            categoryRepository.getCategoriesByType("EXPENSE")
+                .catch { e -> Timber.e(e, "Categories flow error") }
+                .collectLatest { categories ->
+                    _state.update { it.copy(categories = categories) }
+                }
+        }
+    }
+
+    fun onEvent(event: BankImportEvent, context: Context? = null) {
         when (event) {
             is BankImportEvent.FileSelected -> {
-                currentInputStream = event.inputStream
-                parsePreview()
+                context?.let { loadFile(event.uri, it) }
             }
             is BankImportEvent.ColumnMappingChanged -> {
                 _state.update { it.copy(mapping = event.mapping) }
-                parsePreview()
+                updatePreview()
             }
             is BankImportEvent.WalletSelected -> {
                 _state.update { it.copy(selectedWalletId = event.walletId) }
@@ -110,18 +127,47 @@ class BankImportViewModel @Inject constructor(
         }
     }
 
-    private fun parsePreview() {
-        val inputStream = currentInputStream ?: return
-        val mapping = _state.value.mapping
-        
-        if (mapping.dateIndex == -1 || mapping.amountIndex == -1 || mapping.descriptionIndex == -1) {
-            return
-        }
-
+    private fun loadFile(uri: Uri, context: Context) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
             try {
-                val transactions = importRepository.parseCsv(inputStream, mapping)
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream == null) {
+                    _state.update { it.copy(isLoading = false, error = "Could not open file") }
+                    return@launch
+                }
+
+                inputStream.use { stream ->
+                    parsedLines = com.yourname.moneypilot.util.CsvParser.parse(stream)
+                    if (parsedLines.isEmpty()) {
+                        _state.update { it.copy(isLoading = false, error = "File is empty or invalid") }
+                    } else {
+                        _state.update { it.copy(isFileSelected = true, isLoading = false) }
+                        updatePreview()
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "BankImportViewModel: File load failed")
+                _state.update { it.copy(isLoading = false, error = "Failed to load file: ${e.message}") }
+            }
+        }
+    }
+
+    private fun updatePreview() {
+        if (parsedLines.isEmpty()) return
+        val mapping = _state.value.mapping
+        
+        if (mapping.dateIndex == -1 || mapping.amountIndex == -1 || mapping.descriptionIndex == -1) {
+            _state.update { it.copy(importedTransactions = emptyList()) }
+            return
+        }
+
+        parseJob?.cancel()
+        parseJob = viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
+            try {
+                // We use the already parsed lines to avoid re-opening the stream and permission issues
+                val transactions = importRepository.convertToTransactions(parsedLines, mapping)
                 val deduped = importRepository.detectDuplicates(transactions)
                 
                 _state.update { it.copy(
@@ -129,7 +175,8 @@ class BankImportViewModel @Inject constructor(
                     isLoading = false
                 ) }
             } catch (e: Exception) {
-                _state.update { it.copy(isLoading = false, error = "Failed to parse: ${e.message}") }
+                Timber.e(e, "BankImportViewModel: Preview update failed")
+                _state.update { it.copy(isLoading = false, error = "Preview failed: ${e.message}") }
             }
         }
     }

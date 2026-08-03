@@ -22,67 +22,96 @@ class BankImportRepositoryImpl @Inject constructor(
     override suspend fun parseCsv(inputStream: InputStream, mapping: CsvColumnMapping): List<ImportedTransaction> = withContext(Dispatchers.IO) {
         try {
             val lines = CsvParser.parse(inputStream)
-            val transactions = mutableListOf<ImportedTransaction>()
-            
-            val startIndex = if (mapping.hasHeader) 1 else 0
-            val existingTxs = transactionDao.getAllTransactionsForBackup() 
-            
-            for (i in startIndex until lines.size) {
-                val line = lines[i]
-                if (line.size <= mapping.dateIndex || line.size <= mapping.descriptionIndex || line.size <= mapping.amountIndex) continue
-
-                val rawDate = line[mapping.dateIndex]
-                val rawDesc = line[mapping.descriptionIndex]
-                val rawAmount = line[mapping.amountIndex]
-
-                val parsedDate = tryParseDate(rawDate)
-                val parsedAmt = rawAmount.replace(",", "").toDoubleOrNull()
-                
-                val suggestedCategoryId = if (parsedAmt != null) {
-                    findSuggestedCategory(rawDesc, existingTxs)
-                } else null
-
-                transactions.add(
-                    ImportedTransaction(
-                        rawDate = rawDate,
-                        rawDescription = rawDesc,
-                        rawAmount = rawAmount,
-                        parsedDateTime = parsedDate,
-                        parsedAmount = parsedAmt,
-                        categoryId = suggestedCategoryId
-                    )
-                )
-            }
-            transactions
-        } catch (e: Exception) {
+            convertToTransactions(lines, mapping)
+        } catch (e: Throwable) {
             emptyList()
         }
     }
 
-    private fun findSuggestedCategory(description: String, history: List<TransactionEntity>): Long? {
-        if (description.isBlank()) return null
-        val relevantTxs = history.filter { 
-            it.note?.contains(description.take(minOf(description.length, 5)), ignoreCase = true) == true || 
-            description.contains(it.note?.take(minOf(it.note?.length ?: 0, 5)) ?: "____", ignoreCase = true)
+    override suspend fun convertToTransactions(lines: List<List<String>>, mapping: CsvColumnMapping): List<ImportedTransaction> = withContext(Dispatchers.Default) {
+        val transactions = mutableListOf<ImportedTransaction>()
+        
+        val startIndex = if (mapping.hasHeader) 1 else 0
+        
+        // Use a limited history or optimized suggestion to avoid OOM
+        val existingTxs = try {
+            transactionDao.getRecentTransactions(1000) 
+        } catch (e: Exception) {
+            emptyList()
         }
         
-        return relevantTxs
-            .filter { it.categoryId != null }
-            .groupBy { it.categoryId!! }
+        // Pre-process history to make category suggestion faster
+        val historySnippets = existingTxs.filter { it.categoryId != null && !it.note.isNullOrBlank() }
+            .map { it.categoryId!! to (it.note?.trim()?.take(8)?.lowercase() ?: "") }
+            .filter { it.second.length >= 3 } // Only use snippets of at least 3 chars
+
+        for (i in startIndex until lines.size) {
+            val line = lines[i]
+            if (line.size <= mapping.dateIndex || line.size <= mapping.descriptionIndex || line.size <= mapping.amountIndex) continue
+
+            val rawDate = line[mapping.dateIndex]
+            val rawDesc = line[mapping.descriptionIndex]
+            val rawAmount = line[mapping.amountIndex]
+
+            val parsedDate = tryParseDate(rawDate)
+            val parsedAmt = rawAmount.replace(",", "").replace("₹", "").trim().toDoubleOrNull()
+            
+            val suggestedCategoryId = if (parsedAmt != null) {
+                findSuggestedCategoryOptimized(rawDesc, historySnippets)
+            } else null
+
+            transactions.add(
+                ImportedTransaction(
+                    rawDate = rawDate,
+                    rawDescription = rawDesc,
+                    rawAmount = rawAmount,
+                    parsedDateTime = parsedDate,
+                    parsedAmount = parsedAmt,
+                    categoryId = suggestedCategoryId
+                )
+            )
+        }
+        transactions
+    }
+
+    private fun findSuggestedCategoryOptimized(description: String, historySnippets: List<Pair<Long, String>>): Long? {
+        if (description.isBlank()) return null
+        val descLower = description.lowercase().trim()
+        if (descLower.length < 3) return null
+        
+        val matchingCategories = historySnippets.filter { (_, snippet) ->
+            descLower.contains(snippet) || (descLower.length >= 5 && snippet.contains(descLower.take(5)))
+        }.map { it.first }
+
+        return matchingCategories
+            .groupBy { it }
             .maxByOrNull { it.value.size }
             ?.key
     }
 
     override suspend fun detectDuplicates(transactions: List<ImportedTransaction>): List<ImportedTransaction> = withContext(Dispatchers.IO) {
-        val existing = transactionDao.getAllTransactionsForBackup()
-        
-        transactions.map { imported ->
-            val isDuplicate = existing.any { exist ->
-                Math.abs(exist.amount - Math.abs(imported.parsedAmount ?: 0.0)) < 0.01 && 
-                exist.dateTime.toLocalDate() == imported.parsedDateTime?.toLocalDate() &&
-                exist.note?.contains(imported.rawDescription.take(minOf(imported.rawDescription.length, 5)), ignoreCase = true) == true
+        try {
+            // Only load recent transactions for duplicate detection to save memory
+            val existing = transactionDao.getRecentTransactions(2000)
+            val groupedExisting = existing.groupBy { it.dateTime.toLocalDate() }
+            
+            transactions.map { imported ->
+                val importedDate = imported.parsedDateTime?.toLocalDate()
+                val potentialDupes = if (importedDate != null) groupedExisting[importedDate] ?: emptyList() else emptyList()
+                
+                val isDuplicate = potentialDupes.any { exist ->
+                    val amtDiff = Math.abs(exist.amount - Math.abs(imported.parsedAmount ?: 0.0))
+                    val descMatch = if (imported.rawDescription.length >= 5) {
+                        exist.note?.contains(imported.rawDescription.take(5), ignoreCase = true) == true
+                    } else {
+                        exist.note?.equals(imported.rawDescription, ignoreCase = true) == true
+                    }
+                    amtDiff < 0.01 && descMatch
+                }
+                imported.copy(isDuplicate = isDuplicate, isSelected = !isDuplicate)
             }
-            imported.copy(isDuplicate = isDuplicate, isSelected = !isDuplicate)
+        } catch (e: Throwable) {
+            transactions
         }
     }
 
@@ -114,15 +143,18 @@ class BankImportRepositoryImpl @Inject constructor(
     private fun tryParseDate(raw: String): LocalDateTime? {
         val formats = listOf(
             "dd/MM/yyyy", "dd-MM-yyyy", "yyyy-MM-dd", "MM/dd/yyyy",
-            "dd/MM/yy", "dd-MM-yy", "yyyy/MM/dd", "dd MMM yyyy", "MMM dd, yyyy"
+            "dd/MM/yy", "dd-MM-yy", "yyyy/MM/dd", "dd MMM yyyy", "MMM dd, yyyy",
+            "dd/MM/yyyy HH:mm", "dd-MM-yyyy HH:mm", "yyyy-MM-dd HH:mm"
         )
         for (fmt in formats) {
             try {
-                return LocalDateTime.parse(raw, DateTimeFormatter.ofPattern("$fmt HH:mm:ss"))
+                if (raw.contains(":")) {
+                    val pattern = if (raw.count { it == ':' } == 2) "$fmt HH:mm:ss" else "$fmt HH:mm"
+                    return LocalDateTime.parse(raw, DateTimeFormatter.ofPattern(pattern))
+                }
+                return java.time.LocalDate.parse(raw, DateTimeFormatter.ofPattern(fmt)).atStartOfDay()
             } catch (e: Exception) {
-                try {
-                    return java.time.LocalDate.parse(raw, DateTimeFormatter.ofPattern(fmt)).atStartOfDay()
-                } catch (e2: Exception) { /* ignore */ }
+                // continue to next format
             }
         }
         return null

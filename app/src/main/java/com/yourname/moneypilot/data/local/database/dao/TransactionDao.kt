@@ -48,6 +48,9 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions")
     suspend fun getAllTransactionsForBackup(): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions ORDER BY dateTime DESC LIMIT :limit")
+    suspend fun getRecentTransactions(limit: Int): List<TransactionEntity>
     
     @Query("SELECT * FROM transactions WHERE wallet_from_id = :walletId OR wallet_to_id = :walletId")
     suspend fun getTransactionsForWallet(walletId: Long): List<TransactionEntity>

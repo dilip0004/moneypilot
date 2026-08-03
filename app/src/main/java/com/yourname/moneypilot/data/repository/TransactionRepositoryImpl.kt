@@ -4,7 +4,9 @@ import androidx.room.Transaction
 import com.yourname.moneypilot.data.local.database.dao.*
 import com.yourname.moneypilot.data.local.database.entities.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import java.time.LocalDateTime
+import java.time.LocalTime
 import javax.inject.Inject
 
 class TransactionRepositoryImpl @Inject constructor(

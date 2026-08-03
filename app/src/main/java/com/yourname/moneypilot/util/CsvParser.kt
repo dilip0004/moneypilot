@@ -6,17 +6,21 @@ import java.io.InputStreamReader
 
 object CsvParser {
     fun parse(inputStream: InputStream): List<List<String>> {
-        val reader = BufferedReader(InputStreamReader(inputStream))
-        val result = mutableListOf<List<String>>()
-        
-        reader.useLines { lines ->
-            lines.forEach { line ->
-                if (line.isNotBlank()) {
-                    result.add(parseLine(line))
+        return try {
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            val result = mutableListOf<List<String>>()
+            
+            reader.useLines { lines ->
+                lines.forEach { line ->
+                    if (line.isNotBlank()) {
+                        result.add(parseLine(line))
+                    }
                 }
             }
+            result
+        } catch (e: Exception) {
+            emptyList()
         }
-        return result
     }
 
     private fun parseLine(line: String): List<String> {
