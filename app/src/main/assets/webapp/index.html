@@ -6,122 +6,346 @@
     <title>MoneyPilot - Desktop View</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <nav class="bg-indigo-600 text-white p-4 shadow-lg">
+<body class="bg-gray-50 min-h-screen font-sans">
+    <!-- Navbar -->
+    <nav class="bg-indigo-700 text-white p-4 shadow-xl sticky top-0 z-50">
         <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold"><i class="fas fa-plane-arrival mr-2"></i>MoneyPilot Desktop</h1>
-            <div id="status" class="flex items-center">
-                <span class="w-3 h-3 bg-green-400 rounded-full mr-2"></span>
-                <span>Connected</span>
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-2 rounded-lg text-indigo-700">
+                    <i class="fas fa-plane-arrival text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight">MoneyPilot <span class="font-light opacity-80 text-lg ml-1">Desktop</span></h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <button onclick="showAddModal()" class="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center">
+                    <i class="fas fa-plus mr-2"></i> New Transaction
+                </button>
+                <div id="status" class="flex items-center bg-indigo-800 px-3 py-1 rounded-full text-xs">
+                    <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                    <span>Live Sync Active</span>
+                </div>
             </div>
         </div>
     </nav>
 
     <main class="container mx-auto mt-8 p-4">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Summary Cards -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Total Assets</h3>
-                <p id="totalAssets" class="text-3xl font-bold text-gray-800 mt-2">₹ 0.00</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500">
-                <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Wallets</h3>
-                <p id="walletCount" class="text-3xl font-bold text-gray-800 mt-2">0</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-indigo-500">
-                <h3 class="text-gray-500 text-sm font-semibold uppercase tracking-wider">Recent Transactions</h3>
-                <p id="transactionCount" class="text-3xl font-bold text-gray-800 mt-2">0</p>
-            </div>
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Summary & Analytics -->
+            <div class="lg:col-span-1 space-y-8">
+                <!-- Summary Cards -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 class="text-gray-400 text-xs font-bold uppercase mb-4">This Month</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Income</span>
+                            <span id="statIncome" class="text-xl font-bold text-green-600">₹ 0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Expenses</span>
+                            <span id="statExpense" class="text-xl font-bold text-red-500">₹ 0.00</span>
+                        </div>
+                        <div class="pt-4 border-t flex justify-between items-center">
+                            <span class="text-gray-800 font-semibold">Net Savings</span>
+                            <span id="statSavings" class="text-2xl font-black text-indigo-600">₹ 0.00</span>
+                        </div>
+                    </div>
+                </div>
 
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Wallets List -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-bold mb-4 flex items-center">
-                    <i class="fas fa-wallet text-indigo-500 mr-2"></i> Your Wallets
-                </h2>
-                <div id="walletsList" class="space-y-4">
-                    <p class="text-gray-400 italic">Loading wallets...</p>
+                <!-- Wallets Widget -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-bold flex items-center">
+                            <i class="fas fa-wallet text-indigo-500 mr-2"></i> Your Wallets
+                        </h2>
+                        <span id="walletTotal" class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold">Total: ₹0</span>
+                    </div>
+                    <div id="walletsList" class="space-y-3">
+                        <!-- Wallets injected here -->
+                    </div>
+                </div>
+
+                <!-- Analytics Chart -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-lg font-bold mb-4">Cash Flow</h2>
+                    <canvas id="flowChart" height="200"></canvas>
                 </div>
             </div>
 
-            <!-- Transactions List -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-bold mb-4 flex items-center">
-                    <i class="fas fa-list text-indigo-500 mr-2"></i> Recent Transactions
-                </h2>
-                <div id="transactionsList" class="space-y-4 overflow-y-auto max-h-[500px]">
-                    <p class="text-gray-400 italic">Loading transactions...</p>
+            <!-- Right Column: Transactions -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                        <h2 class="text-xl font-bold">Recent History</h2>
+                        <div class="flex space-x-2">
+                            <input type="text" id="txSearch" onkeyup="filterTransactions()" placeholder="Search notes..." class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-200 outline-none">
+                            <button onclick="exportToCsv()" class="p-2 text-gray-500 hover:text-indigo-600 transition" title="Export to CSV">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="transactionsList" class="divide-y divide-gray-100 max-h-[700px] overflow-y-auto custom-scrollbar">
+                        <!-- Transactions injected here -->
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- Add Transaction Modal -->
+    <div id="addModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                <h3 class="text-lg font-bold">Add Transaction</h3>
+                <button onclick="hideAddModal()" class="opacity-70 hover:opacity-100"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="addForm" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
+                        <select id="fType" class="w-full border rounded-lg p-2 text-sm">
+                            <option value="Expense">Expense</option>
+                            <option value="Income">Income</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Amount</label>
+                        <input type="number" id="fAmount" step="0.01" required class="w-full border rounded-lg p-2 text-sm" placeholder="0.00">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Wallet</label>
+                    <select id="fWallet" class="w-full border rounded-lg p-2 text-sm" required></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
+                    <select id="fCategory" class="w-full border rounded-lg p-2 text-sm"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Note</label>
+                    <textarea id="fNote" class="w-full border rounded-lg p-2 text-sm" placeholder="What was this for?"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition">
+                    Save Transaction
+                </button>
+            </form>
+        </div>
+    </div>
+
     <script>
+        let allTransactions = [];
+        let chart = null;
+
+        // --- WebSocket Setup ---
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+        ws.onmessage = (event) => {
+            if (event.data === 'DATA_UPDATED') {
+                console.log('Real-time update received');
+                fetchData();
+            }
+        };
+
+        ws.onclose = () => {
+            document.getElementById('status').innerHTML = '<span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>Sync Lost - Refreshing...';
+            setTimeout(() => window.location.reload(), 5000);
+        };
+
+        // --- Data Fetching ---
         async function fetchData() {
             try {
-                const walletsRes = await fetch('/api/wallets');
-                const wallets = await walletsRes.json();
-                renderWallets(wallets);
+                const [wallets, transactions, categories, stats] = await Promise.all([
+                    fetch('/api/wallets').then(r => r.json()),
+                    fetch('/api/transactions').then(r => r.json()),
+                    fetch('/api/categories').then(r => r.json()),
+                    fetch('/api/stats/summary').then(r => r.json())
+                ]);
 
-                const transactionsRes = await fetch('/api/transactions');
-                const transactions = await transactionsRes.json();
+                allTransactions = transactions;
+                renderWallets(wallets);
                 renderTransactions(transactions);
+                renderStats(stats);
+                populateDropdowns(wallets, categories);
+                updateChart(stats);
             } catch (error) {
-                console.error('Error fetching data:', error);
-                document.getElementById('status').innerHTML = '<span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>Disconnected';
+                console.error('Fetch error:', error);
             }
         }
 
+        // --- Rendering ---
         function renderWallets(wallets) {
             const list = document.getElementById('walletsList');
             list.innerHTML = '';
             let total = 0;
-            wallets.forEach(wallet => {
-                total += wallet.currentBalance;
+            wallets.forEach(w => {
+                total += w.currentBalance;
                 const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg transition';
+                div.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-indigo-50 transition group cursor-default';
                 div.innerHTML = `
                     <div class="flex items-center">
-                        <span class="text-2xl mr-3">${wallet.icon}</span>
+                        <span class="text-xl mr-3 bg-white w-10 h-10 flex items-center justify-center rounded-full shadow-sm">${w.icon}</span>
                         <div>
-                            <p class="font-bold text-gray-800">${wallet.name}</p>
-                            <p class="text-xs text-gray-500">${wallet.type}</p>
+                            <p class="font-bold text-gray-800 text-sm">${w.name}</p>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-widest">${w.type}</p>
                         </div>
                     </div>
-                    <p class="font-mono font-bold text-indigo-600">₹ ${wallet.currentBalance.toLocaleString()}</p>
+                    <p class="font-mono font-bold text-indigo-700">₹ ${w.currentBalance.toLocaleString()}</p>
                 `;
                 list.appendChild(div);
             });
-            document.getElementById('totalAssets').textContent = `₹ ${total.toLocaleString()}`;
-            document.getElementById('walletCount').textContent = wallets.length;
+            document.getElementById('walletTotal').textContent = `Total: ₹${total.toLocaleString()}`;
         }
 
-        function renderTransactions(transactions) {
+        function renderTransactions(txs) {
             const list = document.getElementById('transactionsList');
             list.innerHTML = '';
-            transactions.forEach(tx => {
-                const date = new Date(tx.dateTime).toLocaleDateString();
+            txs.forEach(tx => {
+                const date = new Date(tx.dateTime);
                 const isExpense = tx.type === 'Expense';
                 const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-3 border-b border-gray-100 hover:bg-gray-50';
+                div.className = 'p-4 hover:bg-gray-50 flex justify-between items-center group transition';
                 div.innerHTML = `
-                    <div>
-                        <p class="font-semibold text-sm text-gray-800">${tx.note || 'No Note'}</p>
-                        <p class="text-xs text-gray-500">${date} • ${tx.transactionSourceType}</p>
+                    <div class="flex items-center space-x-4">
+                        <div class="${isExpense ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'} w-10 h-10 rounded-full flex items-center justify-center">
+                            <i class="fas ${isExpense ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800 text-sm">${tx.note || tx.categoryName || 'Unnamed'}</p>
+                            <p class="text-xs text-gray-400">${date.toLocaleDateString()} • ${tx.walletName}</p>
+                        </div>
                     </div>
-                    <p class="font-mono font-bold ${isExpense ? 'text-red-500' : 'text-green-500'}">
-                        ${isExpense ? '-' : '+'} ₹ ${tx.amount.toLocaleString()}
-                    </p>
+                    <div class="flex items-center space-x-6">
+                        <p class="font-mono font-bold text-base ${isExpense ? 'text-red-500' : 'text-green-500'}">
+                            ${isExpense ? '-' : '+'} ₹ ${tx.amount.toLocaleString()}
+                        </p>
+                        <button onclick="deleteTransaction('${tx.id}')" class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition px-2">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
                 `;
                 list.appendChild(div);
             });
-            document.getElementById('transactionCount').textContent = transactions.length;
         }
 
+        function renderStats(stats) {
+            document.getElementById('statIncome').textContent = `₹ ${stats.income.toLocaleString()}`;
+            document.getElementById('statExpense').textContent = `₹ ${stats.expense.toLocaleString()}`;
+            document.getElementById('statSavings').textContent = `₹ ${stats.savings.toLocaleString()}`;
+        }
+
+        function updateChart(stats) {
+            const ctx = document.getElementById('flowChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Expenses', 'Savings'],
+                    datasets: [{
+                        data: [stats.expense, stats.savings > 0 ? stats.savings : 0],
+                        backgroundColor: ['#ef4444', '#6366f1'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    cutout: '70%',
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        function populateDropdowns(wallets, categories) {
+            const wSelect = document.getElementById('fWallet');
+            wSelect.innerHTML = wallets.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+
+            const cSelect = document.getElementById('fCategory');
+            cSelect.innerHTML = '<option value="">Uncategorized</option>' +
+                categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+        }
+
+        // --- Actions ---
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const data = {
+                type: document.getElementById('fType').value,
+                amount: document.getElementById('fAmount').value,
+                walletId: document.getElementById('fWallet').value,
+                categoryId: document.getElementById('fCategory').value,
+                note: document.getElementById('fNote').value
+            };
+
+            try {
+                const res = await fetch('/api/transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    hideAddModal();
+                    document.getElementById('addForm').reset();
+                    // WebSocket will trigger refresh
+                }
+            } catch (err) {
+                alert('Failed to save transaction');
+            }
+        }
+
+        async function deleteTransaction(id) {
+            if (!confirm('Are you sure you want to delete this transaction?')) return;
+            try {
+                const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    // WebSocket will trigger refresh
+                }
+            } catch (err) {
+                alert('Failed to delete');
+            }
+        }
+
+        function filterTransactions() {
+            const q = document.getElementById('txSearch').value.toLowerCase();
+            const filtered = allTransactions.filter(tx =>
+                (tx.note || '').toLowerCase().includes(q) ||
+                (tx.categoryName || '').toLowerCase().includes(q)
+            );
+            renderTransactions(filtered);
+        }
+
+        function exportToCsv() {
+            const headers = ['Date', 'Type', 'Amount', 'Wallet', 'Category', 'Note'];
+            const rows = allTransactions.map(tx => [
+                new Date(tx.dateTime).toLocaleDateString(),
+                tx.type,
+                tx.amount,
+                tx.walletName,
+                tx.categoryName,
+                tx.note
+            ]);
+            let csvContent = "data:text/csv;charset=utf-8,"
+                + headers.join(",") + "\n"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "moneypilot_transactions.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        // --- UI Utils ---
+        function showAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
+        function hideAddModal() { document.getElementById('addModal').classList.add('hidden'); }
+
         fetchData();
-        setInterval(fetchData, 30000); // Auto refresh every 30 seconds
     </script>
 </body>
 </html>
