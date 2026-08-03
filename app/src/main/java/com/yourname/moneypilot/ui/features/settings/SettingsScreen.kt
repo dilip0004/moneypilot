@@ -21,7 +21,8 @@ fun SettingsScreen(
     onNavigateToSecurity: () -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToBackup: () -> Unit,
-    onNavigateToDiagnostics: () -> Unit
+    onNavigateToDiagnostics: () -> Unit,
+    onNavigateToWebApp: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -76,6 +77,12 @@ fun SettingsScreen(
                 subtitle = "Run system integrity & functional tests",
                 icon = Icons.Default.HealthAndSafety,
                 onClick = onNavigateToDiagnostics
+            )
+            SettingsItem(
+                title = "Web Desktop Access",
+                subtitle = "Access MoneyPilot from your computer browser",
+                icon = Icons.Default.Computer,
+                onClick = onNavigateToWebApp
             )
         }
     }
