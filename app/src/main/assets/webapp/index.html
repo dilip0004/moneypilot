@@ -3,347 +3,766 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoneyPilot - Desktop View</title>
+    <title>MoneyPilot Desktop</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&display=swap');
+        body { font-family: 'Manrope', sans-serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        .nav-link.active { background: #4f46e5; color: #fff; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4); }
+        .nav-link:not(.active) { color: #64748b; }
+        .nav-link:not(.active):hover { background: #f1f5f9; color: #1e293b; }
+        .privacy-blur { filter: blur(8px); transition: filter 0.3s; }
+        .privacy-blur:hover { filter: blur(0); }
+        [v-cloak] { display: none; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
-    <!-- Navbar -->
-    <nav class="bg-indigo-700 text-white p-4 shadow-xl sticky top-0 z-50">
-        <div class="container mx-auto flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="bg-white p-2 rounded-lg text-indigo-700">
-                    <i class="fas fa-plane-arrival text-xl"></i>
-                </div>
-                <h1 class="text-2xl font-bold tracking-tight">MoneyPilot <span class="font-light opacity-80 text-lg ml-1">Desktop</span></h1>
+<body class="bg-[#f8fafc] min-h-screen flex overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white border-r border-slate-200 flex flex-col z-50 shrink-0">
+        <div class="p-8 flex items-center space-x-3">
+            <div class="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-lg shadow-indigo-200">
+                <i class="fas fa-plane-arrival text-xl"></i>
             </div>
-            <div class="flex items-center space-x-6">
-                <button onclick="showAddModal()" class="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center">
-                    <i class="fas fa-plus mr-2"></i> New Transaction
-                </button>
-                <div id="status" class="flex items-center bg-indigo-800 px-3 py-1 rounded-full text-xs">
-                    <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
-                    <span>Live Sync Active</span>
-                </div>
+            <h1 class="text-xl font-extrabold tracking-tight text-slate-800">MoneyPilot <span class="text-indigo-600">.</span></h1>
+        </div>
+
+        <nav class="flex-1 mt-4 overflow-y-auto custom-scrollbar px-6 space-y-1.5">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2">Main Menu</p>
+            <a href="#" onclick="switchView('dashboard')" class="nav-link active flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-dashboard">
+                <i class="fas fa-grid-2 w-6 text-lg"></i> <span class="font-bold text-sm">Overview</span>
+            </a>
+            <a href="#" onclick="switchView('wallets')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-wallets">
+                <i class="fas fa-wallet w-6 text-lg"></i> <span class="font-bold text-sm">Wallets</span>
+            </a>
+            <a href="#" onclick="switchView('history')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-history">
+                <i class="fas fa-receipt w-6 text-lg"></i> <span class="font-bold text-sm">History</span>
+            </a>
+
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 mt-8">Planning</p>
+            <a href="#" onclick="switchView('budgets')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-budgets">
+                <i class="fas fa-bullseye w-6 text-lg"></i> <span class="font-bold text-sm">Budgets</span>
+            </a>
+            <a href="#" onclick="switchView('goals')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-goals">
+                <i class="fas fa-target-shot w-6 text-lg"></i> <span class="font-bold text-sm">Goals</span>
+            </a>
+            <a href="#" onclick="switchView('investments')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-investments">
+                <i class="fas fa-chart-line-up w-6 text-lg"></i> <span class="font-bold text-sm">Portfolio</span>
+            </a>
+            <a href="#" onclick="switchView('loans')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-loans">
+                <i class="fas fa-hand-holding-dollar w-6 text-lg"></i> <span class="font-bold text-sm">Loans</span>
+            </a>
+
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-2 mt-8">System</p>
+            <a href="#" onclick="switchView('categories')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-categories">
+                <i class="fas fa-tags w-6 text-lg"></i> <span class="font-bold text-sm">Categories</span>
+            </a>
+            <a href="#" onclick="switchView('data')" class="nav-link flex items-center px-4 py-3 rounded-2xl transition-all" id="nav-data">
+                <i class="fas fa-database w-6 text-lg"></i> <span class="font-bold text-sm">Data Mgmt</span>
+            </a>
+        </nav>
+
+        <div class="p-6 border-t border-slate-100 bg-slate-50/50">
+            <div id="status" class="flex items-center text-[10px] font-black uppercase tracking-widest text-emerald-500">
+                <span class="w-2 h-2 bg-emerald-400 rounded-full mr-2 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span> Live Sync
             </div>
         </div>
-    </nav>
+    </aside>
 
-    <main class="container mx-auto mt-8 p-4">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left Column: Summary & Analytics -->
-            <div class="lg:col-span-1 space-y-8">
-                <!-- Summary Cards -->
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h3 class="text-gray-400 text-xs font-bold uppercase mb-4">This Month</h3>
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Income</span>
-                            <span id="statIncome" class="text-xl font-bold text-green-600">₹ 0.00</span>
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        <!-- Top Header -->
+        <header class="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-10 shrink-0 z-40">
+            <div class="flex flex-col">
+                <h2 id="viewTitle" class="text-2xl font-black text-slate-800 tracking-tight leading-none">Overview</h2>
+                <p id="viewSubtitle" class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Aug 2026 Snapshot</p>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button id="btnPrivacy" onclick="togglePrivacy()" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 transition" title="Privacy Mode">
+                        <i class="fas fa-eye-slash"></i>
+                    </button>
+                    <div class="h-4 w-[1px] bg-slate-200"></div>
+                    <button onclick="fetchData()" class="p-2 rounded-lg text-slate-400 hover:text-indigo-600 transition" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <button onclick="showAddModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-100 active:scale-95 flex items-center">
+                    <i class="fas fa-plus-circle mr-2 text-lg"></i> LOG TRANSACTION
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area -->
+        <div id="content" class="flex-1 overflow-y-auto p-10 custom-scrollbar pb-32">
+
+            <!-- Dashboard View -->
+            <div id="view-dashboard" class="space-y-12">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 relative group transition-all hover:shadow-xl hover:shadow-emerald-50/50">
+                        <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest">Monthly Inflow</p>
+                        <p id="statIncome" class="text-4xl font-black text-emerald-600 mt-4 tracking-tighter amount">₹ 0</p>
+                        <div class="mt-4 flex items-center text-xs font-bold text-emerald-500 bg-emerald-50 w-fit px-3 py-1 rounded-full">
+                            <i class="fas fa-arrow-trend-up mr-1.5"></i> +12% from last month
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Expenses</span>
-                            <span id="statExpense" class="text-xl font-bold text-red-500">₹ 0.00</span>
+                    </div>
+                    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 relative group transition-all hover:shadow-xl hover:shadow-rose-50/50">
+                        <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest">Monthly Outflow</p>
+                        <p id="statExpense" class="text-4xl font-black text-rose-500 mt-4 tracking-tighter amount">₹ 0</p>
+                        <div class="mt-4 flex items-center text-xs font-bold text-rose-400 bg-rose-50 w-fit px-3 py-1 rounded-full">
+                            <i class="fas fa-arrow-trend-down mr-1.5"></i> 84% of budget used
                         </div>
-                        <div class="pt-4 border-t flex justify-between items-center">
-                            <span class="text-gray-800 font-semibold">Net Savings</span>
-                            <span id="statSavings" class="text-2xl font-black text-indigo-600">₹ 0.00</span>
-                        </div>
+                    </div>
+                    <div class="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200 relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-8 text-white/5 text-8xl"><i class="fas fa-vault"></i></div>
+                        <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest relative z-10">Net Surplus</p>
+                        <p id="statSavings" class="text-4xl font-black text-white mt-4 relative z-10 tracking-tighter amount">₹ 0</p>
+                        <p class="text-indigo-400 text-[10px] font-black mt-4 uppercase tracking-widest relative z-10">Ready for distribution</p>
                     </div>
                 </div>
 
-                <!-- Wallets Widget -->
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-lg font-bold flex items-center">
-                            <i class="fas fa-wallet text-indigo-500 mr-2"></i> Your Wallets
-                        </h2>
-                        <span id="walletTotal" class="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold">Total: ₹0</span>
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
+                    <div class="lg:col-span-3 bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                        <h3 class="font-black text-xl text-slate-800 mb-8 flex items-center">
+                            <span class="w-2 h-8 bg-indigo-600 rounded-full mr-4"></span> Cash Flow Trend
+                        </h3>
+                        <div class="h-80"><canvas id="flowChart"></canvas></div>
                     </div>
-                    <div id="walletsList" class="space-y-3">
-                        <!-- Wallets injected here -->
+                    <div class="lg:col-span-2 bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                        <h3 class="font-black text-xl text-slate-800 mb-8 flex items-center">
+                            <span class="w-2 h-8 bg-rose-500 rounded-full mr-4"></span> Top Spending
+                        </h3>
+                        <div class="h-80 flex items-center justify-center"><canvas id="catChart"></canvas></div>
                     </div>
-                </div>
-
-                <!-- Analytics Chart -->
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h2 class="text-lg font-bold mb-4">Cash Flow</h2>
-                    <canvas id="flowChart" height="200"></canvas>
                 </div>
             </div>
 
-            <!-- Right Column: Transactions -->
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                        <h2 class="text-xl font-bold">Recent History</h2>
-                        <div class="flex space-x-2">
-                            <input type="text" id="txSearch" onkeyup="filterTransactions()" placeholder="Search notes..." class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-200 outline-none">
-                            <button onclick="exportToCsv()" class="p-2 text-gray-500 hover:text-indigo-600 transition" title="Export to CSV">
-                                <i class="fas fa-download"></i>
-                            </button>
+            <!-- Wallets View -->
+            <div id="view-wallets" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+
+            <!-- History View -->
+            <div id="view-history" class="hidden">
+                <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-8 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                        <div class="relative w-96">
+                            <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="historySearch" onkeyup="filterTransactions(this.value)" placeholder="Search notes, categories, wallets..." class="bg-white border-slate-200 border-2 rounded-[1.2rem] py-4 pl-14 pr-6 text-sm w-full outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all">
+                        </div>
+                        <div class="flex space-x-3">
+                            <button onclick="exportToCsv()" class="bg-white border-2 border-slate-100 px-6 py-3 rounded-2xl text-xs font-black text-slate-600 hover:bg-slate-50 transition flex items-center"><i class="fas fa-file-csv mr-2 text-lg text-emerald-500"></i> EXPORT</button>
                         </div>
                     </div>
-                    <div id="transactionsList" class="divide-y divide-gray-100 max-h-[700px] overflow-y-auto custom-scrollbar">
-                        <!-- Transactions injected here -->
-                    </div>
+                    <div id="historyList" class="divide-y divide-slate-100"></div>
                 </div>
             </div>
+
+            <!-- Budgets View -->
+            <div id="view-budgets" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+
+            <!-- Goals View -->
+            <div id="view-goals" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+
+            <!-- Investments View -->
+            <div id="view-investments" class="hidden space-y-10">
+                <div class="bg-indigo-950 p-12 rounded-[4rem] text-white flex justify-between items-center relative overflow-hidden shadow-3xl shadow-indigo-100">
+                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-600/20 to-transparent"></div>
+                    <div class="relative z-10">
+                        <p class="text-indigo-400 text-xs font-black uppercase tracking-[0.3em]">Market Value</p>
+                        <h2 id="investmentTotal" class="text-6xl font-black mt-4 tracking-tighter amount">₹ 0</h2>
+                    </div>
+                    <div class="relative z-10 text-right">
+                        <button onclick="alert('Use Add Data to create new investment')" class="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-2xl font-black text-sm backdrop-blur-md transition-all">NEW ASSET</button>
+                    </div>
+                </div>
+                <div id="investmentsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+            </div>
+
+            <!-- Loans View -->
+            <div id="view-loans" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+
+            <!-- Categories View -->
+            <div id="view-categories" class="hidden grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8"></div>
+
+            <!-- Data Management View -->
+            <div id="view-data" class="hidden max-w-3xl mx-auto space-y-10">
+                <div class="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+                    <h3 class="text-2xl font-black text-slate-800 mb-2">Ledger Portability</h3>
+                    <p class="text-slate-500 text-sm mb-8">Export your entire database for safekeeping or migration.</p>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <button onclick="exportBackup()" class="p-8 bg-indigo-50 hover:bg-indigo-100 rounded-[2rem] border-2 border-indigo-100 transition-all text-center group">
+                            <i class="fas fa-cloud-download text-4xl text-indigo-600 mb-4 group-hover:scale-110 transition"></i>
+                            <p class="font-black text-indigo-900">Export JSON</p>
+                            <p class="text-[10px] font-bold text-indigo-400 uppercase mt-1">Full System Snapshot</p>
+                        </button>
+                        <div class="relative">
+                            <input type="file" id="importFile" onchange="importBackup(this)" class="absolute inset-0 opacity-0 cursor-pointer z-20">
+                            <div class="p-8 bg-slate-50 hover:bg-slate-100 rounded-[2rem] border-2 border-dashed border-slate-200 transition-all text-center group h-full">
+                                <i class="fas fa-cloud-upload text-4xl text-slate-400 mb-4 group-hover:scale-110 transition"></i>
+                                <p class="font-black text-slate-700">Restore Backup</p>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase mt-1">Warning: Overwrites data</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-rose-50 p-10 rounded-[3rem] border border-rose-100">
+                    <h3 class="text-xl font-black text-rose-900 mb-2">Danger Zone</h3>
+                    <p class="text-rose-700/60 text-sm mb-6 font-bold uppercase tracking-wider text-[10px]">Administrative Actions</p>
+                    <button onclick="confirmClear()" class="bg-rose-600 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-xl shadow-rose-200 hover:bg-rose-700 transition">PURGE ALL LOCAL DATA</button>
+                </div>
+            </div>
+
         </div>
     </main>
 
-    <!-- Add Transaction Modal -->
-    <div id="addModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
-            <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
-                <h3 class="text-lg font-bold">Add Transaction</h3>
-                <button onclick="hideAddModal()" class="opacity-70 hover:opacity-100"><i class="fas fa-times"></i></button>
+    <!-- Unified Modal System -->
+    <div id="addModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-xl hidden z-[100] flex items-center justify-center p-6">
+        <div class="bg-white rounded-[3.5rem] shadow-2xl w-full max-w-xl overflow-hidden border border-white/20 transform transition-all duration-300 scale-90 opacity-0" id="modalContent">
+            <div class="bg-indigo-600 px-12 py-10 text-white flex justify-between items-start relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32"></div>
+                <div class="relative z-10">
+                    <h3 class="text-3xl font-black tracking-tight leading-none">Record Entry</h3>
+                    <p class="text-indigo-200 text-xs font-black uppercase tracking-[0.2em] mt-3">Encrypted Cloud-less Sync</p>
+                </div>
+                <button onclick="hideAddModal()" class="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-90 relative z-10"><i class="fas fa-times text-xl"></i></button>
             </div>
-            <form id="addForm" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-1">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
-                        <select id="fType" class="w-full border rounded-lg p-2 text-sm">
-                            <option value="Expense">Expense</option>
-                            <option value="Income">Income</option>
-                        </select>
+
+            <form id="addForm" onsubmit="handleFormSubmit(event)" class="p-12 space-y-8">
+                <!-- Type Selector -->
+                <div class="flex bg-slate-100 p-2 rounded-[2rem]">
+                    <button type="button" onclick="setTxType('Expense')" id="btnExp" class="flex-1 py-4 rounded-[1.5rem] text-xs font-black transition-all bg-white shadow-xl text-rose-600 tracking-widest">EXPENSE</button>
+                    <button type="button" onclick="setTxType('Income')" id="btnInc" class="flex-1 py-4 rounded-[1.5rem] text-xs font-black transition-all text-slate-500 tracking-widest">INCOME</button>
+                    <button type="button" onclick="setTxType('Transfer')" id="btnTrf" class="flex-1 py-4 rounded-[1.5rem] text-xs font-black transition-all text-slate-500 tracking-widest">TRANSFER</button>
+                </div>
+
+                <div class="space-y-8">
+                    <!-- Amount Input -->
+                    <div class="relative group">
+                        <div class="absolute left-8 top-1/2 -translate-y-1/2 text-slate-300 font-black text-3xl">₹</div>
+                        <input type="number" id="fAmount" step="0.01" required class="w-full bg-slate-50 border-4 border-slate-50 rounded-[2rem] py-8 pl-16 pr-8 text-5xl font-black focus:border-indigo-100 focus:bg-white focus:ring-0 outline-none transition-all placeholder:text-slate-200 tracking-tighter" placeholder="0.00">
                     </div>
-                    <div class="col-span-1">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Amount</label>
-                        <input type="number" id="fAmount" step="0.01" required class="w-full border rounded-lg p-2 text-sm" placeholder="0.00">
+
+                    <div class="grid grid-cols-1 gap-6">
+                        <div id="walletSingle" class="space-y-2">
+                            <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Source Account</label>
+                            <select id="fWallet" class="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 px-6 text-sm font-black focus:ring-4 focus:ring-indigo-50 outline-none transition-all appearance-none text-slate-700"></select>
+                        </div>
+                        <div id="walletTransfer" class="hidden grid grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">From</label>
+                                <select id="fWalletFrom" class="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 px-6 text-sm font-black focus:ring-4 focus:ring-indigo-50 outline-none appearance-none text-slate-700"></select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">To</label>
+                                <select id="fWalletTo" class="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 px-6 text-sm font-black focus:ring-4 focus:ring-indigo-50 outline-none appearance-none text-slate-700"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="categoryGroup" class="grid grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Category</label>
+                            <select id="fCategory" onchange="loadSubcategories(this.value)" class="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 px-6 text-sm font-black focus:ring-4 focus:ring-indigo-50 outline-none appearance-none text-slate-700"></select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Subcategory</label>
+                            <select id="fSubcategory" class="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 px-6 text-sm font-black focus:ring-4 focus:ring-indigo-50 outline-none appearance-none text-slate-700">
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase ml-4 tracking-[0.2em]">Transaction Note</label>
+                        <input type="text" id="fNote" class="w-full bg-slate-50 border-none rounded-[1.5rem] py-5 px-8 text-sm font-black focus:ring-4 focus:ring-indigo-50 outline-none transition-all placeholder:text-slate-300" placeholder="Dinner at Olive Garden...">
                     </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Wallet</label>
-                    <select id="fWallet" class="w-full border rounded-lg p-2 text-sm" required></select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
-                    <select id="fCategory" class="w-full border rounded-lg p-2 text-sm"></select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Note</label>
-                    <textarea id="fNote" class="w-full border rounded-lg p-2 text-sm" placeholder="What was this for?"></textarea>
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold transition">
-                    Save Transaction
+
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-6 rounded-[2rem] font-black text-lg transition-all shadow-2xl shadow-indigo-100 hover:shadow-indigo-300 active:scale-[0.98]">
+                    FINALIZE ENTRY
                 </button>
             </form>
         </div>
     </div>
 
+    <!-- Investment Action Modal -->
+    <div id="investModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-xl hidden z-[110] flex items-center justify-center p-6">
+        <div class="bg-white rounded-[3.5rem] shadow-2xl w-full max-w-md overflow-hidden p-12">
+            <h3 id="investModalTitle" class="text-3xl font-black text-slate-800 mb-8">Asset Transaction</h3>
+            <form id="investForm" onsubmit="handleInvestSubmit(event)" class="space-y-8">
+                <input type="hidden" id="investAssetId">
+                <input type="hidden" id="investAction">
+
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-4">TRANSACTION VALUE (INR)</label>
+                    <input type="number" id="investAmount" step="0.01" required class="w-full bg-slate-50 border-none rounded-2xl py-5 px-8 text-2xl font-black focus:ring-4 focus:ring-indigo-50 outline-none" placeholder="0.00">
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black text-slate-400 uppercase ml-4">FUNDING WALLET</label>
+                    <select id="investWallet" class="w-full bg-slate-50 border-none rounded-2xl py-5 px-8 text-sm font-black focus:ring-4 focus:ring-indigo-50 outline-none appearance-none"></select>
+                </div>
+
+                <div class="flex space-x-4 pt-4">
+                    <button type="button" onclick="hideInvestModal()" class="flex-1 py-5 rounded-2xl font-black text-slate-400 hover:bg-slate-50 transition-all">CANCEL</button>
+                    <button type="submit" id="investBtn" class="flex-[2] bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-xl shadow-indigo-100 transition-all active:scale-95 uppercase tracking-widest">EXECUTE</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        let allTransactions = [];
-        let chart = null;
-
-        // --- WebSocket Setup ---
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-        ws.onmessage = (event) => {
-            if (event.data === 'DATA_UPDATED') {
-                console.log('Real-time update received');
-                fetchData();
-            }
+        let state = {
+            currentView: 'dashboard',
+            transactions: [],
+            wallets: [],
+            categories: [],
+            budgets: [],
+            goals: [],
+            investments: [],
+            loans: [],
+            stats: { income: 0, expense: 0, savings: 0 },
+            catStats: [],
+            txType: 'Expense',
+            isPrivacy: false
         };
 
-        ws.onclose = () => {
-            document.getElementById('status').innerHTML = '<span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>Sync Lost - Refreshing...';
-            setTimeout(() => window.location.reload(), 5000);
+        let flowChart = null, catChart = null;
+
+        // --- WebSocket Engine ---
+        const setupWS = () => {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            ws.onmessage = (e) => e.data === 'DATA_UPDATED' && fetchData();
+            ws.onclose = () => setTimeout(setupWS, 3000);
         };
+        setupWS();
+
+        // --- Navigation ---
+        function switchView(viewId) {
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            const nav = document.getElementById('nav-' + viewId);
+            if (nav) nav.classList.add('active');
+
+            document.querySelectorAll('#content > div').forEach(v => v.classList.add('hidden'));
+            document.getElementById('view-' + viewId).classList.remove('hidden');
+            state.currentView = viewId;
+
+            const titles = { dashboard: 'Overview', data: 'Data Management', history: 'Transaction Ledger' };
+            document.getElementById('viewTitle').textContent = titles[viewId] || viewId.charAt(0).toUpperCase() + viewId.slice(1);
+            document.getElementById('viewSubtitle').textContent = `${new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} Snapshot`;
+            render();
+        }
 
         // --- Data Fetching ---
         async function fetchData() {
             try {
-                const [wallets, transactions, categories, stats] = await Promise.all([
-                    fetch('/api/wallets').then(r => r.json()),
-                    fetch('/api/transactions').then(r => r.json()),
-                    fetch('/api/categories').then(r => r.json()),
-                    fetch('/api/stats/summary').then(r => r.json())
-                ]);
-
-                allTransactions = transactions;
-                renderWallets(wallets);
-                renderTransactions(transactions);
-                renderStats(stats);
-                populateDropdowns(wallets, categories);
-                updateChart(stats);
-            } catch (error) {
-                console.error('Fetch error:', error);
-            }
+                const endpoints = ['wallets', 'transactions', 'categories', 'budgets', 'goals', 'investments', 'loans', 'stats/summary', 'stats/categories'];
+                const results = await Promise.all(endpoints.map(e => fetch(`/api/${e}`).then(r => r.json())));
+                state = { ...state,
+                    wallets: results[0], transactions: results[1], categories: results[2],
+                    budgets: results[3], goals: results[4], investments: results[5],
+                    loans: results[6], stats: results[7], catStats: results[8]
+                };
+                render();
+                populateDropdowns();
+            } catch (err) { console.error('Data Sync Failure', err); }
         }
 
-        // --- Rendering ---
-        function renderWallets(wallets) {
-            const list = document.getElementById('walletsList');
-            list.innerHTML = '';
-            let total = 0;
-            wallets.forEach(w => {
-                total += w.currentBalance;
-                const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-indigo-50 transition group cursor-default';
-                div.innerHTML = `
-                    <div class="flex items-center">
-                        <span class="text-xl mr-3 bg-white w-10 h-10 flex items-center justify-center rounded-full shadow-sm">${w.icon}</span>
-                        <div>
-                            <p class="font-bold text-gray-800 text-sm">${w.name}</p>
-                            <p class="text-[10px] text-gray-400 uppercase tracking-widest">${w.type}</p>
-                        </div>
-                    </div>
-                    <p class="font-mono font-bold text-indigo-700">₹ ${w.currentBalance.toLocaleString()}</p>
-                `;
-                list.appendChild(div);
-            });
-            document.getElementById('walletTotal').textContent = `Total: ₹${total.toLocaleString()}`;
+        // --- Renderers ---
+        function render() {
+            const renderers = {
+                dashboard: renderDashboard, wallets: renderWallets, history: renderHistory,
+                budgets: renderBudgets, goals: renderGoals, investments: renderInvestments,
+                loans: renderLoans, categories: renderCategories
+            };
+            if (renderers[state.currentView]) renderers[state.currentView]();
+            applyPrivacy();
         }
 
-        function renderTransactions(txs) {
-            const list = document.getElementById('transactionsList');
-            list.innerHTML = '';
-            txs.forEach(tx => {
-                const date = new Date(tx.dateTime);
-                const isExpense = tx.type === 'Expense';
-                const div = document.createElement('div');
-                div.className = 'p-4 hover:bg-gray-50 flex justify-between items-center group transition';
-                div.innerHTML = `
+        function renderDashboard() {
+            document.getElementById('statIncome').textContent = `₹ ${state.stats.income.toLocaleString()}`;
+            document.getElementById('statExpense').textContent = `₹ ${state.stats.expense.toLocaleString()}`;
+            document.getElementById('statSavings').textContent = `₹ ${state.stats.savings.toLocaleString()}`;
+
+            const list = document.getElementById('dashboardWallets');
+            list.innerHTML = state.wallets.slice(0, 5).map(w => `
+                <div class="flex justify-between items-center p-5 bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition cursor-pointer" onclick="switchView('wallets')">
                     <div class="flex items-center space-x-4">
-                        <div class="${isExpense ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'} w-10 h-10 rounded-full flex items-center justify-center">
-                            <i class="fas ${isExpense ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
+                        <div class="text-2xl">${w.icon}</div>
+                        <span class="font-black text-xs text-slate-700 uppercase tracking-widest">${w.name}</span>
+                    </div>
+                    <span class="font-mono font-black text-indigo-600 amount">₹${w.currentBalance.toLocaleString()}</span>
+                </div>
+            `).join('');
+
+            updateCharts();
+        }
+
+        function renderWallets() {
+            const container = document.getElementById('view-wallets');
+            container.innerHTML = state.wallets.map(w => `
+                <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 hover:border-indigo-300 transition-all hover:shadow-2xl hover:shadow-indigo-50/50 group">
+                    <div class="flex justify-between items-start mb-8">
+                        <div class="w-20 h-16 bg-slate-50 rounded-3xl flex items-center justify-center text-4xl group-hover:scale-110 transition duration-500">${w.icon}</div>
+                        <span class="text-[10px] font-black text-indigo-500 bg-indigo-50/50 px-4 py-2 rounded-xl uppercase tracking-[0.2em] border border-indigo-100">${w.type}</span>
+                    </div>
+                    <h3 class="font-black text-2xl text-slate-800 tracking-tighter">${w.name}</h3>
+                    <p class="text-4xl font-black text-indigo-600 mt-4 tracking-tighter amount">₹ ${w.currentBalance.toLocaleString()}</p>
+                    <div class="mt-10 pt-8 border-t border-slate-50 flex items-center justify-between opacity-0 group-hover:opacity-100 transition duration-500">
+                        <button class="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-rose-500 flex items-center" onclick="deleteEntity('wallets', ${w.id})"><i class="fas fa-trash-alt mr-2"></i> ARCHIVE</button>
+                        <span class="text-[10px] font-black text-slate-300 uppercase">${w.currency} Ledger</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            list.innerHTML = state.transactions.map(tx => {
+                const isExp = tx.type === 'Expense', isTrf = tx.type === 'Transfer';
+                const colorClass = isTrf ? 'bg-indigo-50 text-indigo-600' : (isExp ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600');
+                const amtClass = isTrf ? 'text-slate-900' : (isExp ? 'text-rose-600' : 'text-emerald-600');
+                return `
+                <div class="p-8 flex items-center justify-between hover:bg-slate-50/80 transition group relative overflow-hidden">
+                    <div class="flex items-center space-x-6 relative z-10">
+                        <div class="w-14 h-14 rounded-2xl flex items-center justify-center ${colorClass} shadow-sm group-hover:scale-110 transition duration-500">
+                            <i class="fas ${isTrf ? 'fa-exchange-alt' : (isExp ? 'fa-arrow-down' : 'fa-arrow-up')} text-xl"></i>
                         </div>
                         <div>
-                            <p class="font-bold text-gray-800 text-sm">${tx.note || tx.categoryName || 'Unnamed'}</p>
-                            <p class="text-xs text-gray-400">${date.toLocaleDateString()} • ${tx.walletName}</p>
+                            <p class="font-black text-slate-800 text-lg tracking-tight leading-none">${tx.note || tx.categoryName || 'Financial Entry'}</p>
+                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">${new Date(tx.dateTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} • <span class="text-indigo-400">${tx.walletName || 'System'}</span></p>
                         </div>
                     </div>
-                    <div class="flex items-center space-x-6">
-                        <p class="font-mono font-bold text-base ${isExpense ? 'text-red-500' : 'text-green-500'}">
-                            ${isExpense ? '-' : '+'} ₹ ${tx.amount.toLocaleString()}
-                        </p>
-                        <button onclick="deleteTransaction('${tx.id}')" class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition px-2">
+                    <div class="flex items-center space-x-8 relative z-10">
+                        <span class="font-mono font-black text-2xl ${amtClass} amount">
+                            ${isTrf ? '' : (isExp ? '-' : '+')} ₹${tx.amount.toLocaleString()}
+                        </span>
+                        <button onclick="deleteEntity('transactions', '${tx.id}')" class="opacity-0 group-hover:opacity-100 w-12 h-12 rounded-2xl bg-white shadow-xl hover:text-rose-600 text-slate-300 transition-all flex items-center justify-center scale-90 group-hover:scale-100">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
-                `;
-                list.appendChild(div);
+                </div>
+            `}).join('');
+        }
+
+        function renderBudgets() {
+            const container = document.getElementById('view-budgets');
+            container.innerHTML = state.budgets.map(b => `
+                <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 relative group overflow-hidden">
+                    <div class="flex justify-between items-center mb-8">
+                        <div class="flex items-center space-x-5">
+                            <span class="text-4xl group-hover:rotate-12 transition duration-500">${b.categoryIcon}</span>
+                            <span class="font-black text-slate-800 tracking-tighter text-xl">${b.categoryName}</span>
+                        </div>
+                        <span class="text-sm font-black ${b.percent > 100 ? 'text-rose-500 animate-pulse' : 'text-emerald-500'} tracking-widest">${b.percent.toFixed(0)}%</span>
+                    </div>
+                    <div class="w-full bg-slate-50 h-4 rounded-full overflow-hidden mb-8 shadow-inner p-1">
+                        <div class="h-full ${b.percent > 90 ? 'bg-rose-500' : 'bg-indigo-600'} rounded-full transition-all duration-1000 shadow-lg" style="width: ${Math.min(b.percent, 100)}%"></div>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Utilization</p>
+                            <p class="font-black text-slate-900 text-xl amount tracking-tighter">₹ ${b.spentAmount.toLocaleString()}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Allocation</p>
+                            <p class="font-black text-indigo-600 text-xl amount tracking-tighter">₹ ${b.amount.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderGoals() {
+            const container = document.getElementById('view-goals');
+            container.innerHTML = state.goals.map(g => {
+                const progress = (g.currentAmount / g.targetAmount) * 100;
+                return `
+                <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 group">
+                    <div class="flex justify-between items-start mb-8">
+                        <div class="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-5xl group-hover:scale-110 transition duration-700">${g.icon}</div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-black bg-indigo-50 text-indigo-500 px-4 py-2 rounded-xl uppercase tracking-widest border border-indigo-100">Level ${g.priority}</span>
+                        </div>
+                    </div>
+                    <h3 class="font-black text-2xl text-slate-800 tracking-tighter">${g.name}</h3>
+                    <div class="mt-8 w-full bg-slate-50 h-5 rounded-full overflow-hidden shadow-inner p-1">
+                        <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(16,185,129,0.3)]" style="width: ${Math.min(progress, 100)}%"></div>
+                    </div>
+                    <div class="flex justify-between mt-8 items-end">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Accumulated</p>
+                            <p class="font-black text-emerald-600 text-2xl tracking-tighter amount">₹ ${g.currentAmount.toLocaleString()}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Objective</p>
+                            <p class="font-black text-slate-400 text-2xl tracking-tighter amount">₹ ${g.targetAmount.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function renderInvestments() {
+            const list = document.getElementById('investmentsList');
+            list.innerHTML = state.investments.map(i => {
+                const val = i.quantity * i.currentPrice;
+                const gain = (i.currentPrice - i.averagePrice) * i.quantity;
+                return `
+                <div class="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-indigo-50/50 transition-all duration-500 group">
+                    <div class="flex justify-between items-center mb-8">
+                        <div class="flex flex-col">
+                            <h4 class="font-black text-slate-800 text-xl tracking-tight group-hover:text-indigo-600 transition">${i.name}</h4>
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">${i.symbol}</span>
+                        </div>
+                        <div class="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xs">${i.type.charAt(0)}</div>
+                    </div>
+                    <p class="text-4xl font-black text-slate-900 tracking-tighter amount">₹ ${val.toLocaleString()}</p>
+                    <div class="mt-4 flex items-center space-x-3 bg-slate-50 w-fit px-4 py-2 rounded-2xl">
+                        <span class="text-[10px] font-black ${gain >= 0 ? 'text-emerald-500' : 'text-rose-500'} flex items-center">
+                            <i class="fas ${gain >= 0 ? 'fa-caret-up' : 'fa-caret-down'} mr-2 text-base"></i>
+                            ₹ ${Math.abs(gain).toLocaleString()}
+                        </span>
+                        <div class="h-3 w-[1px] bg-slate-200"></div>
+                        <span class="text-[10px] font-black text-slate-400">NET GAIN</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mt-10">
+                        <button onclick="showInvestAction(${i.id}, 'buy')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all">BUY MORE</button>
+                        <button onclick="showInvestAction(${i.id}, 'sell')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all">LIQUIDATE</button>
+                    </div>
+                </div>
+            `}).join('');
+
+            const total = state.investments.reduce((acc, i) => acc + (i.quantity * i.currentPrice), 0);
+            document.getElementById('investmentTotal').textContent = `₹ ${total.toLocaleString()}`;
+        }
+
+        function renderLoans() {
+            const container = document.getElementById('view-loans');
+            container.innerHTML = state.loans.map(l => `
+                <div class="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+                    <div class="flex justify-between items-center mb-8">
+                        <span class="text-[10px] font-black uppercase text-indigo-500 bg-indigo-50 px-4 py-2 rounded-xl tracking-widest">${l.type}</span>
+                        <div class="flex items-center text-xs font-black text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                             ${l.interestRate}% APR
+                        </div>
+                    </div>
+                    <h3 class="font-black text-2xl text-slate-800 tracking-tighter">${l.name}</h3>
+                    <p class="text-4xl font-black text-slate-700 mt-4 tracking-tighter amount">₹ ${l.currentBalance.toLocaleString()}</p>
+                    <div class="mt-10 pt-8 border-t border-slate-50 grid grid-cols-2 gap-8">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Initial Principal</p>
+                            <p class="font-black text-slate-600 text-lg amount">₹ ${l.principalAmount.toLocaleString()}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Repayment Status</p>
+                            <p class="font-black text-indigo-600 text-lg tracking-widest uppercase">Active</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('view-categories');
+            container.innerHTML = state.categories.map(c => `
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 text-center hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group relative overflow-hidden">
+                    <button onclick="deleteEntity('categories', ${c.id})" class="absolute top-5 right-5 opacity-0 group-hover:opacity-100 transition-all text-slate-300 hover:text-rose-500"><i class="fas fa-times-circle text-xl"></i></button>
+                    <div class="text-6xl mb-6 group-hover:rotate-12 transition duration-500 transform drop-shadow-xl">${c.icon}</div>
+                    <div class="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] leading-tight px-2">${c.name}</div>
+                    <div class="text-[8px] font-black text-indigo-400 uppercase mt-4 tracking-widest bg-indigo-50 w-fit mx-auto px-3 py-1.5 rounded-full">${c.type}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateCharts() {
+            const chartConfig = (id) => ({
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
             });
-        }
 
-        function renderStats(stats) {
-            document.getElementById('statIncome').textContent = `₹ ${stats.income.toLocaleString()}`;
-            document.getElementById('statExpense').textContent = `₹ ${stats.expense.toLocaleString()}`;
-            document.getElementById('statSavings').textContent = `₹ ${stats.savings.toLocaleString()}`;
-        }
-
-        function updateChart(stats) {
-            const ctx = document.getElementById('flowChart').getContext('2d');
-            if (chart) chart.destroy();
-            chart = new Chart(ctx, {
-                type: 'doughnut',
+            // Flow Chart
+            const ctx1 = document.getElementById('flowChart').getContext('2d');
+            if (flowChart) flowChart.destroy();
+            flowChart = new Chart(ctx1, {
+                type: 'line',
                 data: {
-                    labels: ['Expenses', 'Savings'],
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
                     datasets: [{
-                        data: [stats.expense, stats.savings > 0 ? stats.savings : 0],
-                        backgroundColor: ['#ef4444', '#6366f1'],
-                        borderWidth: 0,
-                        hoverOffset: 4
+                        data: [state.stats.income*0.1, state.stats.income*0.4, state.stats.income*0.7, state.stats.income],
+                        borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.05)',
+                        fill: true, tension: 0.5, borderWidth: 6, pointRadius: 0
+                    }, {
+                        data: [state.stats.expense*0.2, state.stats.expense*0.5, state.stats.expense*0.8, state.stats.expense],
+                        borderColor: '#f43f5e', backgroundColor: 'transparent',
+                        fill: false, tension: 0.5, borderWidth: 6, pointRadius: 0, borderDash: [10, 10]
                     }]
                 },
-                options: {
-                    cutout: '70%',
-                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } }
-                }
+                options: { ...chartConfig(), scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { weight: 'bold', size: 10 } } } } }
             });
-        }
 
-        function populateDropdowns(wallets, categories) {
-            const wSelect = document.getElementById('fWallet');
-            wSelect.innerHTML = wallets.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
-
-            const cSelect = document.getElementById('fCategory');
-            cSelect.innerHTML = '<option value="">Uncategorized</option>' +
-                categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+            // Category Chart
+            const ctx2 = document.getElementById('catChart').getContext('2d');
+            if (catChart) catChart.destroy();
+            catChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: state.catStats.map(s => s.name),
+                    datasets: [{
+                        data: state.catStats.map(s => s.sum),
+                        backgroundColor: ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6', '#3b82f6'],
+                        borderWidth: 0, hoverOffset: 15
+                    }]
+                },
+                options: { cutout: '80%', ...chartConfig() }
+            });
         }
 
         // --- Actions ---
+        function togglePrivacy() {
+            state.isPrivacy = !state.isPrivacy;
+            applyPrivacy();
+            const btn = document.getElementById('btnPrivacy');
+            btn.classList.toggle('text-indigo-600', state.isPrivacy);
+            btn.classList.toggle('bg-white', state.isPrivacy);
+        }
+
+        function applyPrivacy() {
+            document.querySelectorAll('.amount').forEach(el => {
+                el.classList.toggle('privacy-blur', state.isPrivacy);
+            });
+        }
+
+        function setTxType(type) {
+            state.txType = type;
+            ['Exp', 'Inc', 'Trf'].forEach(t => document.getElementById('btn' + t).className = 'flex-1 py-4 rounded-[1.5rem] text-xs font-black transition-all text-slate-500 tracking-widest');
+            const active = document.getElementById('btn' + (type === 'Expense' ? 'Exp' : type === 'Income' ? 'Inc' : 'Trf'));
+            active.classList.add('bg-white', 'shadow-xl', type === 'Expense' ? 'text-rose-600' : (type === 'Income' ? 'text-emerald-600' : 'text-indigo-600'));
+
+            document.getElementById('walletSingle').classList.toggle('hidden', type === 'Transfer');
+            document.getElementById('walletTransfer').classList.toggle('hidden', type !== 'Transfer');
+            document.getElementById('categoryGroup').classList.toggle('hidden', type === 'Transfer');
+        }
+
         async function handleFormSubmit(e) {
             e.preventDefault();
             const data = {
-                type: document.getElementById('fType').value,
+                type: state.txType,
                 amount: document.getElementById('fAmount').value,
-                walletId: document.getElementById('fWallet').value,
-                categoryId: document.getElementById('fCategory').value,
-                note: document.getElementById('fNote').value
+                note: document.getElementById('fNote').value,
+                dateTime: new Date().toISOString()
             };
+            if (state.txType === 'Transfer') {
+                data.walletFromId = document.getElementById('fWalletFrom').value;
+                data.walletToId = document.getElementById('fWalletTo').value;
+                data.source = 'TRANSFER_DESKTOP';
+            } else {
+                data.walletId = document.getElementById('fWallet').value;
+                data.categoryId = document.getElementById('fCategory').value;
+                data.subcategoryId = document.getElementById('fSubcategory').value;
+            }
+            const res = await fetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            if (res.ok) { hideAddModal(); fetchData(); }
+        }
 
+        async function loadSubcategories(catId) {
+            const select = document.getElementById('fSubcategory');
+            if (!catId) { select.innerHTML = '<option value="">None</option>'; return; }
             try {
-                const res = await fetch('/api/transactions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                if (res.ok) {
-                    hideAddModal();
-                    document.getElementById('addForm').reset();
-                    // WebSocket will trigger refresh
-                }
-            } catch (err) {
-                alert('Failed to save transaction');
+                const res = await fetch(`/api/categories/${catId}/subcategories`);
+                const subs = await res.json();
+                select.innerHTML = '<option value="">None</option>' + subs.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            } catch (e) { }
+        }
+
+        function showInvestAction(id, action) {
+            document.getElementById('investAssetId').value = id;
+            document.getElementById('investAction').value = action;
+            document.getElementById('investModalTitle').textContent = action === 'buy' ? 'Asset Purchase' : 'Asset Sale';
+            document.getElementById('investBtn').textContent = action === 'buy' ? 'CONFIRM PURCHASE' : 'CONFIRM SALE';
+            document.getElementById('investBtn').className = action === 'buy' ? 'flex-[2] bg-emerald-600 text-white py-5 rounded-2xl font-black' : 'flex-[2] bg-rose-600 text-white py-5 rounded-2xl font-black';
+            document.getElementById('investModal').classList.remove('hidden');
+        }
+
+        function hideInvestModal() { document.getElementById('investModal').classList.add('hidden'); }
+
+        async function handleInvestSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('investAssetId').value;
+            const action = document.getElementById('investAction').value;
+            const data = {
+                amount: document.getElementById('investAmount').value,
+                walletId: document.getElementById('investWallet').value
+            };
+            const res = await fetch(`/api/investments/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+            if (res.ok) { hideInvestModal(); fetchData(); }
+        }
+
+        async function deleteEntity(path, id) {
+            if (confirm(`Permanent delete? This cannot be undone.`)) {
+                const res = await fetch(`/api/${path}/${id}`, { method: 'DELETE' });
+                if (res.ok) fetchData();
             }
         }
 
-        async function deleteTransaction(id) {
-            if (!confirm('Are you sure you want to delete this transaction?')) return;
-            try {
-                const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    // WebSocket will trigger refresh
-                }
-            } catch (err) {
-                alert('Failed to delete');
-            }
+        async function exportBackup() {
+            const res = await fetch('/api/backup/export');
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `MoneyPilot_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
         }
 
-        function filterTransactions() {
-            const q = document.getElementById('txSearch').value.toLowerCase();
-            const filtered = allTransactions.filter(tx =>
-                (tx.note || '').toLowerCase().includes(q) ||
-                (tx.categoryName || '').toLowerCase().includes(q)
-            );
-            renderTransactions(filtered);
+        async function importBackup(input) {
+            if (!input.files || !input.files[0]) return;
+            if (!confirm('This will OVERWRITE your current ledger. Proceed?')) return;
+            const content = await input.files[0].text();
+            const res = await fetch('/api/backup/import', { method: 'POST', body: content });
+            if (res.ok) alert('Ledger Restored Successfully');
+            else alert('Restore failed: ' + (await res.json()).error);
+        }
+
+        function populateDropdowns() {
+            const wHtml = state.wallets.map(w => `<option value="${w.id}">${w.icon} ${w.name}</option>`).join('');
+            ['fWallet', 'fWalletFrom', 'fWalletTo', 'investWallet'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = wHtml;
+            });
+            const cHtml = '<option value="">Uncategorized</option>' + state.categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+            document.getElementById('fCategory').innerHTML = cHtml;
+        }
+
+        function showAddModal() {
+            const m = document.getElementById('addModal');
+            const c = document.getElementById('modalContent');
+            m.classList.remove('hidden');
+            setTimeout(() => { c.classList.remove('scale-90', 'opacity-0'); c.classList.add('scale-100', 'opacity-100'); }, 10);
+        }
+        function hideAddModal() {
+            const m = document.getElementById('addModal');
+            const c = document.getElementById('modalContent');
+            c.classList.add('scale-90', 'opacity-0');
+            setTimeout(() => m.classList.add('hidden'), 300);
         }
 
         function exportToCsv() {
             const headers = ['Date', 'Type', 'Amount', 'Wallet', 'Category', 'Note'];
-            const rows = allTransactions.map(tx => [
-                new Date(tx.dateTime).toLocaleDateString(),
-                tx.type,
-                tx.amount,
-                tx.walletName,
-                tx.categoryName,
-                tx.note
-            ]);
-            let csvContent = "data:text/csv;charset=utf-8,"
-                + headers.join(",") + "\n"
-                + rows.map(e => e.join(",")).join("\n");
-
-            const encodedUri = encodeURI(csvContent);
+            const rows = state.transactions.map(tx => [new Date(tx.dateTime).toLocaleDateString(), tx.type, tx.amount, tx.walletName, tx.categoryName, tx.note]);
+            let csv = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
             const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "moneypilot_transactions.csv");
-            document.body.appendChild(link);
+            link.setAttribute("href", encodeURI(csv));
+            link.setAttribute("download", `MoneyPilot_Ledger.csv`);
             link.click();
         }
-
-        // --- UI Utils ---
-        function showAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
-        function hideAddModal() { document.getElementById('addModal').classList.add('hidden'); }
 
         fetchData();
     </script>
