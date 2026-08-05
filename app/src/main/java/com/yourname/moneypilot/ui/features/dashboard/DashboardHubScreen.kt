@@ -54,9 +54,10 @@ fun DashboardHubScreen(
     val isYearlyTab = selectedTabIndex == 3
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                Column {
+                Column(modifier = Modifier.statusBarsPadding()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

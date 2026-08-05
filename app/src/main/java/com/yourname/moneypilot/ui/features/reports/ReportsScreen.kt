@@ -52,6 +52,7 @@ fun ReportsScreen(
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Surface(tonalElevation = 2.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {

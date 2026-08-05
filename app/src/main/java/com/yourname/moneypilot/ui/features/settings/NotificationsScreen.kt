@@ -57,9 +57,11 @@ fun NotificationsScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text("Notifications") },
+                modifier = Modifier.statusBarsPadding(),
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")

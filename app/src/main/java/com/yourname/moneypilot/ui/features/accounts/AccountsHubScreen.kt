@@ -21,9 +21,10 @@ fun AccountsHubScreen(
     val tabs = listOf("Wallets", "Loans")
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                Column {
+                Column(modifier = Modifier.statusBarsPadding()) {
                     TopAppBar(
                         title = { Text("Accounts & Debt", fontWeight = FontWeight.Bold) }
                     )

@@ -267,13 +267,13 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
             }
         }
     ) { innerPadding ->
-        // ARCHITECTURE FIX: Apply innerPadding to the NavHost.
-        // This ensures all screens start where the TopBar ends and finish where the BottomBar begins.
+        // ARCHITECTURE FIX: Apply bottom padding from Scaffold (for NavigationBar) 
+        // but ignore top padding as each screen handles its own status bar insets.
         NavHost(
             navController = navController,
             startDestination = Screen.Transactions.route,
             modifier = Modifier
-                .padding(innerPadding)
+                .padding(bottom = innerPadding.calculateBottomPadding())
                 .fillMaxSize()
         ) {
             composable(Screen.Transactions.route) { 

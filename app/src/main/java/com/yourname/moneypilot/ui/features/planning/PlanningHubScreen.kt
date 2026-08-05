@@ -29,9 +29,10 @@ fun PlanningHubScreen(
     val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Forecast", "Simulate", "Distribution")
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Surface(tonalElevation = 2.dp) {
-                Column {
+                Column(modifier = Modifier.statusBarsPadding()) {
                     TopAppBar(
                         title = { Text("Financial Planning", fontWeight = FontWeight.Bold) }
                     )
