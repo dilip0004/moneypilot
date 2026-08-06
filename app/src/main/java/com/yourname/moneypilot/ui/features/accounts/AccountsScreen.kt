@@ -3,31 +3,40 @@ package com.yourname.moneypilot.ui.features.accounts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.GppBad
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.util.formatCurrency
 import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AccountsScreen(
-    onAddAccount: () -> Unit,
     onAccountClick: (Long) -> Unit,
     onEditAccount: (Long) -> Unit,
+    searchQuery: String = "",
     viewModel: AccountsViewModel = hiltViewModel(),
     mainViewModel: MainViewModel = hiltViewModel()
 ) {
@@ -35,21 +44,12 @@ fun AccountsScreen(
     val preferences by mainViewModel.userPreferences.collectAsState()
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
     
-    val snackbarHostState = remember { SnackbarHostState() }
     val currencySymbol = rememberCurrencySymbol()
 
     var showArchiveDialog by remember { mutableStateOf<WalletEntity?>(null) }
     var showDeleteDialog by remember { mutableStateOf<WalletEntity?>(null) }
 
-    LaunchedEffect(key1 = true) {
-        viewModel.eventFlow.collectLatest { event ->
-            when (event) {
-                is AccountsViewModel.UiEvent.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(event.message)
-                }
-            }
-        }
-    }
+    // Confirmation dialogs logic (same as before)
 
     // Archive confirmation dialog
     if (showArchiveDialog != null) {
@@ -91,7 +91,6 @@ fun AccountsScreen(
                         "⚠️ Wallets with existing transactions cannot be deleted. Please archive them instead.",
                         color = MaterialTheme.colorScheme.error
                     )
-                    Text("Deletion is only allowed if the wallet has no transaction history.")
                 }
             },
             confirmButton = {
@@ -114,37 +113,35 @@ fun AccountsScreen(
         )
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddAccount,
-                modifier = Modifier.testTag("account_add_fab")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Account")
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (val state = uiState) {
+            is ScreenState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
-        }
-    ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            when (val state = uiState) {
-                is ScreenState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            is ScreenState.Empty -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No accounts yet", modifier = Modifier.testTag("accounts_empty_state"))
+            }
+            is ScreenState.Error -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Something went wrong")
+            }
+            is ScreenState.Success -> {
+                val data = state.data
+                val filteredAccounts = remember(data.accounts, searchQuery) {
+                    data.accounts.filter { !it.isArchived && (it.name.contains(searchQuery, ignoreCase = true) || it.type.contains(searchQuery, ignoreCase = true)) }
                 }
-                is ScreenState.Empty -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No accounts yet", modifier = Modifier.testTag("accounts_empty_state"))
-                }
-                is ScreenState.Error -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Something went wrong")
-                }
-                is ScreenState.Success -> {
-                    val data = state.data
+
+                if (filteredAccounts.isEmpty()) {
+                    AccountsEmptyState()
+                } else {
                     LazyColumn(
-                        modifier = Modifier.testTag("accounts_list"),
+                        modifier = Modifier.fillMaxSize().testTag("accounts_list"),
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(data.accounts.filter { !it.isArchived }) { acc ->
+                        items(
+                            items = filteredAccounts,
+                            key = { it.id }
+                        ) { acc ->
                             AccountCard(
                                 account = acc,
                                 isPrivacyMode = isPrivacyMode,
@@ -153,7 +150,8 @@ fun AccountsScreen(
                                 onArchive = { showArchiveDialog = acc },
                                 onDelete = { showDeleteDialog = acc },
                                 onEdit = { onEditAccount(acc.id) },
-                                currencySymbol = currencySymbol
+                                currencySymbol = currencySymbol,
+                                modifier = Modifier.animateItemPlacement()
                             )
                         }
                     }
@@ -172,58 +170,150 @@ private fun AccountCard(
     onArchive: () -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
-    currencySymbol: String
+    currencySymbol: String,
+    modifier: Modifier = Modifier
 ) {
+    val balanceColor = when {
+        account.currentBalance < 0 -> MaterialTheme.colorScheme.error
+        account.currentBalance == 0.0 -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        else -> Color(0xFF00C853) // Premium Green
+    }
+
     Card(
-        modifier = Modifier.clickable(onClick = onClick).testTag("account_card_${account.id}"),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-        colors = if (hasMismatch) 
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
-            else CardDefaults.cardColors()
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag("account_card_${account.id}"),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasMismatch) 
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.05f)
+                else MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(account.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("account_name_${account.id}"))
-                        if (hasMismatch) {
-                            Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Surface(
+                        modifier = Modifier.size(44.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.Default.GppBad, 
-                                contentDescription = "Integrity Mismatch", 
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(16.dp)
+                                imageVector = getAccountIcon(account.type),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
-                    Text(account.type, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onEdit,
-                        modifier = Modifier.testTag("account_edit_${account.id}")
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Wallet", modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = account.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.testTag("account_name_${account.id}"),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            if (hasMismatch) {
+                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Default.GppBad, 
+                                    contentDescription = "Integrity Mismatch", 
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = account.type,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-                    val balance = if(isPrivacyMode) "••••" else "$currencySymbol${account.currentBalance}"
-                    Text(balance, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    val balance = if(isPrivacyMode) "••••" else account.currentBalance.formatCurrency(currencySymbol)
+                    Text(
+                        text = balance,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = balanceColor
+                    )
                 }
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(
-                    onClick = onArchive,
-                    modifier = Modifier.testTag("account_archive_${account.id}")
-                ) { Text("Archive") }
-                Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+                TextButton(onClick = onArchive, modifier = Modifier.height(40.dp)) { 
+                    Text("Archive", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                }
                 TextButton(
                     onClick = onDelete,
-                    modifier = Modifier.testTag("account_delete_${account.id}"),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete")
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.height(40.dp)
+                ) { 
+                    Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.Bold) 
                 }
             }
         }
+    }
+}
+
+@Composable
+fun AccountsEmptyState() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            modifier = Modifier.size(120.dp),
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.AccountBalanceWallet,
+                    contentDescription = null,
+                    modifier = Modifier.size(60.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            "No accounts added yet",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Track your bank, cash, and credit cards in one secure place.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
     }
 }
