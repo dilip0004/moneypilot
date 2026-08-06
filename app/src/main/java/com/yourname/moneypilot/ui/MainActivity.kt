@@ -36,6 +36,16 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.yourname.moneypilot.data.local.preferences.AppTheme
 import com.yourname.moneypilot.ui.features.accounts.*
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXForward
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXBackward
+import com.yourname.moneypilot.ui.theme.motion.FadeThroughTransition
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.font.FontWeight
 import com.yourname.moneypilot.ui.features.backup.BackupScreen
 import com.yourname.moneypilot.ui.features.budgets.*
 import com.yourname.moneypilot.ui.features.categories.CategoryManagerScreen
@@ -241,26 +251,46 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
             if (showBottomBar) {
                 NavigationBar {
                     navItems.forEach { screen ->
-                        val tag = when (screen) {
-                            Screen.Transactions -> "bottom_nav_transactions"
-                            Screen.Stats -> "bottom_nav_stats"
-                            Screen.Accounts -> "bottom_nav_accounts"
-                            Screen.Planning -> "bottom_nav_planning"
-                            Screen.Settings -> "bottom_nav_settings"
-                        }
+                        val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                        val scale by animateFloatAsState(
+                            targetValue = if (isSelected) 1.0f else 0.92f,
+                            animationSpec = tween(MotionConstants.DurationScreen),
+                            label = "nav_icon_scale"
+                        )
+                        val iconAlpha by animateFloatAsState(
+                            targetValue = if (isSelected) 1f else 0.6f,
+                            animationSpec = tween(MotionConstants.DurationScreen),
+                            label = "nav_icon_alpha"
+                        )
 
                         NavigationBarItem(
-                            modifier = Modifier.testTag(tag),
-                            icon = { Icon(screen.icon, contentDescription = null) },
-                            label = { Text(screen.title) },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            icon = { 
+                                Icon(
+                                    imageVector = screen.icon, 
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .graphicsLayer(scaleX = scale, scaleY = scale)
+                                        .alpha(iconAlpha)
+                                ) 
+                            },
+                            label = { 
+                                Text(
+                                    text = screen.title,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    style = MaterialTheme.typography.labelSmall
+                                ) 
+                            },
+                            selected = isSelected,
                             onClick = {
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
-                            }
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                            )
                         )
                     }
                 }
@@ -274,7 +304,39 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
             startDestination = Screen.Transactions.route,
             modifier = Modifier
                 .padding(bottom = innerPadding.calculateBottomPadding())
-                .fillMaxSize()
+                .fillMaxSize(),
+            enterTransition = {
+                val from = initialState.destination.route
+                val to = targetState.destination.route
+                val fromIndex = navItems.indexOfFirst { it.route == from }
+                val toIndex = navItems.indexOfFirst { it.route == to }
+
+                if (fromIndex != -1 && toIndex != -1) {
+                    if (toIndex > fromIndex) {
+                        slideInHorizontally(animationSpec = tween(MotionConstants.DurationScreen)) { it / 10 } + fadeIn(animationSpec = tween(MotionConstants.DurationScreen))
+                    } else {
+                        slideInHorizontally(animationSpec = tween(MotionConstants.DurationScreen)) { -it / 10 } + fadeIn(animationSpec = tween(MotionConstants.DurationScreen))
+                    }
+                } else {
+                    fadeIn(animationSpec = tween(MotionConstants.DurationScreen)) + scaleIn(initialScale = 0.98f)
+                }
+            },
+            exitTransition = {
+                val from = initialState.destination.route
+                val to = targetState.destination.route
+                val fromIndex = navItems.indexOfFirst { it.route == from }
+                val toIndex = navItems.indexOfFirst { it.route == to }
+
+                if (fromIndex != -1 && toIndex != -1) {
+                    if (toIndex > fromIndex) {
+                        slideOutHorizontally(animationSpec = tween(MotionConstants.DurationScreen)) { -it / 10 } + fadeOut(animationSpec = tween(MotionConstants.DurationScreen))
+                    } else {
+                        slideOutHorizontally(animationSpec = tween(MotionConstants.DurationScreen)) { it / 10 } + fadeOut(animationSpec = tween(MotionConstants.DurationScreen))
+                    }
+                } else {
+                    fadeOut(animationSpec = tween(MotionConstants.DurationScreen))
+                }
+            }
         ) {
             composable(Screen.Transactions.route) { 
                 DashboardHubScreen(

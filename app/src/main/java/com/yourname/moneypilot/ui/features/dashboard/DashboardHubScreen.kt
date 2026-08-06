@@ -1,11 +1,20 @@
 package com.yourname.moneypilot.ui.features.dashboard
 
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXForward
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXBackward
+import com.yourname.moneypilot.ui.theme.motion.motionTween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -16,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,7 +38,6 @@ import com.yourname.moneypilot.ui.features.transactions.TransactionsScreen
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import com.yourname.moneypilot.util.rememberCurrencySymbol
 import java.time.LocalDate
-import java.time.Year
 import java.time.format.TextStyle
 import java.util.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -185,24 +194,36 @@ fun DashboardHubScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            when (selectedTabIndex) {
-                0 -> TransactionsScreen(
-                    currentMonth = hubState.currentMonth,
-                    showSearchBar = false,
-                    onAddTransaction = { onAddTransaction(hubState.selectedDate) },
-                    onEditTransaction = onEditTransaction,
-                    isPrivacyMode = isPrivacyMode
-                )
-                1 -> CalendarScreen(
-                    currentMonth = hubState.currentMonth, 
-                    selectedDateOverride = hubState.selectedDate,
-                    onDateSelected = { viewModel.onDateSelected(it) },
-                    onAddTransaction = onAddTransaction,
-                    isPrivacyMode = isPrivacyMode
-                )
-                2 -> MonthlySummaryTab(hubState, currencySymbol, isPrivacyMode)
-                3 -> YearlySummaryTab(hubState, currencySymbol, isPrivacyMode)
-                4 -> TotalNetWorthTab(hubState, currencySymbol, isPrivacyMode)
+            AnimatedContent(
+                targetState = selectedTabIndex,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        SharedAxisXForward
+                    } else {
+                        SharedAxisXBackward
+                    }.using(SizeTransform(clip = false))
+                },
+                label = "hub_tab_transition"
+            ) { targetIndex ->
+                when (targetIndex) {
+                    0 -> TransactionsScreen(
+                        currentMonth = hubState.currentMonth,
+                        showSearchBar = false,
+                        onAddTransaction = { onAddTransaction(hubState.selectedDate) },
+                        onEditTransaction = onEditTransaction,
+                        isPrivacyMode = isPrivacyMode
+                    )
+                    1 -> CalendarScreen(
+                        currentMonth = hubState.currentMonth, 
+                        selectedDateOverride = hubState.selectedDate,
+                        onDateSelected = { viewModel.onDateSelected(it) },
+                        onAddTransaction = onAddTransaction,
+                        isPrivacyMode = isPrivacyMode
+                    )
+                    2 -> MonthlySummaryTab(hubState, currencySymbol, isPrivacyMode)
+                    3 -> YearlySummaryTab(hubState, currencySymbol, isPrivacyMode)
+                    4 -> TotalNetWorthTab(hubState, currencySymbol, isPrivacyMode)
+                }
             }
         }
     }
@@ -385,8 +406,18 @@ fun MonthlySummaryTab(state: DashboardHubState, currencySymbol: String, isPrivac
 
 @Composable
 fun MetricCard(label: String, value: String, color: Color, modifier: Modifier = Modifier) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1.0f,
+        animationSpec = tween(MotionConstants.DurationButton),
+        label = "metric_card_scale"
+    )
+
     Card(
-        modifier = modifier,
+        modifier = modifier
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .clickable(interactionSource = interactionSource, indication = null) { },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
     ) {

@@ -1,7 +1,10 @@
 package com.yourname.moneypilot.ui.features.accounts
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.motionTween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -120,23 +123,35 @@ fun AccountsScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().testTag("accounts_list"),
                         contentPadding = PaddingValues(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp) // Tightened
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         items(
                             items = filteredAccounts,
                             key = { it.id }
                         ) { acc ->
-                            CompactAccountCard(
-                                account = acc,
-                                isPrivacyMode = isPrivacyMode,
-                                hasMismatch = data.mismatchedWalletIds.contains(acc.id),
-                                onClick = { onAccountClick(acc.id) },
-                                onArchive = { showArchiveDialog = acc },
-                                onDelete = { showDeleteDialog = acc },
-                                onEdit = { onEditAccount(acc.id) },
-                                currencySymbol = currencySymbol,
+                            val index = filteredAccounts.indexOf(acc)
+                            var visible by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) {
+                                kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
+                                visible = true
+                            }
+
+                            AnimatedVisibility(
+                                visible = visible,
+                                enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween()),
                                 modifier = Modifier.animateItemPlacement()
-                            )
+                            ) {
+                                CompactAccountCard(
+                                    account = acc,
+                                    isPrivacyMode = isPrivacyMode,
+                                    hasMismatch = data.mismatchedWalletIds.contains(acc.id),
+                                    onClick = { onAccountClick(acc.id) },
+                                    onArchive = { showArchiveDialog = acc },
+                                    onDelete = { showDeleteDialog = acc },
+                                    onEdit = { onEditAccount(acc.id) },
+                                    currencySymbol = currencySymbol
+                                )
+                            }
                         }
                     }
                 }
@@ -280,38 +295,57 @@ private fun ActionIconSmall(
 
 @Composable
 fun AccountsEmptyState() {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Surface(
-            modifier = Modifier.size(80.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+        AnimatedVisibility(
+            visible = visible,
+            enter = scaleIn(animationSpec = motionTween()) + fadeIn(animationSpec = motionTween())
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.AccountBalanceWallet,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            Surface(
+                modifier = Modifier.size(80.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBalanceWallet,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween())
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "No accounts yet",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Add your bank or cash accounts to get started.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            "No accounts yet",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            "Add your bank or cash accounts to get started.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
-        )
     }
 }

@@ -1,6 +1,11 @@
 package com.yourname.moneypilot.ui.features.transactions
 
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXForward
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXBackward
+import com.yourname.moneypilot.ui.theme.motion.motionTween
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -17,6 +22,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
@@ -156,6 +164,14 @@ fun AddEditTransactionScreen(
         },
         floatingActionButton = {
             if (selectedIntent != null && !showCalculator) {
+                val interactionSource = remember { MutableInteractionSource() }
+                val isPressed by interactionSource.collectIsPressedAsState()
+                val fabScale by animateFloatAsState(
+                    targetValue = if (isPressed) 0.94f else 1.0f,
+                    animationSpec = tween(MotionConstants.DurationButton),
+                    label = "fab_scale"
+                )
+
                 FloatingActionButton(
                     onClick = { 
                         if (onSaveClickOverride != null) {
@@ -166,7 +182,10 @@ fun AddEditTransactionScreen(
                     },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.testTag("add_tx_save")
+                    interactionSource = interactionSource,
+                    modifier = Modifier
+                        .testTag("add_tx_save")
+                        .graphicsLayer(scaleX = fabScale, scaleY = fabScale)
                 ) {
                     Icon(imageVector = Icons.Default.Check, contentDescription = "Save", modifier = Modifier.size(28.dp))
                 }
@@ -177,9 +196,9 @@ fun AddEditTransactionScreen(
             targetState = selectedIntent,
             transitionSpec = {
                 if (targetState != null) {
-                    slideInHorizontally { it } + fadeIn() togetherWith slideOutHorizontally { -it } + fadeOut()
+                    SharedAxisXForward
                 } else {
-                    slideInHorizontally { -it } + fadeIn() togetherWith slideOutHorizontally { it } + fadeOut()
+                    SharedAxisXBackward
                 }.using(SizeTransform(clip = false))
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
@@ -264,12 +283,24 @@ fun IntentSelector(onIntentSelected: (QuickRecordIntent) -> Unit) {
             modifier = Modifier.fillMaxWidth()
         ) {
             items(QuickRecordIntent.entries) { intent ->
-                TransactionIntentCard(
-                    title = intent.title,
-                    icon = intent.icon,
-                    color = intent.color,
-                    onClick = { onIntentSelected(intent) }
-                )
+                var visible by remember { mutableStateOf(false) }
+                val index = QuickRecordIntent.entries.indexOf(intent)
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(index * 40L)
+                    visible = true
+                }
+                
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = scaleIn(animationSpec = motionTween()) + fadeIn(animationSpec = motionTween())
+                ) {
+                    TransactionIntentCard(
+                        title = intent.title,
+                        icon = intent.icon,
+                        color = intent.color,
+                        onClick = { onIntentSelected(intent) }
+                    )
+                }
             }
         }
     }

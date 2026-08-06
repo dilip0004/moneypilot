@@ -1,6 +1,11 @@
 package com.yourname.moneypilot.ui.features.transactions
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.motionTween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,7 +30,7 @@ import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
 import java.time.YearMonth
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TransactionsScreen(
     currentMonth: YearMonth = YearMonth.now(),
@@ -167,6 +172,7 @@ fun TransactionsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TransactionHistoryContent(
     state: TransactionsState,
@@ -186,10 +192,11 @@ fun TransactionHistoryContent(
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
         state.groupedTransactions.forEach { grouped ->
-            item {
+            item(key = "header_${grouped.dateLabel}") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .animateItemPlacement()
                         .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -208,13 +215,29 @@ fun TransactionHistoryContent(
                     )
                 }
             }
-            items(grouped.transactions) { transactionWithDetails ->
-                TransactionListItemWithMenu(
-                    transactionWithDetails = transactionWithDetails,
-                    onEdit = { onEdit(transactionWithDetails.transaction.id) },
-                    onDelete = { onDelete(transactionWithDetails.transaction) },
-                    isPrivacyMode = isPrivacyMode
-                )
+            items(
+                items = grouped.transactions,
+                key = { it.transaction.id }
+            ) { transactionWithDetails ->
+                val index = grouped.transactions.indexOf(transactionWithDetails)
+                var visible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(index * 30L)
+                    visible = true
+                }
+
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = slideInVertically { 10 } + fadeIn(),
+                    modifier = Modifier.animateItemPlacement()
+                ) {
+                    TransactionListItemWithMenu(
+                        transactionWithDetails = transactionWithDetails,
+                        onEdit = { onEdit(transactionWithDetails.transaction.id) },
+                        onDelete = { onDelete(transactionWithDetails.transaction) },
+                        isPrivacyMode = isPrivacyMode
+                    )
+                }
             }
         }
     }

@@ -1,7 +1,10 @@
 package com.yourname.moneypilot.ui.features.loans
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.motionTween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -70,18 +73,30 @@ fun LoansScreen(
                             items = filteredLoans,
                             key = { it.id }
                         ) { loan ->
-                            var isExpanded by remember { mutableStateOf(false) }
+                            val index = filteredLoans.indexOf(loan)
+                            var visible by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) {
+                                kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
+                                visible = true
+                            }
 
-                            CompactLoanItem(
-                                loan = loan,
-                                isExpanded = isExpanded,
-                                isPrivacyMode = isPrivacyMode,
-                                onClick = { isExpanded = !isExpanded },
-                                onEdit = { onLoanClick(loan.id) },
-                                repayments = emptyList(),
-                                currencySymbol = currencySymbol,
+                            AnimatedVisibility(
+                                visible = visible,
+                                enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween()),
                                 modifier = Modifier.animateItemPlacement()
-                            )
+                            ) {
+                                var isExpanded by remember { mutableStateOf(false) }
+
+                                CompactLoanItem(
+                                    loan = loan,
+                                    isExpanded = isExpanded,
+                                    isPrivacyMode = isPrivacyMode,
+                                    onClick = { isExpanded = !isExpanded },
+                                    onEdit = { onLoanClick(loan.id) },
+                                    repayments = emptyList(),
+                                    currencySymbol = currencySymbol
+                                )
+                            }
                         }
                     }
                 }
@@ -186,38 +201,57 @@ fun CompactLoanItem(
 
 @Composable
 fun LoansEmptyState() {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Surface(
-            modifier = Modifier.size(80.dp),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+        AnimatedVisibility(
+            visible = visible,
+            enter = scaleIn(animationSpec = motionTween()) + fadeIn(animationSpec = motionTween())
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Handshake,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            Surface(
+                modifier = Modifier.size(80.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Handshake,
+                        contentDescription = null,
+                        modifier = Modifier.size(50.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        AnimatedVisibility(
+            visible = visible,
+            enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween())
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "No active loans",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Add personal or bank loans to track repayments.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            "No active loans",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            "Add personal or bank loans to track repayments.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
-        )
     }
 }

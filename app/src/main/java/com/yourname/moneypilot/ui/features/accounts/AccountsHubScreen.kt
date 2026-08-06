@@ -1,7 +1,11 @@
 package com.yourname.moneypilot.ui.features.accounts
 
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXForward
+import com.yourname.moneypilot.ui.theme.motion.SharedAxisXBackward
+import com.yourname.moneypilot.ui.theme.motion.motionTween
 import androidx.compose.animation.*
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -109,8 +113,8 @@ fun AccountsHubScreen(
                     
                     AnimatedVisibility(
                         visible = isHeaderExpanded,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
+                        enter = expandVertically(animationSpec = motionTween(MotionConstants.DurationScreen)) + fadeIn(animationSpec = motionTween(MotionConstants.DurationScreen)),
+                        exit = shrinkVertically(animationSpec = motionTween(MotionConstants.DurationScreen)) + fadeOut(animationSpec = motionTween(MotionConstants.DurationScreen))
                     ) {
                         PositionSummaryCard(
                             netWorth = netWorth,
@@ -202,11 +206,9 @@ fun AccountsHubScreen(
                 targetState = selectedTabIndex,
                 transitionSpec = {
                     if (targetState > initialState) {
-                        slideInHorizontally { it } + fadeIn() togetherWith
-                                slideOutHorizontally { -it } + fadeOut()
+                        SharedAxisXForward
                     } else {
-                        slideInHorizontally { -it } + fadeIn() togetherWith
-                                slideOutHorizontally { it } + fadeOut()
+                        SharedAxisXBackward
                     }.using(SizeTransform(clip = false))
                 },
                 label = "tab_switching"

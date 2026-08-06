@@ -2,6 +2,12 @@ package com.yourname.moneypilot.ui.features.transactions.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,9 +38,20 @@ fun TransactionIntentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1.0f,
+        animationSpec = tween(MotionConstants.DurationButton),
+        label = "intent_card_scale"
+    )
+
     OutlinedCard(
         onClick = onClick,
-        modifier = modifier.aspectRatio(1f),
+        modifier = modifier
+            .aspectRatio(1f)
+            .graphicsLayer(scaleX = scale, scaleY = scale),
+        interactionSource = interactionSource,
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.outlinedCardColors(
             containerColor = color.copy(alpha = 0.05f),
