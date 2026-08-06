@@ -78,3 +78,16 @@ fun Double.formatCurrency(symbol: String, hideDecimals: Boolean = true): String 
         formatted
     }
 }
+
+/**
+ * Formats large numbers into compact strings like 1.2L or 18K.
+ */
+fun Double.formatCompact(symbol: String): String {
+    val absVal = kotlin.math.abs(this)
+    val locale = Locale("en", "IN")
+    return when {
+        absVal >= 100000 -> "${if(this < 0) "-" else ""}$symbol${String.format(locale, "%.1f", absVal / 100000)}L"
+        absVal >= 1000 -> "${if(this < 0) "-" else ""}$symbol${String.format(locale, "%.0f", absVal / 1000)}K"
+        else -> this.formatCurrency(symbol)
+    }
+}

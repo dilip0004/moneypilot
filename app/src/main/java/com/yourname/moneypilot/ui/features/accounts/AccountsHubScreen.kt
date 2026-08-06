@@ -1,7 +1,7 @@
 package com.yourname.moneypilot.ui.features.accounts
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,7 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.features.loans.LoansScreen
 import com.yourname.moneypilot.ui.features.loans.LoansViewModel
+import com.yourname.moneypilot.util.formatCompact
 import com.yourname.moneypilot.util.formatCurrency
 import com.yourname.moneypilot.util.rememberCurrencySymbol
 
@@ -43,6 +48,21 @@ fun AccountsHubScreen(
 
     val accountsState by accountsViewModel.uiState.collectAsState()
     val loansState by loansViewModel.uiState.collectAsState()
+
+    // Header Expansion State
+    var isHeaderExpanded by remember { mutableStateOf(true) }
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -10f && isHeaderExpanded) {
+                    isHeaderExpanded = false
+                } else if (available.y > 10f && !isHeaderExpanded) {
+                    isHeaderExpanded = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     // Calculate Summary Values
     val walletBalance = remember(accountsState) {
@@ -66,45 +86,68 @@ fun AccountsHubScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
+            Surface(tonalElevation = 4.dp, shadowElevation = 4.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
-                    TopAppBar(
-                        title = { Text("Accounts & Debt", fontWeight = FontWeight.ExtraBold) },
-                        actions = {
-                            // Optional search icon if we want to toggle search bar
-                        }
+                    // Title and Collapsed Net Worth
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Accounts & Debt", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                                AnimatedVisibility(visible = !isHeaderExpanded) {
+                                    Text(
+                                        text = "Net Worth: ${netWorth.formatCompact(currencySymbol)}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (netWorth >= 0) Color(0xFF00C853) else MaterialTheme.colorScheme.error,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        },
+                        windowInsets = WindowInsets(0, 0, 0, 0),
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                     )
                     
-                    PositionSummaryCard(
-                        netWorth = netWorth,
-                        walletBalance = walletBalance,
-                        loanOutstanding = loanOutstanding,
-                        creditCardDue = creditCardDue,
-                        currencySymbol = currencySymbol
-                    )
+                    AnimatedVisibility(
+                        visible = isHeaderExpanded,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        PositionSummaryCard(
+                            netWorth = netWorth,
+                            walletBalance = walletBalance,
+                            loanOutstanding = loanOutstanding,
+                            creditCardDue = creditCardDue,
+                            currencySymbol = currencySymbol
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                    // Compact Search Bar
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        placeholder = { Text("Search accounts or loans...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        shape = RoundedCornerShape(16.dp),
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .height(48.dp),
+                        placeholder = { Text("Search accounts or loans...", fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                        shape = RoundedCornerShape(12.dp),
                         singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                            focusedContainerColor = MaterialTheme.colorScheme.surface
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                         )
                     )
 
+                    // Dense TabRow
                     TabRow(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = Color.Transparent,
                         divider = {},
+                        modifier = Modifier.height(42.dp),
                         indicator = { tabPositions ->
                             if (selectedTabIndex < tabPositions.size) {
                                 TabRowDefaults.SecondaryIndicator(
@@ -122,10 +165,11 @@ fun AccountsHubScreen(
                                 text = { 
                                     Text(
                                         text = title, 
-                                        fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Medium
+                                        fontSize = 13.sp,
+                                        fontWeight = if (selectedTabIndex == index) FontWeight.Black else FontWeight.Bold
                                     ) 
                                 },
-                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
                     }
@@ -137,17 +181,23 @@ fun AccountsHubScreen(
                 onClick = if (selectedTabIndex == 0) onAddAccount else onAddLoan,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+                modifier = Modifier.padding(bottom = 12.dp), // Move up from bottom nav
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add, 
-                    contentDescription = if (selectedTabIndex == 0) "Add Account" else "Add Loan",
+                    contentDescription = "Add",
                     modifier = Modifier.size(28.dp)
                 )
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .nestedScroll(nestedScrollConnection)
+        ) {
             AnimatedContent(
                 targetState = selectedTabIndex,
                 transitionSpec = {
@@ -190,58 +240,63 @@ fun PositionSummaryCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(24.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-        )
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Estimated Net Worth",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                netWorth.formatCurrency(currencySymbol),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Black,
+                color = if (netWorth >= 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error,
+                letterSpacing = (-0.5).sp
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(), 
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        "Estimated Net Worth",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    )
-                    Text(
-                        netWorth.formatCurrency(currencySymbol),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        color = if (netWorth >= 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f))
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                SummaryItemSmall("Wallets", walletBalance, currencySymbol, MaterialTheme.colorScheme.onPrimaryContainer)
-                SummaryItemSmall("Loans", loanOutstanding, currencySymbol, MaterialTheme.colorScheme.error)
-                SummaryItemSmall("CC Due", creditCardDue, currencySymbol, MaterialTheme.colorScheme.error)
+                SummaryItemCompact("Wallets", walletBalance, currencySymbol, Color(0xFF00C853))
+                SummaryDivider()
+                SummaryItemCompact("Loans", loanOutstanding, currencySymbol, MaterialTheme.colorScheme.error)
+                SummaryDivider()
+                SummaryItemCompact("CC Due", creditCardDue, currencySymbol, MaterialTheme.colorScheme.error)
             }
         }
     }
 }
 
 @Composable
-fun SummaryItemSmall(label: String, value: Double, symbol: String, valueColor: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun SummaryDivider() {
+    Box(modifier = Modifier.size(1.dp, 16.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)))
+}
+
+@Composable
+fun SummaryItemCompact(label: String, value: Double, symbol: String, valueColor: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            label,
+            "$label ",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            fontWeight = FontWeight.Medium
         )
         Text(
-            value.formatCurrency(symbol),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
+            value.formatCompact(symbol),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Black,
             color = valueColor
         )
     }
