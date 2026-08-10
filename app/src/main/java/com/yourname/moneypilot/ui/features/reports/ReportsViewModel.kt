@@ -2,6 +2,7 @@ package com.yourname.moneypilot.ui.features.reports
 
 import androidx.lifecycle.viewModelScope
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
+import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 import com.yourname.moneypilot.data.repository.TransactionRepository
 import com.yourname.moneypilot.domain.usecase.analytics.*
 import com.yourname.moneypilot.ui.common.BaseViewModel
@@ -33,12 +34,16 @@ data class ReportState(
     val weatherInsight: String = "",
     val keyAnalytics: KeyAnalytics = KeyAnalytics(),
     val reflectionPrompts: List<String> = emptyList(),
-    val anomalies: List<Anomaly> = emptyList()
+    val anomalies: List<Anomaly> = emptyList(),
+    val showSpendingInsights: Boolean = false,
+    val showBurnRateAlerts: Boolean = false,
+    val showCategoryAlerts: Boolean = false
 )
 
 @HiltViewModel
 class ReportsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
     private val getReportDataUseCase: GetReportDataUseCase,
     private val generateReflectionPromptsUseCase: GenerateReflectionPromptsUseCase,
     private val calculateFinancialWeatherUseCase: CalculateFinancialWeatherUseCase,
@@ -81,29 +86,32 @@ class ReportsViewModel @Inject constructor(
 
             val currentFlow = getReportDataUseCase(start, end, currentState.reportType)
             val prevFlow = getReportDataUseCase(prevStart, prevEnd, currentState.reportType)
+            val prefFlow = userPreferencesRepository.userPreferencesFlow
 
-            combine(currentFlow, prevFlow) { current, previous ->
-                Pair(current, previous)
-            }.collect { (currentData, prevData) ->
+            combine(currentFlow, prevFlow, prefFlow) { current, previous, prefs ->
+                Triple(current, previous, prefs)
+            }.collect { (currentData, prevData, prefs) ->
                 val chartDataMap = generateSequentialChartData(currentData.filteredTransactions, currentState.timeRange, start.toLocalDate())
                 
                 val (weatherSummary, weatherInsight) = calculateFinancialWeatherUseCase(
                     currentData.filteredTransactions, start.toLocalDate(), end.toLocalDate()
                 )
                 
-                val prompts = generateReflectionPromptsUseCase(
-                    currentTotal = currentData.totalOutflow,
-                    prevTotal = prevData.totalOutflow,
-                    ranks = currentData.categoryBreakdown,
-                    range = currentState.timeRange,
-                    incomeTotal = currentData.totalAmount,
-                    transactions = currentData.filteredTransactions
-                )
+                val prompts = if (prefs.showSpendingInsights) {
+                    generateReflectionPromptsUseCase(
+                        currentTotal = currentData.totalOutflow,
+                        prevTotal = prevData.totalOutflow,
+                        ranks = currentData.categoryBreakdown,
+                        range = currentState.timeRange,
+                        incomeTotal = currentData.totalAmount,
+                        transactions = currentData.filteredTransactions
+                    )
+                } else emptyList()
 
                 val daysInPeriod = java.time.temporal.ChronoUnit.DAYS.between(start.toLocalDate(), end.toLocalDate()).toInt() + 1
                 val keyAnalytics = calculateKeyAnalyticsUseCase(currentData.filteredTransactions, daysInPeriod)
                 
-                val anomalies = detectAnomaliesUseCase(currentData.filteredTransactions)
+                val anomalies = if (prefs.showSpendingInsights) detectAnomaliesUseCase(currentData.filteredTransactions) else emptyList()
 
                 _reportState.update { it.copy(
                     totalAmount = currentData.totalAmount,
@@ -116,7 +124,10 @@ class ReportsViewModel @Inject constructor(
                     weatherInsight = weatherInsight,
                     keyAnalytics = keyAnalytics,
                     reflectionPrompts = prompts,
-                    anomalies = anomalies
+                    anomalies = anomalies,
+                    showSpendingInsights = prefs.showSpendingInsights,
+                    showBurnRateAlerts = prefs.showBurnRateAlerts,
+                    showCategoryAlerts = prefs.showCategoryAlerts
                 ) }
                 _uiState.value = ScreenState.Success(_reportState.value)
             }

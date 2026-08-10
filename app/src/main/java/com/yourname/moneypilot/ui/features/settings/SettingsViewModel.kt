@@ -86,4 +86,22 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.updateFontFamily(font)
         }
     }
+
+    fun updateShowSpendingInsights(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateShowSpendingInsights(enabled)
+        }
+    }
+
+    fun updateShowBurnRateAlerts(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateShowBurnRateAlerts(enabled)
+        }
+    }
+
+    fun updateShowCategoryAlerts(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateShowCategoryAlerts(enabled)
+        }
+    }
 }

@@ -35,7 +35,10 @@ data class UserPreferences(
     val includeGoalsInNetWorth: Boolean = true,
     val lastRolloverMonth: String = "",
     val lastDistributionMonth: String = "",
-    val lastAutoReserveMonth: String = ""
+    val lastAutoReserveMonth: String = "",
+    val showSpendingInsights: Boolean = false,
+    val showBurnRateAlerts: Boolean = false,
+    val showCategoryAlerts: Boolean = false
 )
 
 @Singleton
@@ -60,6 +63,9 @@ class UserPreferencesRepository @Inject constructor(
         val LAST_ROLLOVER_MONTH = stringPreferencesKey("last_rollover_month")
         val LAST_DISTRIBUTION_MONTH = stringPreferencesKey("last_distribution_month")
         val LAST_AUTO_RESERVE_MONTH = stringPreferencesKey("last_auto_reserve_month")
+        val SHOW_SPENDING_INSIGHTS = booleanPreferencesKey("show_spending_insights")
+        val SHOW_BURN_RATE_ALERTS = booleanPreferencesKey("show_burn_rate_alerts")
+        val SHOW_CATEGORY_ALERTS = booleanPreferencesKey("show_category_alerts")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -90,12 +96,16 @@ class UserPreferencesRepository @Inject constructor(
             val lastRollover = preferences[PreferencesKeys.LAST_ROLLOVER_MONTH] ?: ""
             val lastDist = preferences[PreferencesKeys.LAST_DISTRIBUTION_MONTH] ?: ""
             val lastReserve = preferences[PreferencesKeys.LAST_AUTO_RESERVE_MONTH] ?: ""
+            val spendingInsights = preferences[PreferencesKeys.SHOW_SPENDING_INSIGHTS] ?: false
+            val burnRateAlerts = preferences[PreferencesKeys.SHOW_BURN_RATE_ALERTS] ?: false
+            val categoryAlerts = preferences[PreferencesKeys.SHOW_CATEGORY_ALERTS] ?: false
 
             UserPreferences(
                 currency, theme, primaryColor, kbBgColor, kbBoxColor, 
                 useDynamicColor, useBiometrics, threshold, summaryEnabled, 
                 summaryTime, useTrueBlack, fontFamily, privacyMode, includeGoals,
-                lastRollover, lastDist, lastReserve
+                lastRollover, lastDist, lastReserve,
+                spendingInsights, burnRateAlerts, categoryAlerts
             )
         }
 
@@ -153,5 +163,17 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun updateLastAutoReserveMonth(monthStr: String) {
         context.dataStore.edit { it[PreferencesKeys.LAST_AUTO_RESERVE_MONTH] = monthStr }
+    }
+
+    suspend fun updateShowSpendingInsights(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_SPENDING_INSIGHTS] = enabled }
+    }
+
+    suspend fun updateShowBurnRateAlerts(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_BURN_RATE_ALERTS] = enabled }
+    }
+
+    suspend fun updateShowCategoryAlerts(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.SHOW_CATEGORY_ALERTS] = enabled }
     }
 }

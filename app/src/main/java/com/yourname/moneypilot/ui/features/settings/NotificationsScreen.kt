@@ -124,6 +124,43 @@ fun NotificationsScreen(
 
             HorizontalDivider()
 
+            Text("Insights", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Show Spending Insights", style = MaterialTheme.typography.bodyLarge)
+                    Text("Analyze patterns and surface suggestions", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = preferences?.showSpendingInsights ?: false,
+                    onCheckedChange = { viewModel.updateShowSpendingInsights(it) }
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Show Burn Rate Alerts", style = MaterialTheme.typography.bodyLarge)
+                    Text("Warn when spending exceeds threshold of income", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = preferences?.showBurnRateAlerts ?: false,
+                    onCheckedChange = { viewModel.updateShowBurnRateAlerts(it) }
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Show Category Alerts", style = MaterialTheme.typography.bodyLarge)
+                    Text("Notify when a single category dominates spending", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = preferences?.showCategoryAlerts ?: false,
+                    onCheckedChange = { viewModel.updateShowCategoryAlerts(it) }
+                )
+            }
+
+            HorizontalDivider()
+
             Text("Alerts & Reminders", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
 
             Row(verticalAlignment = Alignment.CenterVertically) {

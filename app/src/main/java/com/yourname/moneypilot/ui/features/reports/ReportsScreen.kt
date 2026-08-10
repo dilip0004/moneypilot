@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.reports
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -7,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -14,19 +16,25 @@ import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.motionTween
+import com.yourname.moneypilot.util.formatCompact
+import com.yourname.moneypilot.util.formatCurrency
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -50,12 +58,14 @@ fun ReportsScreen(
     val reportState by viewModel.reportState.collectAsState()
     val preferences by mainViewModel.userPreferences.collectAsState()
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
+    val currencySymbol = preferences?.currency ?: "₹"
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(tonalElevation = 2.dp) {
+            Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
+                    // Time Range Selector
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
@@ -65,43 +75,35 @@ fun ReportsScreen(
                                 onClick = { viewModel.onTimeRangeChange(range) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeRange.entries.size)
                             ) {
-                                val label = range.name.lowercase().replaceFirstChar { char ->
-                                    if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
-                                }
+                                val label = range.name.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
                                 Text(label, fontSize = 12.sp)
                             }
                         }
                     }
 
-                    TabRow(
-                        selectedTabIndex = reportState.reportType.ordinal,
-                        containerColor = Color.Transparent,
-                        divider = {},
-                        indicator = { tabPositions ->
-                            if (reportState.reportType.ordinal < tabPositions.size) {
-                                TabRowDefaults.SecondaryIndicator(
-                                    modifier = Modifier.tabIndicatorOffset(tabPositions[reportState.reportType.ordinal]),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        modifier = Modifier.height(40.dp)
+                    // Report Type Selector (Compact)
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .height(40.dp)
                     ) {
-                        ReportType.entries.forEach { type ->
-                            Tab(
+                        ReportType.entries.forEachIndexed { index, type ->
+                            SegmentedButton(
                                 selected = reportState.reportType == type,
                                 onClick = { viewModel.onReportTypeChange(type) },
-                                text = { 
-                                    val label = type.name.replace("_", " ").lowercase().replaceFirstChar { char ->
-                                        if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
-                                    }
-                                    Text(
-                                        text = label, 
-                                        fontSize = 12.sp,
-                                        color = if (reportState.reportType == type) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    ) 
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = ReportType.entries.size),
+                                colors = SegmentedButtonDefaults.colors(
+                                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                )
+                            ) {
+                                val label = when(type) {
+                                    ReportType.EXPENSE -> "Expense"
+                                    ReportType.INCOME -> "Income"
+                                    ReportType.CASH_FLOW -> "Cash Flow"
                                 }
-                            )
+                                Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -115,8 +117,8 @@ fun ReportsScreen(
                     val data = state.data
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
                     ) {
                         item {
                             DateNavigatorCompact(
@@ -143,21 +145,28 @@ fun ReportsScreen(
                             )
                         }
 
-                        // Anomalies Section
-                        if (data.anomalies.isNotEmpty()) {
+                        // Adaptive Insights Section
+                        if (data.showSpendingInsights || data.showBurnRateAlerts || data.showCategoryAlerts) {
                             item {
-                                AnomalySection(data.anomalies, isPrivacyMode)
-                            }
-                        }
-
-                        if (data.reflectionPrompts.isNotEmpty()) {
-                            item {
-                                Column(
-                                    modifier = Modifier.padding(vertical = 4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    data.reflectionPrompts.forEach { prompt ->
-                                        ReflectionCard(prompt)
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (data.showBurnRateAlerts && data.keyAnalytics.savingsRate != null && data.keyAnalytics.savingsRate < 0.1f) {
+                                        AnomalySection(
+                                            title = "Burn Rate Alert",
+                                            message = "You've consumed 90%+ of your income.",
+                                            icon = Icons.Default.WarningAmber,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                    
+                                    if (data.showSpendingInsights && data.reflectionPrompts.isNotEmpty()) {
+                                        data.reflectionPrompts.take(1).forEach { prompt ->
+                                            InsightCard(
+                                                title = "Spending Insight",
+                                                message = prompt,
+                                                icon = Icons.Default.Info,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -169,20 +178,20 @@ fun ReportsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 InsightTile(
-                                    label = "Efficiency",
-                                    value = if(isPrivacyMode) "••%" else "${(data.keyAnalytics.efficiency?.times(100))?.toInt() ?: 0}%",
-                                    subLabel = "Saved",
+                                    label = "Savings Rate",
+                                    value = if(isPrivacyMode) "••%" else "${(data.keyAnalytics.savingsRate?.times(100))?.toInt() ?: 0}%",
+                                    subLabel = if(data.keyAnalytics.savingsRate == null) "No Income" else "Saved",
                                     modifier = Modifier.weight(1f)
                                 )
                                 InsightTile(
-                                    label = "Velocity",
-                                    value = if(isPrivacyMode) "••••" else "₹${data.keyAnalytics.expenseVelocity?.toInt() ?: 0}",
+                                    label = "Daily Average",
+                                    value = if(isPrivacyMode) "••••" else currencySymbol + (data.keyAnalytics.dailyAverage?.toInt() ?: 0),
                                     subLabel = "per day",
                                     modifier = Modifier.weight(1f)
                                 )
                                 InsightTile(
-                                    label = "Frequency",
-                                    value = "${data.keyAnalytics.categoryDominance.size}",
+                                    label = "Transactions",
+                                    value = "${data.keyAnalytics.transactionCount}",
                                     subLabel = "Entries",
                                     modifier = Modifier.weight(1f)
                                 )
@@ -190,10 +199,19 @@ fun ReportsScreen(
                         }
 
                         item {
+                            MainAmountDisplay(
+                                type = data.reportType,
+                                amount = data.totalAmount,
+                                currencySymbol = currencySymbol,
+                                isPrivacyMode = isPrivacyMode
+                            )
+                        }
+
+                        item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                shape = RoundedCornerShape(24.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
                             ) {
                                 var selectedViz by remember { mutableIntStateOf(0) }
                                 
@@ -201,49 +219,49 @@ fun ReportsScreen(
                                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    val amountStr = if(isPrivacyMode) "••••" else String.format(Locale.getDefault(), "%,.2f", data.totalAmount)
-                                    Text(
-                                        text = "₹ $amountStr",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                    )
-                                    
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    
                                     if (data.reportType == ReportType.CASH_FLOW) {
                                         CashFlowBarChartCompact(data.chartData)
                                     } else {
-                                        TabRow(
-                                            selectedTabIndex = selectedViz,
-                                            containerColor = Color.Transparent,
-                                            divider = {},
-                                            indicator = {},
-                                            modifier = Modifier.width(200.dp).height(32.dp)
+                                        SingleChoiceSegmentedButtonRow(
+                                            modifier = Modifier.width(240.dp).height(32.dp)
                                         ) {
-                                            Tab(
+                                            TabLikeSegmentedButton(
                                                 selected = selectedViz == 0,
                                                 onClick = { selectedViz = 0 },
-                                                text = { Text("Distribution", fontSize = 10.sp) }
+                                                label = "Distribution",
+                                                index = 0,
+                                                count = 2
                                             )
-                                            Tab(
+                                            TabLikeSegmentedButton(
                                                 selected = selectedViz == 1,
                                                 onClick = { selectedViz = 1 },
-                                                text = { Text("Trend", fontSize = 10.sp) }
+                                                label = "Trend",
+                                                index = 1,
+                                                count = 2
                                             )
                                         }
                                         
-                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Spacer(modifier = Modifier.height(24.dp))
                                         
-                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                            if (selectedViz == 0) {
-                                                PieChartLabeled(data.categoryBreakdown, isPrivacyMode)
-                                            } else {
-                                                TrendLineGraphCompact(
-                                                    data = data.chartData,
-                                                    color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                                    timeRange = data.timeRange,
-                                                    isPrivacyMode = isPrivacyMode
-                                                )
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().height(200.dp), 
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            AnimatedContent(
+                                                targetState = selectedViz,
+                                                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                                                label = "viz_transition"
+                                            ) { viz ->
+                                                if (viz == 0) {
+                                                    PieChartLabeled(data.categoryBreakdown, isPrivacyMode)
+                                                } else {
+                                                    TrendLineGraphCompact(
+                                                        data = data.chartData,
+                                                        color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                                        timeRange = data.timeRange,
+                                                        isPrivacyMode = isPrivacyMode
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -252,19 +270,33 @@ fun ReportsScreen(
                         }
 
                         if (data.reportType != ReportType.CASH_FLOW && data.categoryBreakdown.isNotEmpty()) {
-                            itemsIndexed(data.categoryBreakdown) { index, rank ->
-                                CategoryRankItemCompact(
-                                    rank = rank,
-                                    categoryColor = CHART_COLORS[index % CHART_COLORS.size],
-                                    isPrivacyMode = isPrivacyMode
-                                )
+                            itemsIndexed(
+                                items = data.categoryBreakdown,
+                                key = { index, rank -> "${rank.name}_$index" }
+                            ) { index, rank ->
+                                var visible by remember { mutableStateOf(false) }
+                                LaunchedEffect(Unit) {
+                                    kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
+                                    visible = true
+                                }
+                                AnimatedVisibility(
+                                    visible = visible,
+                                    enter = slideInVertically { 10 } + fadeIn()
+                                ) {
+                                    CategoryRankItemCompact(
+                                        rank = rank,
+                                        categoryColor = CHART_COLORS[index % CHART_COLORS.size],
+                                        isPrivacyMode = isPrivacyMode,
+                                        currencySymbol = currencySymbol
+                                    )
+                                }
                             }
                         }
                     }
                 }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("No data available for this period", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -273,58 +305,88 @@ fun ReportsScreen(
 }
 
 @Composable
-fun AnomalySection(anomalies: List<com.yourname.moneypilot.domain.usecase.analytics.Anomaly>, isPrivacyMode: Boolean) {
+fun MainAmountDisplay(
+    type: ReportType,
+    amount: Double,
+    currencySymbol: String,
+    isPrivacyMode: Boolean
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val label = when(type) {
+            ReportType.EXPENSE -> "Total Expenses"
+            ReportType.INCOME -> "Total Income"
+            ReportType.CASH_FLOW -> "Net Cash Flow"
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = if(isPrivacyMode) "••••" else amount.formatCurrency(currencySymbol),
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Black,
+            color = if (type == ReportType.CASH_FLOW && amount < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SingleChoiceSegmentedButtonRowScope.TabLikeSegmentedButton(
+    selected: Boolean,
+    onClick: () -> Unit,
+    label: String,
+    index: Int,
+    count: Int
+) {
+    SegmentedButton(
+        selected = selected,
+        onClick = onClick,
+        shape = SegmentedButtonDefaults.itemShape(index = index, count = count)
+    ) {
+        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun AnomalySection(title: String, message: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.2f))
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.WarningAmber, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Spending Alerts", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
-            }
-            anomalies.take(2).forEach { anomaly ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        text = anomaly.reason, 
-                        style = MaterialTheme.typography.labelSmall, 
-                        modifier = Modifier.weight(1f)
-                    )
-                    val amount = if(isPrivacyMode) "••••" else "₹${anomaly.transaction.transaction.amount.toInt()}"
-                    Text(text = amount, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                }
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = color)
+                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
 }
 
 @Composable
-fun ReflectionCard(prompt: String) {
+fun InsightCard(title: String, message: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.1f))
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.Info, 
-                contentDescription = null, 
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = prompt,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = color)
+                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+            }
         }
     }
 }
@@ -334,15 +396,15 @@ fun InsightTile(label: String, value: String, subLabel: String, modifier: Modifi
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
     ) {
         Column(
-            modifier = Modifier.padding(8.dp).fillMaxWidth(),
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(subLabel, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            Text(subLabel, style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -350,11 +412,11 @@ fun InsightTile(label: String, value: String, subLabel: String, modifier: Modifi
 @Composable
 fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: LocalDate, range: TimeRange, onPrev: () -> Unit, onNext: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(40.dp),
+        modifier = Modifier.fillMaxWidth().height(48.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowLeft, null) }
+        IconButton(onClick = onPrev, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.KeyboardArrowLeft, null) }
         val label = when (range) {
             TimeRange.WEEKLY -> {
                 val formatter = DateTimeFormatter.ofPattern("dd MMM")
@@ -363,8 +425,8 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
             TimeRange.MONTHLY -> "${date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${date.year}"
             TimeRange.YEARLY -> "${date.year}"
         }
-        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowRight, null) }
+        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 24.dp))
+        IconButton(onClick = onNext, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.KeyboardArrowRight, null) }
     }
 }
 
@@ -372,17 +434,14 @@ fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: Local
 fun PieChartLabeled(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
     val total = ranks.sumOf { it.amount }
     val animationProgress = remember { Animatable(0f) }
-    val onSurface = MaterialTheme.colorScheme.onSurface
 
     LaunchedEffect(ranks) {
         animationProgress.snapTo(0f)
         animationProgress.animateTo(1f, tween(1000))
     }
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(32.dp).fillMaxWidth()) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.size(160.dp)) {
-            val center = Offset(size.width / 2, size.height / 2)
-            val radius = size.width / 2
             var startAngle = -90f
             
             ranks.forEachIndexed { index, rank ->
@@ -394,48 +453,25 @@ fun PieChartLabeled(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
                         color = color,
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
-                        useCenter = true
+                        useCenter = false,
+                        style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Butt)
                     )
-                    
-                    if (sweepAngle > 10f && animationProgress.value > 0.9f) {
-                        val midAngle = (startAngle + sweepAngle / 2) * (Math.PI / 180f).toFloat()
-                        
-                        val lineStart = Offset(
-                            center.x + cos(midAngle.toDouble()).toFloat() * (radius * 0.6f),
-                            center.y + sin(midAngle.toDouble()).toFloat() * (radius * 0.6f)
-                        )
-                        
-                        val lineEnd = Offset(
-                            center.x + cos(midAngle.toDouble()).toFloat() * (radius * 1.25f),
-                            center.y + sin(midAngle.toDouble()).toFloat() * (radius * 1.25f)
-                        )
-                        
-                        drawLine(
-                            color = onSurface.copy(alpha = 0.4f),
-                            start = lineStart,
-                            end = lineEnd,
-                            strokeWidth = 1.dp.toPx()
-                        )
-                        
-                        val pct = (rank.percentage * 100).toInt()
-                        val displayText = if(isPrivacyMode) "${rank.icon} •••• $pct%" else "${rank.icon} ${rank.name}  $pct%"
-                        
-                        drawContext.canvas.nativeCanvas.drawText(
-                            displayText,
-                            lineEnd.x,
-                            lineEnd.y + if (sin(midAngle.toDouble()) > 0) 20f else -10f,
-                            android.graphics.Paint().apply {
-                                this.color = onSurface.toArgb()
-                                this.textSize = 24f
-                                this.textAlign = if (cos(midAngle.toDouble()) > 0) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.RIGHT
-                                this.isFakeBoldText = true
-                            }
-                        )
-                    }
                     
                     startAngle += sweepAngle
                 }
             }
+        }
+        
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Top Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                ranks.firstOrNull()?.let { if(isPrivacyMode) "••••" else it.name } ?: "None",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 40.dp)
+            )
         }
     }
 }
@@ -455,7 +491,7 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
     }
 
     Column {
-        Canvas(modifier = Modifier.fillMaxWidth().height(140.dp).padding(horizontal = 8.dp)) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(160.dp).padding(8.dp)) {
             val width = size.width
             val height = size.height
             val stepX = width / (data.size - 1).coerceAtLeast(1)
@@ -463,20 +499,6 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
             val path = Path()
             val fillPath = Path()
             
-            val paint = android.graphics.Paint().apply {
-                this.color = onSurface.toArgb()
-                this.textSize = 20f
-                this.textAlign = android.graphics.Paint.Align.LEFT
-            }
-            
-            if (!isPrivacyMode) {
-                val maxStr = String.format(Locale.getDefault(), "₹%.0f", max)
-                val midStr = String.format(Locale.getDefault(), "₹%.0f", max / 2)
-                drawContext.canvas.nativeCanvas.drawText(maxStr, 0f, 20f, paint)
-                drawContext.canvas.nativeCanvas.drawText(midStr, 0f, height / 2, paint)
-                drawContext.canvas.nativeCanvas.drawText("0", 0f, height, paint)
-            }
-
             data.values.forEachIndexed { index, value ->
                 val x = index * stepX
                 val y = height - (value.toFloat() / max.toFloat() * height * animationProgress.value)
@@ -499,14 +521,14 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
             drawPath(
                 path = fillPath,
                 brush = Brush.verticalGradient(
-                    colors = listOf(color.copy(alpha = 0.3f), Color.Transparent)
+                    colors = listOf(color.copy(alpha = 0.2f), Color.Transparent)
                 )
             )
             
             drawPath(
                 path = path,
                 color = color,
-                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
             )
         }
         
@@ -515,58 +537,75 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             val xLabels = when (timeRange) {
-                TimeRange.WEEKLY -> listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-                TimeRange.MONTHLY -> listOf("1", "5", "10", "15", "20", "25", "30")
-                TimeRange.YEARLY -> listOf("Jan", "Mar", "May", "Jul", "Sep", "Nov")
+                TimeRange.WEEKLY -> listOf("M", "T", "W", "T", "F", "S", "S")
+                TimeRange.MONTHLY -> listOf("1", "10", "20", "30")
+                TimeRange.YEARLY -> listOf("J", "M", "M", "J", "S", "N")
             }
             xLabels.forEach { label ->
-                Text(label, fontSize = 10.sp, color = onSurface)
+                Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = onSurface)
             }
         }
     }
 }
 
 @Composable
-fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color, isPrivacyMode: Boolean = false) {
+fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color, isPrivacyMode: Boolean = false, currencySymbol: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(rank.icon, fontSize = 16.sp, modifier = Modifier.width(24.dp))
-        Column(modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                val pct = (rank.percentage * 100).toInt()
+        Surface(
+            modifier = Modifier.size(32.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = categoryColor.copy(alpha = 0.1f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(rank.icon, fontSize = 14.sp)
+            }
+        }
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 val nameDisplay = if(isPrivacyMode) "••••" else rank.name
                 Text(
-                    text = "$nameDisplay ($pct%)", 
-                    fontSize = 13.sp, 
-                    fontWeight = FontWeight.Medium
+                    text = nameDisplay, 
+                    fontSize = 14.sp, 
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
-                val amountText = if(isPrivacyMode) "••••" else String.format(Locale.getDefault(), "%,.2f", rank.amount)
-                Text("₹ $amountText", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                val amountText = if(isPrivacyMode) "••••" else rank.amount.formatCompact(currencySymbol)
+                Text(amountText, fontSize = 14.sp, fontWeight = FontWeight.Black)
             }
+            Spacer(modifier = Modifier.height(4.dp))
             LinearProgressIndicator(
                 progress = { rank.percentage },
-                modifier = Modifier.fillMaxWidth().height(3.dp).padding(top = 2.dp),
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                 color = categoryColor,
                 strokeCap = StrokeCap.Round,
-                trackColor = categoryColor.copy(alpha = 0.1f)
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
+        Text(
+            text = "${(rank.percentage * 100).toInt()}%",
+            modifier = Modifier.width(36.dp),
+            textAlign = TextAlign.End,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
 fun CashFlowBarChartCompact(data: Map<Int, Double>) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(100.dp),
+        modifier = Modifier.fillMaxWidth().height(120.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         val max = data.values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
         data.values.forEach { amount ->
             val heightFactor = (amount.toFloat() / max.toFloat()).coerceAtMost(1f).coerceAtLeast(0.05f)
-            Box(modifier = Modifier.weight(1f).fillMaxHeight(heightFactor).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp)))
+            Box(modifier = Modifier.weight(1f).fillMaxHeight(heightFactor).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)))
         }
     }
 }

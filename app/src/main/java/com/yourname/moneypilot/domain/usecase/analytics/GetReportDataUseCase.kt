@@ -58,8 +58,29 @@ class GetReportDataUseCase @Inject constructor(
             }
 
             val ranks = listFiltered
-                .groupBy { it.transaction.categoryId }
-                .map { (id, items) ->
+                .groupBy { 
+                    when {
+                        it.transaction.goalId != null -> "GOAL_${it.transaction.goalId}"
+                        it.transaction.loanId != null -> "LOAN_${it.transaction.loanId}"
+                        it.transaction.investmentId != null -> "INV_${it.transaction.investmentId}"
+                        else -> "CAT_${it.transaction.categoryId}"
+                    }
+                }
+                .map { (key, items) ->
+                    val first = items.first()
+                    val name = when {
+                        first.transaction.goalId != null -> "🎯 Goal: ${first.goal?.name ?: "Goal Contribution"}"
+                        first.transaction.loanId != null -> "🏦 Loan: ${first.loan?.name ?: "Repayment"}"
+                        first.transaction.investmentId != null -> "📈 Inv: ${first.investment?.name ?: "Investment"}"
+                        else -> first.category?.name ?: "Uncategorized"
+                    }
+                    val icon = when {
+                        first.transaction.goalId != null -> first.goal?.icon ?: "🎯"
+                        first.transaction.loanId != null -> "🏦"
+                        first.transaction.investmentId != null -> "📈"
+                        else -> first.category?.icon ?: "❓"
+                    }
+
                     val sum = items.sumOf { 
                         if (it.transaction.type == TransactionType.Expense && it.transaction.isRefund) -it.transaction.amount 
                         else it.transaction.amount 
@@ -70,9 +91,9 @@ class GetReportDataUseCase @Inject constructor(
                         ReportType.CASH_FLOW -> consumptionSum
                     }
                     CategoryRank(
-                        categoryId = id,
-                        name = items.first().category?.name ?: "Uncategorized",
-                        icon = items.first().category?.icon ?: "❓",
+                        categoryId = first.transaction.categoryId,
+                        name = name,
+                        icon = icon,
                         amount = sum,
                         percentage = if (denom > 0) (sum / denom).toFloat() else 0f
                     )

@@ -50,7 +50,7 @@ class ForecastViewModel @Inject constructor(
             val start = end.minusDays(30)
             val recentTxs = transactionRepository.getTransactionsWithDetailsByDateRange(start, end).first()
             val analytics = calculateKeyAnalyticsUseCase(recentTxs, 30)
-            val velocity = analytics.expenseVelocity ?: 0.0
+            val velocity = analytics.dailyAverage ?: 0.0
 
             // 3. Get Upcoming Bills
             val unpaidBills = bigBillRepository.getUnpaidBigBills().first()

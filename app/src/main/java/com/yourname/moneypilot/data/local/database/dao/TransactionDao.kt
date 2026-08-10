@@ -19,7 +19,16 @@ data class TransactionWithDetails(
     val walletFrom: WalletEntity?,
 
     @Relation(parentColumn = "wallet_to_id", entityColumn = "id")
-    val walletTo: WalletEntity?
+    val walletTo: WalletEntity?,
+
+    @Relation(parentColumn = "goal_id", entityColumn = "id")
+    val goal: GoalEntity?,
+
+    @Relation(parentColumn = "loan_id", entityColumn = "id")
+    val loan: LoanEntity?,
+
+    @Relation(parentColumn = "investment_id", entityColumn = "id")
+    val investment: InvestmentEntity?
 )
 
 @Dao
