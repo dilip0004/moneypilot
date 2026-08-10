@@ -1,11 +1,14 @@
 package com.yourname.moneypilot.ui.features.goals
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +34,7 @@ fun AddEditGoalScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showEmojiPicker by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val sheetState = rememberModalBottomSheetState()
 
     LaunchedEffect(true) {
         viewModel.eventFlow.collectLatest { event ->
@@ -41,11 +45,48 @@ fun AddEditGoalScreen(
         }
     }
 
+    if (showEmojiPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showEmojiPicker = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    "Choose Goal Icon",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                // We'll wrap the EmojiPicker in a taller scrollable container or just use its LazyVerticalGrid
+                // EmojiPicker is already a LazyVerticalGrid, but with userScrollEnabled = false.
+                // We'll modify it to allow scroll here.
+                
+                Box(modifier = Modifier.height(300.dp)) {
+                    EmojiPicker(
+                        selectedEmoji = state.icon,
+                        onEmojiSelected = {
+                            viewModel.onEvent(AddEditGoalEvent.IconChanged(it))
+                            showEmojiPicker = false
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                        isScrollEnabled = true
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(text = if (state.isEditMode) "Edit Goal" else "Add Goal") },
+                title = { Text(text = if (state.isEditMode) "Edit Goal" else "Add Goal", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -54,13 +95,13 @@ fun AddEditGoalScreen(
             )
         },
         floatingActionButton = {
-            if (!showEmojiPicker) {
-                FloatingActionButton(
-                    onClick = { viewModel.onEvent(AddEditGoalEvent.SaveGoal) },
-                    modifier = Modifier.testTag("goal_save_fab")
-                ) {
-                    Icon(Icons.Default.Save, contentDescription = "Save")
-                }
+            FloatingActionButton(
+                onClick = { viewModel.onEvent(AddEditGoalEvent.SaveGoal) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.testTag("goal_save_fab")
+            ) {
+                Icon(Icons.Default.Save, contentDescription = "Save", modifier = Modifier.size(24.dp))
             }
         }
     ) { padding ->
@@ -68,43 +109,48 @@ fun AddEditGoalScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .imePadding()
+                .verticalScroll(scrollState)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Icon Picker
-            Surface(
-                onClick = { showEmojiPicker = !showEmojiPicker },
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.fillMaxWidth().testTag("goal_emoji_picker")
+            // Icon Picker - Compact
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Surface(
+                    onClick = { showEmojiPicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(64.dp).testTag("goal_emoji_picker")
                 ) {
-                    Text("Goal Icon", style = MaterialTheme.typography.labelMedium)
-                    Text(state.icon, fontSize = 28.sp)
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(state.icon, fontSize = 32.sp)
+                    }
                 }
-            }
-
-            if (showEmojiPicker) {
-                EmojiPicker(
-                    selectedEmoji = state.icon,
-                    onEmojiSelected = {
-                        viewModel.onEvent(AddEditGoalEvent.IconChanged(it))
-                        showEmojiPicker = false
-                    },
-                    modifier = Modifier.testTag("goal_emoji_grid")
-                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text("Goal Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    TextButton(
+                        onClick = { showEmojiPicker = true },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("Choose Icon")
+                    }
+                }
             }
 
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredName(it)) },
                 label = { Text("Goal Name") },
-                modifier = Modifier.fillMaxWidth().testTag("goal_name_input")
+                modifier = Modifier.fillMaxWidth().testTag("goal_name_input"),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Next,
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words
+                )
             )
 
             OutlinedTextField(
@@ -112,8 +158,12 @@ fun AddEditGoalScreen(
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredTargetAmount(it)) },
                 label = { Text("Target Amount") },
                 modifier = Modifier.fillMaxWidth().testTag("goal_target_amount_input"),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                prefix = { Text("₹ ") }
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Next
+                ),
+                prefix = { Text("₹ ") },
+                shape = RoundedCornerShape(12.dp)
             )
 
             // Initial contribution logic (Only for new goals)
@@ -121,10 +171,14 @@ fun AddEditGoalScreen(
                 OutlinedTextField(
                     value = state.currentAmount,
                     onValueChange = { viewModel.onEvent(AddEditGoalEvent.EnteredCurrentAmount(it)) },
-                    label = { Text("Initial Saved Amount (Contribution)") },
+                    label = { Text("Initial Contribution (Optional)") },
                     modifier = Modifier.fillMaxWidth().testTag("goal_current_amount_input"),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    prefix = { Text("₹ ") }
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Next
+                    ),
+                    prefix = { Text("₹ ") },
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 if ((state.currentAmount.toDoubleOrNull() ?: 0.0) > 0) {
@@ -137,9 +191,10 @@ fun AddEditGoalScreen(
                             value = state.wallets.find { it.id == state.linkedWalletId }?.name ?: "Select Source Wallet",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Deduct Initial Contribution From") },
+                            label = { Text("Deduct From") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWallet) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
                         )
                         ExposedDropdownMenu(
                             expanded = expandedWallet,
@@ -158,27 +213,41 @@ fun AddEditGoalScreen(
                     }
                 }
             } else {
-                // In Edit Mode, show progress read-only
+                // In Edit Mode, show progress read-only - compact
                 Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Current Progress", style = MaterialTheme.typography.labelSmall)
-                        Text("₹ ${state.currentAmount}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("To add more, create a transaction linked to this goal.", style = MaterialTheme.typography.bodySmall)
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Current Progress", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                            Text("₹ ${state.currentAmount}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                     }
                 }
             }
 
-            Text("Priority (1-5): ${state.priority}", style = MaterialTheme.typography.labelMedium)
+            // Priority - Compact
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Priority", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text(state.priority.toString(), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+            }
             Slider(
                 value = state.priority.toFloat(),
                 onValueChange = { viewModel.onEvent(AddEditGoalEvent.PriorityChanged(it.toInt())) },
                 valueRange = 1f..5f,
                 steps = 3,
-                modifier = Modifier.testTag("goal_priority_slider")
+                modifier = Modifier.testTag("goal_priority_slider").height(24.dp)
             )
 
             AppDatePickerField(
@@ -188,7 +257,7 @@ fun AddEditGoalScreen(
                 modifier = Modifier.fillMaxWidth().testTag("goal_date_picker")
             )
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(100.dp)) // Extra space for FAB and IME
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.yourname.moneypilot.ui.features.goals
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -40,7 +41,7 @@ import java.time.Period
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun GoalsScreen(
     onAddGoal: () -> Unit,
@@ -88,41 +89,8 @@ fun GoalsScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            Column(modifier = Modifier.statusBarsPadding()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Savings Goals",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Black
-                    )
-                    IconButton(onClick = { showCompletedGoals = !showCompletedGoals }) {
-                        Icon(
-                            imageVector = if (showCompletedGoals) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = "Toggle Completed",
-                            tint = if (showCompletedGoals) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddGoal,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.navigationBarsPadding().testTag("goal_add_fab")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Goal", modifier = Modifier.size(28.dp))
-            }
-        }
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             when (val state = uiState) {
                 is ScreenState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -134,43 +102,44 @@ fun GoalsScreen(
                     val activeGoals = allGoals.filter { it.status == "ACTIVE" }
                     val filteredGoals = if (showCompletedGoals) allGoals else activeGoals
 
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        GoalsSummaryHeader(
-                            goals = activeGoals,
-                            currencySymbol = currencySymbol,
-                            isPrivacyMode = isPrivacyMode
-                        )
+                    GoalsSummaryHeader(
+                        goals = activeGoals,
+                        currencySymbol = currencySymbol,
+                        isPrivacyMode = isPrivacyMode,
+                        onToggleCompleted = { showCompletedGoals = !showCompletedGoals },
+                        isShowingCompleted = showCompletedGoals
+                    )
 
-                        if (filteredGoals.isEmpty()) {
-                            GoalsEmptyState(onAddGoal)
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp).testTag("goals_list"),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                                contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp)
-                            ) {
-                                items(filteredGoals, key = { it.id }) { goal ->
-                                    val index = filteredGoals.indexOf(goal)
-                                    var visible by remember { mutableStateOf(false) }
-                                    LaunchedEffect(Unit) {
-                                        kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
-                                        visible = true
-                                    }
+                    if (filteredGoals.isEmpty()) {
+                        GoalsEmptyState(onAddGoal)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp).testTag("goals_list"),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(top = 4.dp, bottom = 88.dp)
+                        ) {
+                            items(filteredGoals, key = { it.id }) { goal ->
+                                val index = filteredGoals.indexOf(goal)
+                                var visible by remember { mutableStateOf(false) }
+                                LaunchedEffect(Unit) {
+                                    kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
+                                    visible = true
+                                }
 
-                                    AnimatedVisibility(
-                                        visible = visible,
-                                        enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween())
-                                    ) {
-                                        GoalDashboardCard(
-                                            goal = goal,
-                                            isPrivacyMode = isPrivacyMode,
-                                            currencySymbol = currencySymbol,
-                                            onEditGoal = { onEditGoal(goal.id) },
-                                            onGoalClick = { onGoalClick(goal.id) },
-                                            onContribute = { showContributeDialog = goal },
-                                            onWithdraw = { showWithdrawDialog = goal }
-                                        )
-                                    }
+                                AnimatedVisibility(
+                                    visible = visible,
+                                    enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween()),
+                                    modifier = Modifier.animateItemPlacement()
+                                ) {
+                                    GoalDashboardCard(
+                                        goal = goal,
+                                        isPrivacyMode = isPrivacyMode,
+                                        currencySymbol = currencySymbol,
+                                        onEditGoal = { onEditGoal(goal.id) },
+                                        onGoalClick = { onGoalClick(goal.id) },
+                                        onContribute = { showContributeDialog = goal },
+                                        onWithdraw = { showWithdrawDialog = goal }
+                                    )
                                 }
                             }
                         }
@@ -186,6 +155,20 @@ fun GoalsScreen(
                 }
             }
         }
+
+        // FAB positioned correctly above bottom nav
+        FloatingActionButton(
+            onClick = onAddGoal,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .padding(bottom = 8.dp) // Extra spacing from bottom nav
+                .testTag("goal_add_fab")
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Goal", modifier = Modifier.size(28.dp))
+        }
     }
 }
 
@@ -193,17 +176,45 @@ fun GoalsScreen(
 fun GoalsSummaryHeader(
     goals: List<GoalEntity>,
     currencySymbol: String,
-    isPrivacyMode: Boolean
+    isPrivacyMode: Boolean,
+    onToggleCompleted: () -> Unit,
+    isShowingCompleted: Boolean
 ) {
     val totalTarget = goals.sumOf { it.targetAmount }
     val totalSaved = goals.sumOf { it.currentAmount }
     val totalRemaining = (totalTarget - totalSaved).coerceAtLeast(0.0)
     val overallProgress = if (totalTarget > 0) (totalSaved / totalTarget).toFloat() else 0f
 
+    // Accurate Pace Calculation
+    val paceStatus = remember(goals) {
+        if (goals.isEmpty()) "N/A"
+        else {
+            val now = LocalDate.now()
+            val behindCount = goals.count { goal ->
+                val rawProgress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
+                val daysTotal = ChronoUnit.DAYS.between(goal.createdAt.toLocalDate(), goal.targetDate).coerceAtLeast(1)
+                val daysPassed = ChronoUnit.DAYS.between(goal.createdAt.toLocalDate(), now).coerceAtLeast(0)
+                val expectedProgress = daysPassed.toFloat() / daysTotal
+                rawProgress < expectedProgress * 0.8f // 20% tolerance
+            }
+            when {
+                behindCount == 0 -> "Healthy"
+                behindCount <= goals.size / 3 -> "Steady"
+                else -> "Attention"
+            }
+        }
+    }
+    val paceColor = when(paceStatus) {
+        "Healthy" -> Color(0xFF00C853)
+        "Steady" -> Color(0xFFFFA500)
+        "Attention" -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -215,24 +226,43 @@ fun GoalsSummaryHeader(
                     Text(
                         text = "Overall Savings Progress",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = if(isPrivacyMode) "••••" else totalSaved.formatCompact(currencySymbol),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black
-                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = if(isPrivacyMode) "••••" else totalSaved.formatCompact(currencySymbol),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = " of " + (if(isPrivacyMode) "••••" else totalTarget.formatCompact(currencySymbol)),
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(bottom = 4.dp, start = 4.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    IconButton(onClick = onToggleCompleted, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = if (isShowingCompleted) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = "Toggle Completed",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    val pctText = if (overallProgress > 0 && overallProgress < 0.01f) {
+                        String.format(java.util.Locale.getDefault(), "%.1f%%", overallProgress * 100)
+                    } else {
+                        "${(overallProgress * 100).toInt()}%"
+                    }
                     Text(
-                        text = "${(overallProgress * 100).toInt()}%",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        text = pctText,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -240,7 +270,7 @@ fun GoalsSummaryHeader(
             Spacer(modifier = Modifier.height(12.dp))
 
             LinearProgressIndicator(
-                progress = { overallProgress },
+                progress = { overallProgress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                 strokeCap = StrokeCap.Round
             )
@@ -248,9 +278,9 @@ fun GoalsSummaryHeader(
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                SummaryStat(label = "Goals", value = goals.size.toString())
+                SummaryStat(label = "Active Goals", value = goals.size.toString())
                 SummaryStat(label = "Remaining", value = if(isPrivacyMode) "••••" else totalRemaining.formatCompact(currencySymbol))
-                SummaryStat(label = "Avg. Pace", value = "On Track", color = Color(0xFF00C853))
+                SummaryStat(label = "Avg. Pace", value = paceStatus, color = paceColor)
             }
         }
     }
@@ -287,17 +317,20 @@ fun GoalDashboardCard(
     val monthsRemaining = (daysRemaining / 30.0).coerceAtLeast(1.0)
     val monthlyRequired = remainingAmount / monthsRemaining
 
+    // Verified calculation for status
     val status = when {
         goal.status == "COMPLETED" || rawProgress >= 1f -> "Completed"
-        rawProgress >= 0.8f -> "Almost There"
-        daysRemaining < 30 && rawProgress < 0.9f -> "Behind"
+        rawProgress >= 0.95f -> "Almost There"
+        daysRemaining < 30 && rawProgress < 0.8f -> "Behind Schedule"
+        daysRemaining < 90 && rawProgress < 0.5f -> "Slightly Behind"
         else -> "On Track"
     }
 
     val statusColor = when(status) {
         "Completed" -> Color(0xFF00C853)
         "Almost There" -> Color(0xFFFFD600)
-        "Behind" -> MaterialTheme.colorScheme.error
+        "Slightly Behind" -> Color(0xFFFFA500)
+        "Behind Schedule" -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.primary
     }
 
@@ -310,23 +343,23 @@ fun GoalDashboardCard(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Surface(
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(36.dp),
                         shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(text = goal.icon, fontSize = 20.sp)
+                            Text(text = goal.icon, fontSize = 18.sp)
                         }
                     }
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(10.dp))
                     Column {
                         Text(
                             text = goal.name,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -344,19 +377,26 @@ fun GoalDashboardCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Text(
-                        text = if(isPrivacyMode) "••••" else "${goal.currentAmount.formatCompact(currencySymbol)} / ${goal.targetAmount.formatCompact(currencySymbol)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Black
-                    )
+                val savedText = if(isPrivacyMode) "••••" else goal.currentAmount.formatCompact(currencySymbol)
+                val targetText = if(isPrivacyMode) "••••" else goal.targetAmount.formatCompact(currencySymbol)
+                
+                Text(
+                    text = "$savedText / $targetText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Black
+                )
+                
+                val pctText = if (rawProgress > 0 && rawProgress < 0.01f) {
+                    String.format(java.util.Locale.getDefault(), "%.1f%%", rawProgress * 100)
+                } else {
+                    "${(rawProgress * 100).toInt()}%"
                 }
                 Text(
-                    text = "${(rawProgress * 100).toInt()}%",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = pctText,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Black,
                     color = statusColor
                 )
@@ -365,20 +405,20 @@ fun GoalDashboardCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             LinearProgressIndicator(
-                progress = { animatedProgress },
+                progress = { animatedProgress.coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
                 color = statusColor,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = StrokeCap.Round
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 GoalInsightItem(
-                    label = "Time Left",
-                    value = formatTimeRemaining(goal.targetDate),
-                    subValue = goal.targetDate.format(DateTimeFormatter.ofPattern("MMM yyyy"))
+                    label = formatTimeRemaining(goal.targetDate),
+                    value = goal.targetDate.format(DateTimeFormatter.ofPattern("MMM yyyy")),
+                    alignment = Alignment.Start
                 )
                 GoalInsightItem(
                     label = "Remaining",
@@ -386,7 +426,7 @@ fun GoalDashboardCard(
                     alignment = Alignment.CenterHorizontally
                 )
                 GoalInsightItem(
-                    label = "Required",
+                    label = "Need to Save",
                     value = if(isPrivacyMode) "••••" else "${monthlyRequired.formatCompact(currencySymbol)}/mo",
                     alignment = Alignment.End,
                     valueColor = MaterialTheme.colorScheme.primary
@@ -398,23 +438,24 @@ fun GoalDashboardCard(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = onContribute,
-                        modifier = Modifier.weight(1.2f).height(36.dp),
+                        modifier = Modifier.weight(1f).height(36.dp),
                         contentPadding = PaddingValues(0.dp),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Deposit", fontSize = 13.sp)
+                        Text("Deposit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = onWithdraw,
-                        modifier = Modifier.weight(1.8f).height(36.dp),
+                        modifier = Modifier.weight(1.3f).height(36.dp),
                         contentPadding = PaddingValues(0.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Icon(Icons.Default.Remove, null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Remove, null, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Withdraw Funds", fontSize = 13.sp)
+                        Text("Withdraw Funds", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -426,16 +467,12 @@ fun GoalDashboardCard(
 fun GoalInsightItem(
     label: String,
     value: String,
-    subValue: String? = null,
     alignment: Alignment.Horizontal = Alignment.Start,
     valueColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Column(horizontalAlignment = alignment) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = valueColor)
-        if (subValue != null) {
-            Text(text = subValue, style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-        }
+        Text(text = label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = value, style = MaterialTheme.typography.labelSmall, color = valueColor)
     }
 }
 

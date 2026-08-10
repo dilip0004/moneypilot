@@ -17,23 +17,24 @@ import androidx.compose.ui.unit.sp
 fun EmojiPicker(
     selectedEmoji: String,
     onEmojiSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isScrollEnabled: Boolean = false
 ) {
     val emojis = listOf(
         "💰", "🏦", "💳", "💵", "💸", "💹", "💎", "🏠", 
-        "🚗", "🛒", "🍔", "🎬", "✈️", "🎓", "🎁", "📱", 
-        "💻", "⌚", "🎮", "🏋️", "💊", "🐶", "🎨", "🎸"
+        "🚗", "🛒", "🍔", "🎬", "✈️", "🎓", "💍", "📱", 
+        "💻", "⌚", "🎮", "🏋️", "💊", "🐶", "🎨", "🎸",
+        "👶", "👔", "🍕", "📷", "💡", "⚽", "🏖️", "🎉",
+        "🔋", "🔧", "❤️", "☂️", "🌳", "🎂", "🚀", "📢"
     )
 
-    // Set userScrollEnabled = false to prevent nested scroll conflicts
-    // when placed inside a scrollable Column.
     LazyVerticalGrid(
         columns = GridCells.Fixed(6),
-        modifier = modifier.height(180.dp),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(8.dp),
-        userScrollEnabled = false 
+        userScrollEnabled = isScrollEnabled 
     ) {
         items(emojis) { emoji ->
             Surface(
