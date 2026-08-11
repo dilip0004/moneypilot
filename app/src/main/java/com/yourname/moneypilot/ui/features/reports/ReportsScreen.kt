@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,6 +30,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.components.MoneyPilotSegmentedControl
+import com.yourname.moneypilot.ui.theme.IncomeGreen
+import com.yourname.moneypilot.ui.theme.ExpenseRed
+import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import com.yourname.moneypilot.ui.theme.motion.MotionConstants
 import com.yourname.moneypilot.ui.theme.motion.motionTween
 import com.yourname.moneypilot.util.formatCompact
@@ -63,49 +66,35 @@ fun ReportsScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
-                Column(modifier = Modifier.statusBarsPadding()) {
-                    // Time Range Selector
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        TimeRange.entries.forEachIndexed { index, range ->
-                            SegmentedButton(
-                                selected = reportState.timeRange == range,
-                                onClick = { viewModel.onTimeRangeChange(range) },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeRange.entries.size)
-                            ) {
-                                val label = range.name.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
-                                Text(label, fontSize = 12.sp)
-                            }
-                        }
-                    }
+            Surface(tonalElevation = 4.dp, shadowElevation = 4.dp) {
+                Column(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(bottom = 8.dp)
+                ) {
+                    // Spec 2: Period Selector
+                    MoneyPilotSegmentedControl(
+                        options = TimeRange.entries,
+                        selectedOption = reportState.timeRange,
+                        onOptionSelected = { viewModel.onTimeRangeChange(it) },
+                        labelExtractor = { it.name.lowercase().replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.ROOT) else char.toString() } },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
 
-                    // Report Type Selector (Compact)
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                            .height(40.dp)
-                    ) {
-                        ReportType.entries.forEachIndexed { index, type ->
-                            SegmentedButton(
-                                selected = reportState.reportType == type,
-                                onClick = { viewModel.onReportTypeChange(type) },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = ReportType.entries.size),
-                                colors = SegmentedButtonDefaults.colors(
-                                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                )
-                            ) {
-                                val label = when(type) {
-                                    ReportType.EXPENSE -> "Expense"
-                                    ReportType.INCOME -> "Income"
-                                    ReportType.CASH_FLOW -> "Cash Flow"
-                                }
-                                Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    // Spec 3: Expense / Income / Cash Flow Selector
+                    MoneyPilotSegmentedControl(
+                        options = ReportType.entries,
+                        selectedOption = reportState.reportType,
+                        onOptionSelected = { viewModel.onReportTypeChange(it) },
+                        labelExtractor = { 
+                            when(it) {
+                                ReportType.EXPENSE -> "Expense"
+                                ReportType.INCOME -> "Income"
+                                ReportType.CASH_FLOW -> "Cash Flow"
                             }
-                        }
-                    }
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -115,12 +104,14 @@ fun ReportsScreen(
                 is ScreenState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 is ScreenState.Success -> {
                     val data = state.data
+                    var selectedViz by remember { mutableIntStateOf(0) }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
                     ) {
                         item {
+                            // Spec 5: Date Navigation
                             DateNavigatorCompact(
                                 date = data.selectedDate,
                                 rangeStart = data.rangeStart,
@@ -145,51 +136,27 @@ fun ReportsScreen(
                             )
                         }
 
-                        // Adaptive Insights Section
-                        if (data.showSpendingInsights || data.showBurnRateAlerts || data.showCategoryAlerts) {
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (data.showBurnRateAlerts && data.keyAnalytics.savingsRate != null && data.keyAnalytics.savingsRate < 0.1f) {
-                                        AnomalySection(
-                                            title = "Burn Rate Alert",
-                                            message = "You've consumed 90%+ of your income.",
-                                            icon = Icons.Default.WarningAmber,
-                                            color = MaterialTheme.colorScheme.error
-                                        )
-                                    }
-                                    
-                                    if (data.showSpendingInsights && data.reflectionPrompts.isNotEmpty()) {
-                                        data.reflectionPrompts.take(1).forEach { prompt ->
-                                            InsightCard(
-                                                title = "Spending Insight",
-                                                message = prompt,
-                                                icon = Icons.Default.Info,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
+                        // Spec 6: KPI Section
                         item {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                InsightTile(
+                                KPIItem(
                                     label = "Savings Rate",
                                     value = if(isPrivacyMode) "••%" else "${(data.keyAnalytics.savingsRate?.times(100))?.toInt() ?: 0}%",
                                     subLabel = if(data.keyAnalytics.savingsRate == null) "No Income" else "Saved",
                                     modifier = Modifier.weight(1f)
                                 )
-                                InsightTile(
+                                KPIItem(
                                     label = "Daily Average",
-                                    value = if(isPrivacyMode) "••••" else currencySymbol + (data.keyAnalytics.dailyAverage?.toInt() ?: 0),
+                                    value = if(isPrivacyMode) "••••" else "₹${data.keyAnalytics.dailyAverage?.toInt() ?: 0}",
                                     subLabel = "per day",
                                     modifier = Modifier.weight(1f)
                                 )
-                                InsightTile(
+                                KPIItem(
                                     label = "Transactions",
                                     value = "${data.keyAnalytics.transactionCount}",
                                     subLabel = "Entries",
@@ -198,6 +165,7 @@ fun ReportsScreen(
                             }
                         }
 
+                        // Spec 7: Total Expenses
                         item {
                             MainAmountDisplay(
                                 type = data.reportType,
@@ -208,60 +176,47 @@ fun ReportsScreen(
                         }
 
                         item {
-                            Card(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(24.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                var selectedViz by remember { mutableIntStateOf(0) }
-                                
-                                Column(
-                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    if (data.reportType == ReportType.CASH_FLOW) {
-                                        CashFlowBarChartCompact(data.chartData)
-                                    } else {
-                                        SingleChoiceSegmentedButtonRow(
-                                            modifier = Modifier.width(240.dp).height(32.dp)
-                                        ) {
-                                            TabLikeSegmentedButton(
-                                                selected = selectedViz == 0,
-                                                onClick = { selectedViz = 0 },
-                                                label = "Distribution",
-                                                index = 0,
-                                                count = 2
-                                            )
-                                            TabLikeSegmentedButton(
-                                                selected = selectedViz == 1,
-                                                onClick = { selectedViz = 1 },
-                                                label = "Trend",
-                                                index = 1,
-                                                count = 2
-                                            )
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.height(24.dp))
-                                        
-                                        Box(
-                                            modifier = Modifier.fillMaxWidth().height(200.dp), 
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            AnimatedContent(
-                                                targetState = selectedViz,
-                                                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                                                label = "viz_transition"
-                                            ) { viz ->
-                                                if (viz == 0) {
-                                                    PieChartLabeled(data.categoryBreakdown, isPrivacyMode)
-                                                } else {
-                                                    TrendLineGraphCompact(
-                                                        data = data.chartData,
-                                                        color = if (data.reportType == ReportType.INCOME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                                        timeRange = data.timeRange,
-                                                        isPrivacyMode = isPrivacyMode
-                                                    )
-                                                }
+                                if (data.reportType == ReportType.CASH_FLOW) {
+                                    CashFlowBarChartCompact(data.chartData)
+                                } else {
+                                    // Spec 8: Distribution / Trend Control
+                                    MoneyPilotSegmentedControl(
+                                        options = listOf("Distribution", "Trend"),
+                                        selectedOption = if (selectedViz == 0) "Distribution" else "Trend",
+                                        onOptionSelected = { selectedViz = if (it == "Distribution") 0 else 1 },
+                                        labelExtractor = { it },
+                                        modifier = Modifier.width(220.dp),
+                                        height = 32.dp,
+                                        showIcon = false
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    
+                                    // Spec 9: Donut Chart
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(220.dp), 
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        AnimatedContent(
+                                            targetState = selectedViz,
+                                            transitionSpec = { fadeIn() togetherWith fadeOut() },
+                                            label = "viz_transition"
+                                        ) { viz ->
+                                            if (viz == 0) {
+                                                PieChartLabeled(data.categoryBreakdown, isPrivacyMode)
+                                            } else {
+                                                TrendLineGraphCompact(
+                                                    data = data.chartData,
+                                                    color = if (data.reportType == ReportType.INCOME) IncomeGreen else ExpenseRed,
+                                                    timeRange = data.timeRange,
+                                                    isPrivacyMode = isPrivacyMode
+                                                )
                                             }
                                         }
                                     }
@@ -335,77 +290,30 @@ fun MainAmountDisplay(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SingleChoiceSegmentedButtonRowScope.TabLikeSegmentedButton(
-    selected: Boolean,
-    onClick: () -> Unit,
-    label: String,
-    index: Int,
-    count: Int
-) {
-    SegmentedButton(
-        selected = selected,
-        onClick = onClick,
-        shape = SegmentedButtonDefaults.itemShape(index = index, count = count)
+fun KPIItem(label: String, value: String, subLabel: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun AnomalySection(title: String, message: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.2f))
-    ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = color)
-                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-            }
-        }
-    }
-}
-
-@Composable
-fun InsightCard(title: String, message: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.1f))
-    ) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = color)
-                Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-            }
-        }
-    }
-}
-
-@Composable
-fun InsightTile(label: String, value: String, subLabel: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-            Text(subLabel, style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        Text(
+            text = label, 
+            style = MaterialTheme.typography.labelSmall, 
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value, 
+            style = MaterialTheme.typography.titleLarge, 
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = subLabel, 
+            style = MaterialTheme.typography.labelSmall, 
+            fontSize = 10.sp, 
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
     }
 }
 

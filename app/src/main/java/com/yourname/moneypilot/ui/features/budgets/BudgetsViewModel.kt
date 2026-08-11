@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -19,7 +21,10 @@ import javax.inject.Inject
 
 data class BudgetsState(
     val budgets: List<BudgetWithDetails> = emptyList(),
-    val advisories: List<BudgetAdvisory> = emptyList()
+    val advisories: List<BudgetAdvisory> = emptyList(),
+    val selectedDate: LocalDate = LocalDate.now(),
+    val totalBudget: Double = 0.0,
+    val totalSpent: Double = 0.0
 )
 
 @HiltViewModel
@@ -28,25 +33,42 @@ class BudgetsViewModel @Inject constructor(
     private val getBudgetAdvisoryUseCase: GetBudgetAdvisoryUseCase
 ) : BaseViewModel<BudgetsState>() {
 
+    private val _state = MutableStateFlow(BudgetsState())
+    val state = _state.asStateFlow()
+
     init {
-        refreshAndLoadBudgets()
+        loadData()
         loadAdvisories()
     }
 
-    private fun refreshAndLoadBudgets() {
+    private fun loadData() {
         viewModelScope.launch {
-            _uiState.value = ScreenState.Loading
-            budgetRepository.refreshActiveBudgets(LocalDate.now())
-            
-            budgetRepository.getActiveBudgetsWithDetails(LocalDate.now()).collectLatest { list ->
-                if (list.isEmpty()) {
-                    _uiState.value = ScreenState.Empty
-                } else {
-                    val currentState = (uiState.value as? ScreenState.Success)?.data ?: BudgetsState()
-                    _uiState.value = ScreenState.Success(currentState.copy(budgets = list))
+            _state.map { it.selectedDate }.distinctUntilChanged().collectLatest { date ->
+                _uiState.value = ScreenState.Loading
+                budgetRepository.refreshActiveBudgets(date)
+                
+                budgetRepository.getActiveBudgetsWithDetails(date).collect { list ->
+                    val totalB = list.sumOf { it.budget.amount }
+                    val totalS = list.sumOf { it.budget.spentAmount }
+                    
+                    _state.update { it.copy(
+                        budgets = list,
+                        totalBudget = totalB,
+                        totalSpent = totalS
+                    ) }
+                    
+                    if (list.isEmpty()) {
+                        _uiState.value = ScreenState.Empty
+                    } else {
+                        _uiState.value = ScreenState.Success(_state.value)
+                    }
                 }
             }
         }
+    }
+
+    fun onDateChange(newDate: LocalDate) {
+        _state.update { it.copy(selectedDate = newDate) }
     }
 
     private fun loadAdvisories() {

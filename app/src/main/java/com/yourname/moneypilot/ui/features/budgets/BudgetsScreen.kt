@@ -1,20 +1,23 @@
 package com.yourname.moneypilot.ui.features.budgets
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,6 +28,14 @@ import com.yourname.moneypilot.domain.usecase.budget.BudgetAdvisory
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import com.yourname.moneypilot.ui.theme.motion.motionTween
+import com.yourname.moneypilot.util.formatCompact
+import com.yourname.moneypilot.util.formatCurrency
+import com.yourname.moneypilot.util.rememberCurrencySymbol
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.*
 
 @Composable
 fun BudgetsScreen(
@@ -35,58 +46,313 @@ fun BudgetsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val preferences by mainViewModel.userPreferences.collectAsState()
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
+    val currencySymbol = rememberCurrencySymbol()
+    
+    val state = (uiState as? ScreenState.Success)?.data
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddBudget,
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Budget")
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Month Navigator
+            state?.let { s ->
+                BudgetMonthNavigator(
+                    selectedDate = s.selectedDate,
+                    onDateChange = { viewModel.onDateChange(it) }
+                )
+                
+                // Budget Overview
+                BudgetsOverviewCard(
+                    totalBudget = s.totalBudget,
+                    totalSpent = s.totalSpent,
+                    currencySymbol = currencySymbol,
+                    isPrivacyMode = isPrivacyMode
+                )
             }
-        }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when (val state = uiState) {
+
+            when (val currentUiState = uiState) {
                 is ScreenState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
                 is ScreenState.Success -> {
+                    val data = currentUiState.data
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
                     ) {
-                        // Section 3.6 Compliance: Advisory Planning
-                        if (state.data.advisories.isNotEmpty()) {
-                            item {
-                                Text("Planning Insights", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            }
-                            items(state.data.advisories) { advisory ->
+                        // Advisory Section
+                        if (data.advisories.isNotEmpty()) {
+                            items(data.advisories) { advisory ->
                                 BudgetAdvisoryCard(advisory, isPrivacyMode)
                             }
-                            item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+                            item { Spacer(modifier = Modifier.height(4.dp)) }
                         }
 
-                        item {
-                            Text("Active Budgets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        }
+                        items(data.budgets, key = { it.budget.id }) { budgetDetails ->
+                            val index = data.budgets.indexOf(budgetDetails)
+                            var visible by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) {
+                                kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
+                                visible = true
+                            }
 
-                        items(state.data.budgets) { budgetDetails ->
-                            BudgetItem(budgetDetails, isPrivacyMode)
+                            AnimatedVisibility(
+                                visible = visible,
+                                enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween())
+                            ) {
+                                CompactBudgetItem(budgetDetails, isPrivacyMode, currencySymbol)
+                            }
                         }
                     }
                 }
                 is ScreenState.Error -> {
-                    Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                }
-                is ScreenState.Empty -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "No budgets set for this month")
+                        Text(text = "Error: ${currentUiState.message}", color = MaterialTheme.colorScheme.error)
                     }
                 }
+                is ScreenState.Empty -> {
+                    BudgetsEmptyState(onAddBudget)
+                }
             }
+        }
+
+        FloatingActionButton(
+            onClick = onAddBudget,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .padding(bottom = 8.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Budget", modifier = Modifier.size(28.dp))
+        }
+    }
+}
+
+@Composable
+fun BudgetMonthNavigator(selectedDate: LocalDate, onDateChange: (LocalDate) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = { onDateChange(selectedDate.minusMonths(1)) }) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev Month")
+        }
+        Text(
+            text = "${selectedDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${selectedDate.year}",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        IconButton(onClick = { onDateChange(selectedDate.plusMonths(1)) }) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next Month")
+        }
+    }
+}
+
+@Composable
+fun BudgetsOverviewCard(totalBudget: Double, totalSpent: Double, currencySymbol: String, isPrivacyMode: Boolean) {
+    val usage = if (totalBudget > 0) (totalSpent / totalBudget).toFloat() else 0f
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Total Budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text(
+                        if(isPrivacyMode) "••••" else totalBudget.formatCompact(currencySymbol),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Total Spent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text(
+                        if(isPrivacyMode) "••••" else totalSpent.formatCompact(currencySymbol),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                        color = if (totalSpent > totalBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            LinearProgressIndicator(
+                progress = { usage.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                color = if (usage >= 1f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = StrokeCap.Round
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "${(usage * 100).toInt()}% Used",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (usage >= 1f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.align(Alignment.End)
+            )
+        }
+    }
+}
+
+@Composable
+fun CompactBudgetItem(budgetDetails: BudgetWithDetails, isPrivacyMode: Boolean, currencySymbol: String) {
+    val budget = budgetDetails.budget
+    val category = budgetDetails.category
+    val subcategory = budgetDetails.subcategory
+    val financeColors = LocalFinanceColors.current
+    
+    val usage = if (budget.amount > 0) (budget.spentAmount / budget.amount).toFloat() else 0f
+    val animatedProgress by animateFloatAsState(
+        targetValue = usage.coerceAtMost(1f),
+        animationSpec = motionTween(400),
+        label = "budget_progress"
+    )
+    
+    val isOverBudget = budget.spentAmount > budget.amount
+    val isNearLimit = !isOverBudget && (usage * 100) >= budget.alertThreshold
+    
+    val statusColor = when {
+        isOverBudget -> financeColors.expense
+        isNearLimit -> financeColors.warning
+        else -> MaterialTheme.colorScheme.primary
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(36.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    color = statusColor.copy(alpha = 0.1f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(text = category.icon, fontSize = 18.sp)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = category.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    if (subcategory != null) {
+                        Text(
+                            text = subcategory.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                Text(
+                    text = "${(usage * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = statusColor,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                val displaySpent = if(isPrivacyMode) "••••" else budget.spentAmount.formatCompact(currencySymbol)
+                val displayLimit = if(isPrivacyMode) "••••" else budget.amount.formatCompact(currencySymbol)
+                
+                Text(
+                    text = "$displaySpent / $displayLimit",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Black
+                )
+                
+                if (isOverBudget) {
+                    val over = budget.spentAmount - budget.amount
+                    Text(
+                        text = "₹${over.toInt()} over",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                } else if (isNearLimit) {
+                    Text(
+                        text = "Near Limit",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                color = statusColor,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = StrokeCap.Round
+            )
+        }
+    }
+}
+
+@Composable
+fun BudgetsEmptyState(onAddBudget: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            modifier = Modifier.size(100.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.BarChart,
+                    contentDescription = null,
+                    modifier = Modifier.size(50.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            "No budgets set yet",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            "Create a budget to start controlling your spending and saving more.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onAddBudget) {
+            Text("Create Budget")
         }
     }
 }
@@ -106,106 +372,19 @@ fun BudgetAdvisoryCard(advisory: BudgetAdvisory, isPrivacyMode: Boolean) {
     }
 
     Card(
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        border = androidx.compose.foundation.BorderStroke(1.dp, iconColor.copy(alpha = 0.3f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, iconColor.copy(alpha = 0.3f)),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.AutoAwesome, null, tint = iconColor, modifier = Modifier.size(24.dp))
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoAwesome, null, tint = iconColor, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(advisory.categoryName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Text(advisory.reason, style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(4.dp))
+                Text(advisory.reason, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 val suggestion = if(isPrivacyMode) "••••" else "₹${advisory.suggestedLimit.toInt()}"
-                Text("Suggested limit: $suggestion", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = iconColor)
-            }
-        }
-    }
-}
-
-@Composable
-fun BudgetItem(budgetDetails: BudgetWithDetails, isPrivacyMode: Boolean) {
-    val budget = budgetDetails.budget
-    val category = budgetDetails.category
-    val subcategory = budgetDetails.subcategory
-    val financeColors = LocalFinanceColors.current
-    
-    val targetProgress = if (budget.amount > 0) (budget.spentAmount / budget.amount).toFloat() else 0f
-    val animatedProgress by animateFloatAsState(
-        targetValue = targetProgress.coerceAtMost(1f),
-        label = "budget_progress_animation"
-    )
-    
-    val isOverBudget = budget.spentAmount > budget.amount
-    val isNearLimit = !isOverBudget && (targetProgress * 100) >= budget.alertThreshold
-    
-    val statusColor = when {
-        isOverBudget -> financeColors.expense
-        isNearLimit -> financeColors.warning
-        else -> financeColors.budget
-    }
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = category.icon, fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = category.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    }
-                    if (subcategory != null) {
-                        Text(
-                            text = "Subcategory: ${subcategory.name}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "${(targetProgress * 100).toInt()}%",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = statusColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (isNearLimit) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = statusColor, modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            LinearProgressIndicator(
-                progress = { animatedProgress },
-                modifier = Modifier.fillMaxWidth().height(8.dp),
-                color = statusColor,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                val displaySpent = if(isPrivacyMode) "••••" else "₹${budget.spentAmount.toInt()}"
-                val displayLimit = if(isPrivacyMode) "••••" else "₹${budget.amount.toInt()}"
-                
-                Text(
-                    text = "$displaySpent spent",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isOverBudget) statusColor else MaterialTheme.colorScheme.onSurface
-                )
-                Text(text = "Limit: $displayLimit", style = MaterialTheme.typography.bodySmall)
+                Text("Suggested limit: $suggestion", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = iconColor)
             }
         }
     }

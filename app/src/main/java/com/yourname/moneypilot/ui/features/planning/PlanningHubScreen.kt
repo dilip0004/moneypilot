@@ -7,7 +7,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.GoalsScreen
@@ -31,22 +34,41 @@ fun PlanningHubScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Surface(tonalElevation = 2.dp) {
+            Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
-                    TopAppBar(
-                        title = { Text("Financial Planning", fontWeight = FontWeight.Bold) }
+                    CenterAlignedTopAppBar(
+                        title = { Text("Financial Planning", fontWeight = FontWeight.Black, fontSize = 18.sp) },
+                        windowInsets = WindowInsets(0, 0, 0, 0)
                     )
                     ScrollableTabRow(
                         selectedTabIndex = selectedTabIndex,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        edgePadding = 16.dp,
-                        divider = {}
+                        containerColor = Color.Transparent,
+                        edgePadding = 12.dp,
+                        divider = {},
+                        indicator = { tabPositions ->
+                            if (selectedTabIndex < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    height = 3.dp
+                                )
+                            }
+                        },
+                        modifier = Modifier.height(44.dp)
                     ) {
                         tabs.forEachIndexed { index, title ->
+                            val isSelected = selectedTabIndex == index
                             Tab(
-                                selected = selectedTabIndex == index,
+                                selected = isSelected,
                                 onClick = { selectedTabIndex = index },
-                                text = { Text(title) },
+                                text = { 
+                                    Text(
+                                        text = title,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold
+                                    ) 
+                                },
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 modifier = Modifier.testTag("planning_tab_${title.lowercase().replace(" ", "_")}")
                             )
                         }
