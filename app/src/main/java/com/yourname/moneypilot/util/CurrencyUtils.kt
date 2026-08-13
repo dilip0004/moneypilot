@@ -28,17 +28,22 @@ class CurrencyManager @Inject constructor(
 
     suspend fun getCurrencySymbol(): String {
         val currency = preferencesRepository.userPreferencesFlow.first().currency
+        return normalizeSymbol(currency)
+    }
+
+    fun getCurrencySymbolBlocking(): String {
+        return runBlocking { getCurrencySymbol() }
+    }
+    
+    private fun normalizeSymbol(currency: String): String {
         return when (currency) {
             "USD" -> "$"
             "EUR" -> "€"
             "GBP" -> "£"
             "JPY" -> "¥"
-            else -> "₹"
+            "INR" -> "₹"
+            else -> currency.take(1)
         }
-    }
-
-    fun getCurrencySymbolBlocking(): String {
-        return runBlocking { getCurrencySymbol() }
     }
 }
 
@@ -64,8 +69,9 @@ class CurrencyManagerViewModel @Inject constructor(
 }
 
 fun Double.formatCurrency(symbol: String, hideDecimals: Boolean = true): String {
+    val displaySymbol = if (symbol == "INR") "₹" else symbol
     val formatter = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
-    val formatted = formatter.format(this).replace("₹", symbol)
+    val formatted = formatter.format(this).replace("₹", displaySymbol)
     
     return if (hideDecimals && this % 1.0 == 0.0) {
         val parts = formatted.split(".")
@@ -83,11 +89,12 @@ fun Double.formatCurrency(symbol: String, hideDecimals: Boolean = true): String 
  * Formats large numbers into compact strings like 1.2L or 18K.
  */
 fun Double.formatCompact(symbol: String): String {
+    val displaySymbol = if (symbol == "INR") "₹" else symbol
     val absVal = kotlin.math.abs(this)
     val locale = Locale("en", "IN")
     return when {
-        absVal >= 100000 -> "${if(this < 0) "-" else ""}$symbol${String.format(locale, "%.1f", absVal / 100000)}L"
-        absVal >= 1000 -> "${if(this < 0) "-" else ""}$symbol${String.format(locale, "%.0f", absVal / 1000)}K"
-        else -> this.formatCurrency(symbol)
+        absVal >= 100000 -> "${if(this < 0) "-" else ""}$displaySymbol${String.format(locale, "%.1f", absVal / 100000)}L"
+        absVal >= 1000 -> "${if(this < 0) "-" else ""}$displaySymbol${String.format(locale, "%.0f", absVal / 1000)}K"
+        else -> this.formatCurrency(displaySymbol)
     }
 }

@@ -63,15 +63,15 @@ class GetReportDataUseCase @Inject constructor(
                         it.transaction.goalId != null -> "GOAL_${it.transaction.goalId}"
                         it.transaction.loanId != null -> "LOAN_${it.transaction.loanId}"
                         it.transaction.investmentId != null -> "INV_${it.transaction.investmentId}"
-                        else -> "CAT_${it.transaction.categoryId}"
+                        else -> "CAT_${it.transaction.categoryId}_SUB_${it.transaction.subcategoryId}"
                     }
                 }
-                .map { (key, items) ->
+                .map { (_, items) ->
                     val first = items.first()
                     val name = when {
-                        first.transaction.goalId != null -> "🎯 Goal: ${first.goal?.name ?: "Goal Contribution"}"
-                        first.transaction.loanId != null -> "🏦 Loan: ${first.loan?.name ?: "Repayment"}"
-                        first.transaction.investmentId != null -> "📈 Inv: ${first.investment?.name ?: "Investment"}"
+                        first.transaction.goalId != null -> first.goal?.name ?: "Goal Contribution"
+                        first.transaction.loanId != null -> first.loan?.name ?: "Repayment"
+                        first.transaction.investmentId != null -> first.investment?.name ?: "Investment"
                         else -> first.category?.name ?: "Uncategorized"
                     }
                     val icon = when {
@@ -79,6 +79,13 @@ class GetReportDataUseCase @Inject constructor(
                         first.transaction.loanId != null -> "🏦"
                         first.transaction.investmentId != null -> "📈"
                         else -> first.category?.icon ?: "❓"
+                    }
+
+                    val subName = when {
+                        first.transaction.goalId != null -> "Goal"
+                        first.transaction.loanId != null -> "Loan"
+                        first.transaction.investmentId != null -> "Investment"
+                        else -> first.subcategory?.name
                     }
 
                     val sum = items.sumOf { 
@@ -92,7 +99,9 @@ class GetReportDataUseCase @Inject constructor(
                     }
                     CategoryRank(
                         categoryId = first.transaction.categoryId,
+                        subcategoryId = first.transaction.subcategoryId,
                         name = name,
+                        subcategoryName = subName,
                         icon = icon,
                         amount = sum,
                         percentage = if (denom > 0) (sum / denom).toFloat() else 0f

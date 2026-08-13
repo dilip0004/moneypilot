@@ -5,16 +5,15 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +24,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,7 +33,6 @@ import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.components.MoneyPilotSegmentedControl
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import com.yourname.moneypilot.ui.theme.ExpenseRed
-import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import com.yourname.moneypilot.ui.theme.motion.MotionConstants
 import com.yourname.moneypilot.ui.theme.motion.motionTween
 import com.yourname.moneypilot.util.formatCompact
@@ -72,16 +71,17 @@ fun ReportsScreen(
                         .statusBarsPadding()
                         .padding(bottom = 8.dp)
                 ) {
-                    // Spec 2: Period Selector
+                    // Spec 1: Period Selector
                     MoneyPilotSegmentedControl(
                         options = TimeRange.entries,
                         selectedOption = reportState.timeRange,
                         onOptionSelected = { viewModel.onTimeRangeChange(it) },
                         labelExtractor = { it.name.lowercase().replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.ROOT) else char.toString() } },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        iconExtractor = { Icons.Default.CalendarToday }
                     )
 
-                    // Spec 3: Expense / Income / Cash Flow Selector
+                    // Spec 2: Report Type Selector
                     MoneyPilotSegmentedControl(
                         options = ReportType.entries,
                         selectedOption = reportState.reportType,
@@ -105,13 +105,13 @@ fun ReportsScreen(
                 is ScreenState.Success -> {
                     val data = state.data
                     var selectedViz by remember { mutableIntStateOf(0) }
+                    
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                        modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp)
                     ) {
                         item {
-                            // Spec 5: Date Navigation
                             DateNavigatorCompact(
                                 date = data.selectedDate,
                                 rangeStart = data.rangeStart,
@@ -136,38 +136,37 @@ fun ReportsScreen(
                             )
                         }
 
-                        // Spec 6: KPI Section
                         item {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                KPIItem(
+                                KPICard(
                                     label = "Savings Rate",
                                     value = if(isPrivacyMode) "••%" else "${(data.keyAnalytics.savingsRate?.times(100))?.toInt() ?: 0}%",
                                     subLabel = if(data.keyAnalytics.savingsRate == null) "No Income" else "Saved",
+                                    icon = Icons.Default.AutoGraph,
                                     modifier = Modifier.weight(1f)
                                 )
-                                KPIItem(
-                                    label = "Daily Average",
-                                    value = if(isPrivacyMode) "••••" else "₹${data.keyAnalytics.dailyAverage?.toInt() ?: 0}",
+                                KPICard(
+                                    label = "Daily Avg",
+                                    value = if(isPrivacyMode) "••••" else data.keyAnalytics.dailyAverage?.formatCurrency(currencySymbol) ?: "₹0",
                                     subLabel = "per day",
+                                    icon = Icons.Default.Speed,
                                     modifier = Modifier.weight(1f)
                                 )
-                                KPIItem(
-                                    label = "Transactions",
+                                KPICard(
+                                    label = "Entries",
                                     value = "${data.keyAnalytics.transactionCount}",
-                                    subLabel = "Entries",
+                                    subLabel = "Transactions",
+                                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
                         }
 
-                        // Spec 7: Total Expenses
                         item {
-                            MainAmountDisplay(
+                            TotalAmountCard(
                                 type = data.reportType,
                                 amount = data.totalAmount,
                                 currencySymbol = currencySymbol,
@@ -176,58 +175,43 @@ fun ReportsScreen(
                         }
 
                         item {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                if (data.reportType == ReportType.CASH_FLOW) {
-                                    CashFlowBarChartCompact(data.chartData)
-                                } else {
-                                    // Spec 8: Distribution / Trend Control
-                                    MoneyPilotSegmentedControl(
-                                        options = listOf("Distribution", "Trend"),
-                                        selectedOption = if (selectedViz == 0) "Distribution" else "Trend",
-                                        onOptionSelected = { selectedViz = if (it == "Distribution") 0 else 1 },
-                                        labelExtractor = { it },
-                                        modifier = Modifier.width(220.dp),
-                                        height = 32.dp,
-                                        showIcon = false
-                                    )
-                                    
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    
-                                    // Spec 9: Donut Chart
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(220.dp), 
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AnimatedContent(
-                                            targetState = selectedViz,
-                                            transitionSpec = { fadeIn() togetherWith fadeOut() },
-                                            label = "viz_transition"
-                                        ) { viz ->
-                                            if (viz == 0) {
-                                                PieChartLabeled(data.categoryBreakdown, isPrivacyMode)
-                                            } else {
-                                                TrendLineGraphCompact(
-                                                    data = data.chartData,
-                                                    color = if (data.reportType == ReportType.INCOME) IncomeGreen else ExpenseRed,
-                                                    timeRange = data.timeRange,
-                                                    isPrivacyMode = isPrivacyMode
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                MoneyPilotSegmentedControl(
+                                    options = listOf("Distribution", "Trend"),
+                                    selectedOption = if (selectedViz == 0) "Distribution" else "Trend",
+                                    onOptionSelected = { selectedViz = if (it == "Distribution") 0 else 1 },
+                                    labelExtractor = { it },
+                                    modifier = Modifier.width(200.dp),
+                                    height = 32.dp,
+                                    showIcon = false
+                                )
                             }
                         }
 
+                        item {
+                            ChartCard(
+                                reportType = data.reportType,
+                                selectedViz = selectedViz,
+                                categoryBreakdown = data.categoryBreakdown,
+                                chartData = data.chartData,
+                                timeRange = data.timeRange,
+                                isPrivacyMode = isPrivacyMode
+                            )
+                        }
+
                         if (data.reportType != ReportType.CASH_FLOW && data.categoryBreakdown.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "Spending Breakdown", 
+                                    style = MaterialTheme.typography.labelLarge, 
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                                )
+                            }
+                            
                             itemsIndexed(
                                 items = data.categoryBreakdown,
-                                key = { index, rank -> "${rank.name}_$index" }
+                                key = { index, rank -> "${rank.name}_${rank.subcategoryId}_$index" }
                             ) { index, rank ->
                                 var visible by remember { mutableStateOf(false) }
                                 LaunchedEffect(Unit) {
@@ -238,9 +222,9 @@ fun ReportsScreen(
                                     visible = visible,
                                     enter = slideInVertically { 10 } + fadeIn()
                                 ) {
-                                    CategoryRankItemCompact(
+                                    SpendingBreakdownItem(
                                         rank = rank,
-                                        categoryColor = CHART_COLORS[index % CHART_COLORS.size],
+                                        color = CHART_COLORS[index % CHART_COLORS.size],
                                         isPrivacyMode = isPrivacyMode,
                                         currencySymbol = currencySymbol
                                     )
@@ -251,7 +235,7 @@ fun ReportsScreen(
                 }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No data available for this period", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("No data available", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -260,88 +244,164 @@ fun ReportsScreen(
 }
 
 @Composable
-fun MainAmountDisplay(
+fun KPICard(
+    label: String,
+    value: String,
+    subLabel: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.height(62.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp).fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(10.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                )
+            }
+            Column {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp,
+                    maxLines = 1
+                )
+                Text(
+                    text = subLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 8.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TotalAmountCard(
     type: ReportType,
     amount: Double,
     currencySymbol: String,
     isPrivacyMode: Boolean
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
-        val label = when(type) {
-            ReportType.EXPENSE -> "Total Expenses"
-            ReportType.INCOME -> "Total Income"
-            ReportType.CASH_FLOW -> "Net Cash Flow"
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = if(isPrivacyMode) "••••" else amount.formatCurrency(currencySymbol),
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Black,
-            color = if (type == ReportType.CASH_FLOW && amount < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
-fun KPIItem(label: String, value: String, subLabel: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = label, 
-            style = MaterialTheme.typography.labelSmall, 
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = value, 
-            style = MaterialTheme.typography.titleLarge, 
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = subLabel, 
-            style = MaterialTheme.typography.labelSmall, 
-            fontSize = 10.sp, 
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
-    }
-}
-
-@Composable
-fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: LocalDate, range: TimeRange, onPrev: () -> Unit, onNext: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().height(48.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onPrev, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.KeyboardArrowLeft, null) }
-        val label = when (range) {
-            TimeRange.WEEKLY -> {
-                val formatter = DateTimeFormatter.ofPattern("dd MMM")
-                "${rangeStart.format(formatter)} - ${rangeEnd.format(formatter)}"
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                val label = when(type) {
+                    ReportType.EXPENSE -> "Total Expenses"
+                    ReportType.INCOME -> "Total Income"
+                    ReportType.CASH_FLOW -> "Net Cash Flow"
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if(isPrivacyMode) "••••" else amount.formatCurrency(currencySymbol),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    color = if (type == ReportType.CASH_FLOW && amount < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                )
             }
-            TimeRange.MONTHLY -> "${date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${date.year}"
-            TimeRange.YEARLY -> "${date.year}"
+            Icon(
+                imageVector = Icons.Default.BarChart,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                modifier = Modifier.size(24.dp)
+            )
         }
-        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 24.dp))
-        IconButton(onClick = onNext, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.KeyboardArrowRight, null) }
     }
 }
 
 @Composable
-fun PieChartLabeled(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
+fun ChartCard(
+    reportType: ReportType,
+    selectedViz: Int,
+    categoryBreakdown: List<CategoryRank>,
+    chartData: Map<Int, Double>,
+    timeRange: TimeRange,
+    isPrivacyMode: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (reportType == ReportType.CASH_FLOW) {
+                CashFlowBarChartCompact(chartData)
+            } else {
+                AnimatedContent(
+                    targetState = selectedViz,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "viz_transition"
+                ) { viz ->
+                    if (viz == 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            PieChartWithCallouts(categoryBreakdown, isPrivacyMode)
+                        }
+                    } else {
+                        TrendLineGraphCompact(
+                            data = chartData,
+                            color = if (reportType == ReportType.INCOME) IncomeGreen else ExpenseRed,
+                            timeRange = timeRange,
+                            isPrivacyMode = isPrivacyMode
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PieChartWithCallouts(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
     val total = ranks.sumOf { it.amount }
     val animationProgress = remember { Animatable(0f) }
+    val onSurface = MaterialTheme.colorScheme.onSurface
 
     LaunchedEffect(ranks) {
         animationProgress.snapTo(0f)
@@ -349,7 +409,9 @@ fun PieChartLabeled(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
     }
 
     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.size(160.dp)) {
+        Canvas(modifier = Modifier.size(130.dp)) {
+            val center = Offset(size.width / 2, size.height / 2)
+            val radius = size.width / 2
             var startAngle = -90f
             
             ranks.forEachIndexed { index, rank ->
@@ -362,32 +424,93 @@ fun PieChartLabeled(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = false,
-                        style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Butt)
+                        style = Stroke(width = 20.dp.toPx(), cap = StrokeCap.Butt)
                     )
                     
+                    if (index < 3 && sweepAngle > 8f && animationProgress.value > 0.9f) {
+                        val midAngle = (startAngle + sweepAngle / 2) * (Math.PI / 180f).toFloat()
+                        val lineStart = Offset(center.x + cos(midAngle.toDouble()).toFloat() * (radius * 0.9f), center.y + sin(midAngle.toDouble()).toFloat() * (radius * 0.9f))
+                        val lineEnd = Offset(center.x + cos(midAngle.toDouble()).toFloat() * (radius * 1.35f), center.y + sin(midAngle.toDouble()).toFloat() * (radius * 1.35f))
+                        
+                        drawLine(color = color.copy(alpha = 0.5f), start = lineStart, end = lineEnd, strokeWidth = 1.dp.toPx())
+                        
+                        val isRight = cos(midAngle.toDouble()) > 0
+                        val paint = android.graphics.Paint().apply {
+                            this.color = onSurface.toArgb()
+                            this.textSize = 20f
+                            this.textAlign = if (isRight) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.RIGHT
+                            this.isFakeBoldText = true
+                        }
+                        
+                        drawContext.canvas.nativeCanvas.drawText(
+                            "${rank.name} ${(rank.percentage * 100).toInt()}%",
+                            lineEnd.x + if (isRight) 5f else -5f,
+                            lineEnd.y + if (sin(midAngle.toDouble()) > 0) 15f else -5f,
+                            paint
+                        )
+                    }
                     startAngle += sweepAngle
                 }
             }
         }
         
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Top Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+            Text("Top Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp)
+            val topCategory = ranks.firstOrNull()
             Text(
-                ranks.firstOrNull()?.let { if(isPrivacyMode) "••••" else it.name } ?: "None",
-                style = MaterialTheme.typography.titleMedium,
+                topCategory?.let { if(isPrivacyMode) "••••" else it.name } ?: "None",
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Black,
                 maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 40.dp)
+                overflow = TextOverflow.Ellipsis
+            )
+            if (topCategory?.subcategoryName != null && !isPrivacyMode) {
+                Text(topCategory.subcategoryName, style = MaterialTheme.typography.labelSmall, fontSize = 7.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
+@Composable
+fun SpendingBreakdownItem(rank: CategoryRank, color: Color, isPrivacyMode: Boolean = false, currencySymbol: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(28.dp),
+            shape = RoundedCornerShape(6.dp),
+            color = color.copy(alpha = 0.1f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(rank.icon, fontSize = 12.sp)
+            }
+        }
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                val nameDisplay = if(isPrivacyMode) "••••" else rank.name
+                Text(text = nameDisplay, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if(isPrivacyMode) "••••" else rank.amount.formatCurrency(currencySymbol), fontSize = 12.sp, fontWeight = FontWeight.Black)
+            }
+            if (rank.subcategoryName != null && !isPrivacyMode) {
+                Text(rank.subcategoryName, style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            LinearProgressIndicator(
+                progress = { rank.percentage },
+                modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
+                color = color,
+                strokeCap = StrokeCap.Round,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
+        Text(text = "${(rank.percentage * 100).toInt()}%", modifier = Modifier.width(32.dp), textAlign = TextAlign.End, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeRange, isPrivacyMode: Boolean = false) {
     if (data.isEmpty()) return
-    
     val values = data.values.toList()
     val max = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
     val animationProgress = remember { Animatable(0f) }
@@ -398,115 +521,59 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
         animationProgress.animateTo(1f, tween(1000))
     }
 
-    Column {
-        Canvas(modifier = Modifier.fillMaxWidth().height(160.dp).padding(8.dp)) {
+    Column(modifier = Modifier.height(160.dp)) {
+        Canvas(modifier = Modifier.fillMaxWidth().weight(1f).padding(8.dp)) {
             val width = size.width
             val height = size.height
             val stepX = width / (data.size - 1).coerceAtLeast(1)
-            
             val path = Path()
             val fillPath = Path()
-            
             data.values.forEachIndexed { index, value ->
                 val x = index * stepX
                 val y = height - (value.toFloat() / max.toFloat() * height * animationProgress.value)
-                
-                if (index == 0) {
-                    path.moveTo(x, y)
-                    fillPath.moveTo(x, height)
-                    fillPath.lineTo(x, y)
-                } else {
-                    path.lineTo(x, y)
-                    fillPath.lineTo(x, y)
-                }
-                
-                if (index == data.size - 1) {
-                    fillPath.lineTo(x, height)
-                    fillPath.close()
-                }
+                if (index == 0) { path.moveTo(x, y); fillPath.moveTo(x, height); fillPath.lineTo(x, y) }
+                else { path.lineTo(x, y); fillPath.lineTo(x, y) }
+                if (index == data.size - 1) { fillPath.lineTo(x, height); fillPath.close() }
             }
-            
-            drawPath(
-                path = fillPath,
-                brush = Brush.verticalGradient(
-                    colors = listOf(color.copy(alpha = 0.2f), Color.Transparent)
-                )
-            )
-            
-            drawPath(
-                path = path,
-                color = color,
-                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-            )
+            drawPath(path = fillPath, brush = Brush.verticalGradient(listOf(color.copy(alpha = 0.2f), Color.Transparent)))
+            drawPath(path = path, color = color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
-        
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             val xLabels = when (timeRange) {
                 TimeRange.WEEKLY -> listOf("M", "T", "W", "T", "F", "S", "S")
                 TimeRange.MONTHLY -> listOf("1", "10", "20", "30")
                 TimeRange.YEARLY -> listOf("J", "M", "M", "J", "S", "N")
             }
-            xLabels.forEach { label ->
-                Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = onSurface)
-            }
+            xLabels.forEach { label -> Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = onSurface) }
         }
     }
 }
 
 @Composable
-fun CategoryRankItemCompact(rank: CategoryRank, categoryColor: Color, isPrivacyMode: Boolean = false, currencySymbol: String) {
+fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: LocalDate, range: TimeRange, onPrev: () -> Unit, onNext: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().height(40.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(32.dp),
-            shape = RoundedCornerShape(8.dp),
-            color = categoryColor.copy(alpha = 0.1f)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(rank.icon, fontSize = 14.sp)
+        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowLeft, null) }
+        val label = when (range) {
+            TimeRange.WEEKLY -> {
+                val formatter = DateTimeFormatter.ofPattern("dd MMM")
+                "${rangeStart.format(formatter)} – ${rangeEnd.format(formatter)}"
             }
+            TimeRange.MONTHLY -> "${date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${date.year}"
+            TimeRange.YEARLY -> "${date.year}"
         }
-        Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                val nameDisplay = if(isPrivacyMode) "••••" else rank.name
-                Text(
-                    text = nameDisplay, 
-                    fontSize = 14.sp, 
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                val amountText = if(isPrivacyMode) "••••" else rank.amount.formatCompact(currencySymbol)
-                Text(amountText, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { rank.percentage },
-                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
-                color = categoryColor,
-                strokeCap = StrokeCap.Round,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        }
-        Text(
-            text = "${(rank.percentage * 100).toInt()}%",
-            modifier = Modifier.width(36.dp),
-            textAlign = TextAlign.End,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp))
+        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowRight, null) }
     }
 }
 
 @Composable
 fun CashFlowBarChartCompact(data: Map<Int, Double>) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(120.dp),
+        modifier = Modifier.fillMaxWidth().height(160.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {

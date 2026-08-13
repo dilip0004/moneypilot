@@ -187,7 +187,9 @@ class ReportsViewModel @Inject constructor(
 
 data class CategoryRank(
     val categoryId: Long?,
+    val subcategoryId: Long? = null,
     val name: String,
+    val subcategoryName: String? = null,
     val icon: String,
     val amount: Double,
     val percentage: Float
