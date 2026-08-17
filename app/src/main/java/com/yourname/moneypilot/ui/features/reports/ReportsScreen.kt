@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -207,7 +208,7 @@ fun ReportsScreen(
                             )
                         }
 
-                        // Spec 7: Spending Breakdown
+                        // Spec 10: Spending Breakdown Title
                         if (data.reportType != ReportType.CASH_FLOW && data.categoryBreakdown.isNotEmpty()) {
                             item(key = "breakdown_title") {
                                 Text(
@@ -218,8 +219,9 @@ fun ReportsScreen(
                                 )
                             }
                             
+                            // Spec 12: Performance - Stable keys and indexed colors
                             items(
-                                items = data.categoryBreakdown,
+                                data.categoryBreakdown,
                                 key = { rank -> "${rank.name}_${rank.subcategoryId}_${rank.categoryId}" }
                             ) { rank ->
                                 SpendingBreakdownItem(
@@ -250,7 +252,7 @@ fun KPICard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.height(62.dp), // Spec 1: Significantly minimized
+        modifier = modifier.height(62.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
@@ -308,11 +310,11 @@ fun TotalAmountCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)), // Subtle gradient placeholder
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp).fillMaxWidth(), // Spec 5: 10% height reduction
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -330,7 +332,7 @@ fun TotalAmountCard(
                 )
                 Text(
                     text = if(isPrivacyMode) "••••" else amount.formatCurrency(currencySymbol),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Black,
                     color = if (type == ReportType.CASH_FLOW && amount < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
@@ -361,7 +363,7 @@ fun ChartCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (reportType == ReportType.CASH_FLOW) {
@@ -376,7 +378,7 @@ fun ChartCard(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(320.dp), // Spec 7: Increased height for many labels
+                                .height(220.dp), // Spec 1: Controlled height
                             contentAlignment = Alignment.Center
                         ) {
                             PieChartWithCallouts(categoryBreakdown, isPrivacyMode)
@@ -397,106 +399,128 @@ fun ChartCard(
 
 @Composable
 fun PieChartWithCallouts(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
-    if (ranks.isEmpty()) return
+    // Spec 3: Filter out 0% categories for visualization
+    val visibleRanks = remember(ranks) { ranks.filter { it.amount > 0 } }
+    if (visibleRanks.isEmpty()) return
     
-    val total = ranks.sumOf { it.amount }
+    val total = remember(visibleRanks) { visibleRanks.sumOf { it.amount } }
     val animationProgress = remember { Animatable(0f) }
     val onSurface = MaterialTheme.colorScheme.onSurface
 
-    LaunchedEffect(ranks) {
+    LaunchedEffect(visibleRanks) {
         animationProgress.snapTo(0f)
-        animationProgress.animateTo(1f, tween(1000))
+        animationProgress.animateTo(1f, tween(800))
     }
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
             val center = Offset(size.width / 2, size.height / 2)
-            val donutRadius = size.minDimension * 0.22f // Reduced diameter to make room for labels
+            
+            // Spec 1: Substantially smaller donut radius. Diameter ~55% of height/minDimension
+            val donutRadius = size.minDimension * 0.22f 
+            val innerStrokeWidth = 14.dp.toPx()
             var startAngle = -90f
             
-            // Collect label targets
             val rightLabels = mutableListOf<LabelTarget>()
             val leftLabels = mutableListOf<LabelTarget>()
 
-            ranks.forEachIndexed { index, rank ->
-                if (total > 0) {
-                    val sweepAngle = (rank.amount / total).toFloat() * 360f * animationProgress.value
-                    val color = CHART_COLORS[index % CHART_COLORS.size]
+            visibleRanks.forEachIndexed { index, rank ->
+                val sweepAngle = (rank.amount / total).toFloat() * 360f * animationProgress.value
+                val color = CHART_COLORS[index % CHART_COLORS.size]
+                
+                // 2. Draw Donut Slices (Corrected: using explicit topLeft and size)
+                drawArc(
+                    color = color,
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = false,
+                    topLeft = Offset(center.x - donutRadius, center.y - donutRadius),
+                    size = Size(donutRadius * 2, donutRadius * 2),
+                    style = Stroke(width = innerStrokeWidth, cap = StrokeCap.Butt)
+                )
+                
+                // 3 & 4. Calculate Label Positions from actual angular midpoints
+                if (animationProgress.value > 0.8f) {
+                    val midAngleRad = Math.toRadians((startAngle + sweepAngle / 2).toDouble())
+                    val isRight = cos(midAngleRad) > 0
                     
-                    drawArc(
-                        color = color,
-                        startAngle = startAngle,
-                        sweepAngle = sweepAngle,
-                        useCenter = false,
-                        style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Butt)
+                    val anchorPoint = Offset(
+                        center.x + cos(midAngleRad).toFloat() * (donutRadius + 4.dp.toPx()),
+                        center.y + sin(midAngleRad).toFloat() * (donutRadius + 4.dp.toPx())
                     )
                     
-                    if (animationProgress.value > 0.8f) {
-                        val midAngleDeg = startAngle + sweepAngle / 2
-                        val midAngleRad = Math.toRadians(midAngleDeg.toDouble())
-                        
-                        val isRight = cos(midAngleRad) > 0
-                        val target = LabelTarget(
-                            rank = rank,
-                            color = color,
-                            midAngleRad = midAngleRad,
-                            anchorPoint = Offset(
-                                center.x + cos(midAngleRad).toFloat() * (donutRadius * 1.15f),
-                                center.y + sin(midAngleRad).toFloat() * (donutRadius * 1.15f)
-                            )
-                        )
-                        
-                        if (isRight) rightLabels.add(target) else leftLabels.add(target)
-                    }
+                    val target = LabelTarget(
+                        rank = rank,
+                        color = color,
+                        midAngleRad = midAngleRad,
+                        anchorPoint = anchorPoint,
+                        yPos = anchorPoint.y
+                    )
                     
-                    startAngle += sweepAngle
+                    if (isRight) rightLabels.add(target) else leftLabels.add(target)
                 }
+                
+                startAngle += sweepAngle
             }
 
-            // Distribute labels vertically to avoid overlap
-            distributeLabels(rightLabels)
-            distributeLabels(leftLabels)
+            // 6. Collision Avoidance - Vertical distribution
+            distributeLabels(rightLabels, size.height)
+            distributeLabels(leftLabels, size.height)
 
-            // Draw Leader Lines and Labels
             val paint = android.graphics.Paint().apply {
                 this.color = onSurface.toArgb()
-                this.textSize = 24f
+                this.textSize = 18f
                 this.isFakeBoldText = true
             }
 
+            // 5. Draw Leader Lines and Labels
             (rightLabels + leftLabels).forEach { target ->
-                // Leader line
-                val path = Path().apply {
-                    moveTo(target.anchorPoint.x, target.anchorPoint.y)
-                    val elbowX = if (cos(target.midAngleRad) > 0) center.x + donutRadius * 1.6f else center.x - donutRadius * 1.6f
-                    lineTo(elbowX, target.yPos)
-                    lineTo(if (cos(target.midAngleRad) > 0) elbowX + 10f else elbowX - 10f, target.yPos)
-                }
-                drawPath(path, target.color.copy(alpha = 0.4f), style = Stroke(width = 1.dp.toPx()))
+                val isRight = cos(target.midAngleRad) > 0
+                val xEnd = if (isRight) size.width - 6.dp.toPx() else 6.dp.toPx()
+                
+                // Spec 5: Leader Lines originating from correct slice
+                val elbowX = if (isRight) center.x + donutRadius + 24.dp.toPx() else center.x - donutRadius - 24.dp.toPx()
+                
+                // Leader Line Elbow
+                drawLine(
+                    color = target.color.copy(alpha = 0.4f),
+                    start = target.anchorPoint,
+                    end = Offset(elbowX, target.yPos),
+                    strokeWidth = 1.dp.toPx()
+                )
+                drawLine(
+                    color = target.color.copy(alpha = 0.4f),
+                    start = Offset(elbowX, target.yPos),
+                    end = Offset(xEnd, target.yPos),
+                    strokeWidth = 1.dp.toPx()
+                )
 
-                // Label text
-                val labelText = if(isPrivacyMode) "${target.rank.icon} ••• ${target.rank.formattedPercentage}" else "${target.rank.icon} ${target.rank.name} · ${target.rank.formattedPercentage}"
-                paint.textAlign = if (cos(target.midAngleRad) > 0) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.RIGHT
+                // Label Text (Spec 2)
+                val labelText = if(isPrivacyMode) "${target.rank.icon} ••• ${target.rank.formattedPercentage}" 
+                               else "${target.rank.icon} ${target.rank.name} · ${target.rank.formattedPercentage}"
+                
+                paint.textAlign = if (isRight) android.graphics.Paint.Align.RIGHT else android.graphics.Paint.Align.LEFT
                 
                 drawContext.canvas.nativeCanvas.drawText(
                     labelText,
-                    if (cos(target.midAngleRad) > 0) center.x + donutRadius * 1.7f else center.x - donutRadius * 1.7f,
-                    target.yPos + 8f,
+                    if (isRight) size.width - 8.dp.toPx() else 8.dp.toPx(),
+                    target.yPos - 4.dp.toPx(),
                     paint
                 )
             }
         }
         
-        // Donut Center
+        // Spec 8: Dynamic Center Content
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Top Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp)
-            val topCategory = ranks.firstOrNull()
+            Text("Top Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 7.sp)
+            val topCategory = visibleRanks.firstOrNull()
             Text(
                 topCategory?.let { if(isPrivacyMode) "••••" else it.name } ?: "None",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Black,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 60.dp)
             )
             if (topCategory?.subcategoryName != null && !isPrivacyMode) {
                 Text(
@@ -518,28 +542,34 @@ private data class LabelTarget(
     var yPos: Float = 0f
 )
 
-private fun distributeLabels(targets: MutableList<LabelTarget>) {
+private fun distributeLabels(targets: MutableList<LabelTarget>, canvasHeight: Float) {
     if (targets.isEmpty()) return
     
-    // Initial sort by midAngle to maintain order
-    targets.sortBy { sin(it.midAngleRad) }
+    // Sort by anchor point Y to maintain consistent ordering
+    targets.sortBy { it.anchorPoint.y }
     
-    // Initial Y positions
+    val minGap = 24.dp.value * 1.5f 
+    
+    // Initial Y assignment
     targets.forEach { it.yPos = it.anchorPoint.y }
 
-    val minGap = 35f // Minimum vertical gap between label baselines
-    
     // Iterative overlap correction
-    repeat(10) {
+    repeat(15) {
         for (i in 0 until targets.size - 1) {
             val current = targets[i]
             val next = targets[i+1]
             if (next.yPos - current.yPos < minGap) {
-                val shift = (minGap - (next.yPos - current.yPos)) / 2
-                current.yPos -= shift
-                next.yPos += shift
+                val overlap = minGap - (next.yPos - current.yPos)
+                current.yPos -= overlap / 2f
+                next.yPos += overlap / 2f
             }
         }
+    }
+    
+    // Boundary check
+    val padding = 20.dp.value
+    targets.forEach {
+        it.yPos = it.yPos.coerceIn(padding, canvasHeight - padding)
     }
 }
 
@@ -564,6 +594,7 @@ fun SpendingBreakdownItem(rank: CategoryRank, color: Color, isPrivacyMode: Boole
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 val nameDisplay = if(isPrivacyMode) "••••" else rank.name
                 Text(text = nameDisplay, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Spec 12: Performance - Use pre-calculated formatted amount
                 Text(if(isPrivacyMode) "••••" else rank.formattedAmount, fontSize = 13.sp, fontWeight = FontWeight.Black)
             }
             if (rank.subcategoryName != null && !isPrivacyMode) {
@@ -578,6 +609,7 @@ fun SpendingBreakdownItem(rank: CategoryRank, color: Color, isPrivacyMode: Boole
                 trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             )
         }
+        // Spec 12: Performance - Use pre-calculated formatted percentage
         Text(text = rank.formattedPercentage, modifier = Modifier.width(36.dp), textAlign = TextAlign.End, fontSize = 11.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -606,7 +638,7 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
                 val x = index * stepX
                 val y = height - (value.toFloat() / max.toFloat() * height * animationProgress.value)
                 if (index == 0) { path.moveTo(x, y); fillPath.moveTo(x, height); fillPath.lineTo(x, y) }
-                else { path.lineTo(x, y); fillPath.lineTo(x, y) }
+                else { path.lineTo(x, y); path.lineTo(x, y) }
                 if (index == data.size - 1) { fillPath.lineTo(x, height); fillPath.close() }
             }
             drawPath(path = fillPath, brush = Brush.verticalGradient(listOf(color.copy(alpha = 0.2f), Color.Transparent)))
