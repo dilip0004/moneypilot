@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.LoanEntity
 import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
@@ -65,38 +66,27 @@ fun LoansScreen(
                     LoansEmptyState()
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp)
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp)
                     ) {
                         items(
                             items = filteredLoans,
                             key = { it.id }
                         ) { loan ->
-                            val index = filteredLoans.indexOf(loan)
-                            var visible by remember { mutableStateOf(false) }
-                            LaunchedEffect(Unit) {
-                                kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
-                                visible = true
-                            }
+                            // PERFORMANCE FIX: Removed per-item staggered animations that cause scroll jank.
+                            var isExpanded by remember { mutableStateOf(false) }
 
-                            AnimatedVisibility(
-                                visible = visible,
-                                enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween()),
+                            CompactLoanItem(
+                                loan = loan,
+                                isExpanded = isExpanded,
+                                isPrivacyMode = isPrivacyMode,
+                                onClick = { isExpanded = !isExpanded },
+                                onEdit = { onLoanClick(loan.id) },
+                                repayments = emptyList(),
+                                currencySymbol = currencySymbol,
                                 modifier = Modifier.animateItemPlacement()
-                            ) {
-                                var isExpanded by remember { mutableStateOf(false) }
-
-                                CompactLoanItem(
-                                    loan = loan,
-                                    isExpanded = isExpanded,
-                                    isPrivacyMode = isPrivacyMode,
-                                    onClick = { isExpanded = !isExpanded },
-                                    onEdit = { onLoanClick(loan.id) },
-                                    repayments = emptyList(),
-                                    currencySymbol = currencySymbol
-                                )
-                            }
+                            )
                         }
                     }
                 }
@@ -124,29 +114,30 @@ fun CompactLoanItem(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) { // Compact vertical padding
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Icon
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Home, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Home, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
                     }
                 }
                 
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
                 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = loan.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text(text = loan.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         text = loan.type,
                         style = MaterialTheme.typography.labelSmall,
@@ -160,10 +151,10 @@ fun CompactLoanItem(
                 val displayRemaining = if (isPrivacyMode) "••••" else loan.currentBalance.formatCurrency(currencySymbol)
                 Text(
                     text = displayRemaining,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
                     color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.error else Color(0xFF00C853),
-                    fontSize = 18.sp
+                    fontSize = 17.sp
                 )
             }
 
@@ -171,7 +162,7 @@ fun CompactLoanItem(
 
             LinearProgressIndicator(
                 progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                 color = if (loan.type == "BORROWED") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = StrokeCap.Round
@@ -183,14 +174,14 @@ fun CompactLoanItem(
                 val displayMonthly = if (isPrivacyMode) "••••" else loan.monthlyPayment.formatCurrency(currencySymbol)
                 Text("EMI: $displayMonthly", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
-                IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) { // Smaller icon button
                     Icon(Icons.Default.Edit, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
 
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(top = 4.dp)) {
-                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("Lender: ${loan.lender}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

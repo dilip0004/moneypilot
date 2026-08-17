@@ -22,7 +22,8 @@ fun PlanningHubScreen(
     onAddGoal: () -> Unit,
     onEditGoal: (Long) -> Unit,
     onGoalClick: (Long) -> Unit,
-    onAddBudget: () -> Unit,
+    onAddBudget: (String?) -> Unit,
+    onEditBudget: (Long, String?) -> Unit,
     onAddInvestment: () -> Unit,
     onAddBigBill: () -> Unit,
     onEditBigBill: (Long) -> Unit
@@ -85,7 +86,8 @@ fun PlanningHubScreen(
                     onGoalClick = onGoalClick
                 )
                 1 -> BudgetsScreen(
-                    onAddBudget = onAddBudget
+                    onAddBudget = onAddBudget,
+                    onEditBudget = onEditBudget
                 )
                 2 -> InvestmentsScreen(
                     onAddInvestment = onAddInvestment

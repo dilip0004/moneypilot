@@ -122,36 +122,26 @@ fun AccountsScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().testTag("accounts_list"),
-                        contentPadding = PaddingValues(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp) // Slightly wider gap for better separation
                     ) {
                         items(
                             items = filteredAccounts,
                             key = { it.id }
                         ) { acc ->
-                            val index = filteredAccounts.indexOf(acc)
-                            var visible by remember { mutableStateOf(false) }
-                            LaunchedEffect(Unit) {
-                                kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
-                                visible = true
-                            }
-
-                            AnimatedVisibility(
-                                visible = visible,
-                                enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween()),
+                            // PERFORMANCE FIX: Removed per-item staggering animations that cause jank during scroll.
+                            // Stable keys (it.id) are used above.
+                            CompactAccountCard(
+                                account = acc,
+                                isPrivacyMode = isPrivacyMode,
+                                hasMismatch = data.mismatchedWalletIds.contains(acc.id),
+                                onClick = { onAccountClick(acc.id) },
+                                onArchive = { showArchiveDialog = acc },
+                                onDelete = { showDeleteDialog = acc },
+                                onEdit = { onEditAccount(acc.id) },
+                                currencySymbol = currencySymbol,
                                 modifier = Modifier.animateItemPlacement()
-                            ) {
-                                CompactAccountCard(
-                                    account = acc,
-                                    isPrivacyMode = isPrivacyMode,
-                                    hasMismatch = data.mismatchedWalletIds.contains(acc.id),
-                                    onClick = { onAccountClick(acc.id) },
-                                    onArchive = { showArchiveDialog = acc },
-                                    onDelete = { showDeleteDialog = acc },
-                                    onEdit = { onEditAccount(acc.id) },
-                                    currencySymbol = currencySymbol
-                                )
-                            }
+                            )
                         }
                     }
                 }
@@ -182,15 +172,15 @@ private fun CompactAccountCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp), // Slightly sharper corners for premium look
+        shape = RoundedCornerShape(14.dp), // More modern curvature
         colors = CardDefaults.cardColors(
             containerColor = if (hasMismatch) 
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.05f)
-                else MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.08f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) { // Reduced vertical padding
             // Main Row: [Icon] [Name + TypeBadge] [Balance]
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -198,8 +188,8 @@ private fun CompactAccountCard(
             ) {
                 // Icon
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(34.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -207,12 +197,12 @@ private fun CompactAccountCard(
                             imageVector = getAccountIcon(account.type),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
                 
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
                 
                 // Name and Type Badge
                 Column(modifier = Modifier.weight(1f)) {
@@ -229,7 +219,6 @@ private fun CompactAccountCard(
                             Icon(Icons.Default.GppBad, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(12.dp))
                         }
                     }
-                    // Type Badge - Compact
                     Text(
                         text = account.type,
                         style = MaterialTheme.typography.labelSmall,
@@ -240,42 +229,42 @@ private fun CompactAccountCard(
                     )
                 }
 
-                // Balance (Largest as requested)
-                val balance = if(isPrivacyMode) "••••" else account.currentBalance.formatCurrency(currencySymbol)
+                // Balance
+                val balanceText = if(isPrivacyMode) "••••" else account.currentBalance.formatCurrency(currencySymbol)
                 Text(
-                    text = balance,
-                    style = MaterialTheme.typography.titleLarge,
+                    text = balanceText,
+                    style = MaterialTheme.typography.titleMedium, // Scaled back from titleLarge for compactness
                     fontWeight = FontWeight.Black,
                     color = balanceColor,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     letterSpacing = (-0.5).sp
                 )
             }
 
             Spacer(modifier = Modifier.height(6.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
             
-            // Tight Actions Row
+            // Actions Row - More compact
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ActionIconSmall(icon = Icons.Default.Edit, onClick = onEdit)
-                    Spacer(Modifier.width(16.dp))
+                    Spacer(Modifier.width(12.dp))
                     ActionIconSmall(icon = Icons.Default.Archive, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), onClick = onArchive)
                 }
                 
                 TextButton(
                     onClick = onDelete,
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.height(32.dp),
+                    modifier = Modifier.height(28.dp),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) { 
                     Icon(Icons.Default.Delete, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Delete", fontSize = 11.sp, fontWeight = FontWeight.Bold) 
+                    Text("Delete", fontSize = 10.sp, fontWeight = FontWeight.Bold) 
                 }
             }
         }

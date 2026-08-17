@@ -30,7 +30,7 @@ class GetBudgetAdvisoryUseCase @Inject constructor(
     suspend operator fun invoke(): List<BudgetAdvisory> {
         val today = LocalDate.now()
         val allBudgets: List<BudgetEntity> = budgetRepository.getAllBudgetsList()
-        val currentBudgets = allBudgets.filter { budget -> budget.startDate <= today && budget.endDate >= today }
+        val currentBudgets = allBudgets.filter { budget -> budget.startDate <= today && (budget.endDate == null || budget.endDate >= today) }
         
         val recommendations = mutableListOf<BudgetAdvisory>()
 

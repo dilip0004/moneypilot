@@ -51,12 +51,15 @@ interface BudgetDao {
     @Query("SELECT * FROM budgets WHERE category_id = :categoryId ORDER BY start_date DESC")
     fun getBudgetsByCategory(categoryId: Long): Flow<List<BudgetEntity>>
 
-    @Query("SELECT * FROM budgets WHERE start_date <= :date AND end_date >= :date")
+    @Query("SELECT * FROM budgets WHERE (is_recurring = 1 AND start_date <= :date AND (end_date IS NULL OR end_date >= :date)) OR (is_recurring = 0 AND start_date <= :date AND end_date >= :date)")
     fun getActiveBudgets(date: LocalDate): Flow<List<BudgetEntity>>
 
     @Transaction
-    @Query("SELECT * FROM budgets WHERE start_date <= :date AND end_date >= :date")
+    @Query("SELECT * FROM budgets WHERE (is_recurring = 1 AND start_date <= :date AND (end_date IS NULL OR end_date >= :date)) OR (is_recurring = 0 AND start_date <= :date AND end_date >= :date)")
     fun getActiveBudgetsWithDetails(date: LocalDate): Flow<List<BudgetWithDetails>>
+
+    @Query("SELECT * FROM budgets WHERE category_id = :categoryId AND subcategory_id IS :subcategoryId AND parent_budget_id = :parentBudgetId AND start_date = :monthStart")
+    suspend fun getOverride(categoryId: Long, subcategoryId: Long?, parentBudgetId: Long, monthStart: LocalDate): BudgetEntity?
 
     @Query("UPDATE budgets SET spent_amount = :spentAmount WHERE id = :budgetId")
     suspend fun updateSpentAmount(budgetId: Long, spentAmount: Double)

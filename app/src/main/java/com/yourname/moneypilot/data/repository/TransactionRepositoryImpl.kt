@@ -200,7 +200,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
         for (budget in affectedBudgets) {
             val start = budget.startDate.atStartOfDay()
-            val end = budget.endDate.atTime(LocalTime.MAX)
+            val end = (budget.endDate ?: tx.dateTime.toLocalDate().withDayOfMonth(tx.dateTime.toLocalDate().lengthOfMonth())).atTime(LocalTime.MAX)
             val totalSpent = if (budget.subcategoryId != null) {
                 transactionDao.getSubcategoryExpenseSum(budget.subcategoryId, start, end) ?: 0.0
             } else {

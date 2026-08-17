@@ -91,7 +91,11 @@ fun AccountsHubScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Surface(tonalElevation = 4.dp, shadowElevation = 4.dp) {
-                Column(modifier = Modifier.statusBarsPadding()) {
+                Column(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(bottom = 4.dp) // Reduced padding
+                ) {
                     // Title and Collapsed Net Worth
                     CenterAlignedTopAppBar(
                         title = {
@@ -108,7 +112,8 @@ fun AccountsHubScreen(
                             }
                         },
                         windowInsets = WindowInsets(0, 0, 0, 0),
-                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent),
+                        modifier = Modifier.height(48.dp) // Compact height
                     )
                     
                     AnimatedVisibility(
@@ -131,18 +136,18 @@ fun AccountsHubScreen(
                         onValueChange = { searchQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                            .height(48.dp),
-                        placeholder = { Text("Search accounts or loans...", fontSize = 13.sp) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                            .padding(horizontal = 16.dp, vertical = 2.dp) // Tighter vertical
+                            .height(44.dp), // Shorter
+                        placeholder = { Text("Search...", fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp)) },
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
                         textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                             unfocusedBorderColor = Color.Transparent,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                         )
                     )
 
@@ -151,13 +156,13 @@ fun AccountsHubScreen(
                         selectedTabIndex = selectedTabIndex,
                         containerColor = Color.Transparent,
                         divider = {},
-                        modifier = Modifier.height(42.dp),
+                        modifier = Modifier.height(38.dp), // Shorter
                         indicator = { tabPositions ->
                             if (selectedTabIndex < tabPositions.size) {
                                 TabRowDefaults.SecondaryIndicator(
                                     modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                                     color = MaterialTheme.colorScheme.primary,
-                                    height = 3.dp
+                                    height = 2.dp // Thinner
                                 )
                             }
                         }
@@ -242,29 +247,29 @@ fun PositionSummaryCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp), // Tighter vertical
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
         ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) { // Reduced vertical padding
             Text(
                 "Estimated Net Worth",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                style = MaterialTheme.typography.labelSmall, // Smaller label
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                 fontWeight = FontWeight.Bold
             )
             Text(
                 netWorth.formatCurrency(currencySymbol),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
-                color = if (netWorth >= 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error,
+                color = if (netWorth >= 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
                 letterSpacing = (-0.5).sp
             )
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp)) // Tighter gap
             
             Row(
                 modifier = Modifier.fillMaxWidth(), 

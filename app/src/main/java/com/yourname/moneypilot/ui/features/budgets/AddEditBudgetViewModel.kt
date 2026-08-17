@@ -26,21 +26,27 @@ data class AddEditBudgetState(
     val amount: String = "",
     val period: String = "MONTHLY",
     val startDate: LocalDate = LocalDate.now().withDayOfMonth(1),
-    val endDate: LocalDate = LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth()),
+    val endDate: LocalDate? = null,
     val rolloverEnabled: Boolean = false,
     val alertThreshold: Int = 90,
+    val isRecurring: Boolean = true,
+    val parentBudgetId: Long? = null,
     val categories: List<CategoryEntity> = emptyList(),
     val subcategories: List<SubcategoryEntity> = emptyList()
 )
 
 sealed class AddEditBudgetEvent {
+    data class LoadBudget(val id: Long) : AddEditBudgetEvent()
+    data class InitialMonthSet(val month: LocalDate) : AddEditBudgetEvent()
     data class CategoryChanged(val value: Long) : AddEditBudgetEvent()
     data class SubcategoryChanged(val value: Long?) : AddEditBudgetEvent()
     data class EnteredAmount(val value: String) : AddEditBudgetEvent()
     data class PeriodChanged(val value: String) : AddEditBudgetEvent()
     object ToggleRollover : AddEditBudgetEvent()
     data class AlertThresholdChanged(val value: Int) : AddEditBudgetEvent()
+    data class RecurrenceChanged(val value: Boolean) : AddEditBudgetEvent()
     object SaveBudget : AddEditBudgetEvent()
+    data class SaveOverride(val month: LocalDate) : AddEditBudgetEvent()
 }
 
 @HiltViewModel
@@ -90,6 +96,10 @@ class AddEditBudgetViewModel @Inject constructor(
 
     fun onEvent(event: AddEditBudgetEvent) {
         when (event) {
+            is AddEditBudgetEvent.LoadBudget -> loadBudget(event.id)
+            is AddEditBudgetEvent.InitialMonthSet -> {
+                _state.value = _state.value.copy(startDate = event.month.withDayOfMonth(1))
+            }
             is AddEditBudgetEvent.CategoryChanged -> {
                 _state.value = _state.value.copy(
                     categoryId = event.value,
@@ -102,7 +112,29 @@ class AddEditBudgetViewModel @Inject constructor(
             is AddEditBudgetEvent.PeriodChanged -> _state.value = _state.value.copy(period = event.value)
             is AddEditBudgetEvent.ToggleRollover -> _state.value = _state.value.copy(rolloverEnabled = !state.value.rolloverEnabled)
             is AddEditBudgetEvent.AlertThresholdChanged -> _state.value = _state.value.copy(alertThreshold = event.value)
+            is AddEditBudgetEvent.RecurrenceChanged -> _state.value = _state.value.copy(isRecurring = event.value)
             is AddEditBudgetEvent.SaveBudget -> saveBudget()
+            is AddEditBudgetEvent.SaveOverride -> saveOverride(event.month)
+        }
+    }
+
+    private fun loadBudget(id: Long) {
+        viewModelScope.launch {
+            budgetRepository.getBudgetById(id)?.let { budget ->
+                _state.value = _state.value.copy(
+                    categoryId = budget.categoryId,
+                    subcategoryId = budget.subcategoryId,
+                    amount = budget.amount.toString(),
+                    period = budget.period,
+                    startDate = budget.startDate,
+                    endDate = budget.endDate,
+                    isRecurring = budget.isRecurring,
+                    parentBudgetId = budget.parentBudgetId ?: if (budget.isRecurring) budget.id else null,
+                    rolloverEnabled = budget.rolloverEnabled,
+                    alertThreshold = budget.alertThreshold
+                )
+                loadSubcategories(budget.categoryId)
+            }
         }
     }
 
@@ -119,30 +151,18 @@ class AddEditBudgetViewModel @Inject constructor(
                     return@launch
                 }
 
-                // If subcategory is provided, query subcategory sum. Else, category sum.
-                val initialSpent = if (_state.value.subcategoryId != null) {
-                    transactionRepository.getSubcategoryExpenseSum(
-                        subcategoryId = requireNotNull(_state.value.subcategoryId),
-                        startDate = _state.value.startDate.atStartOfDay(),
-                        endDate = _state.value.endDate.atTime(LocalTime.MAX)
-                    )
-                } else {
-                    transactionRepository.getCategoryExpenseSum(
-                        categoryId = requireNotNull(_state.value.categoryId),
-                        startDate = _state.value.startDate.atStartOfDay(),
-                        endDate = _state.value.endDate.atTime(LocalTime.MAX)
-                    )
-                }
+                val end = if (_state.value.isRecurring) null else _state.value.startDate.plusMonths(1).minusDays(1)
 
                 budgetRepository.insertBudget(
                     BudgetEntity(
                         categoryId = requireNotNull(_state.value.categoryId),
                         subcategoryId = _state.value.subcategoryId,
                         amount = amount,
-                        spentAmount = initialSpent,
                         period = _state.value.period,
                         startDate = _state.value.startDate,
-                        endDate = _state.value.endDate,
+                        endDate = end,
+                        isRecurring = _state.value.isRecurring,
+                        parentBudgetId = _state.value.parentBudgetId,
                         rolloverEnabled = _state.value.rolloverEnabled,
                         alertThreshold = _state.value.alertThreshold
                     )
@@ -150,6 +170,33 @@ class AddEditBudgetViewModel @Inject constructor(
                 _eventFlow.emit(UiEvent.SaveBudget)
             } catch (e: Exception) {
                 _eventFlow.emit(UiEvent.ShowSnackbar("Could not save budget"))
+            }
+        }
+    }
+
+    private fun saveOverride(month: LocalDate) {
+        viewModelScope.launch {
+            try {
+                val amount = _state.value.amount.toDoubleOrNull() ?: 0.0
+                val parentId = _state.value.parentBudgetId ?: return@launch
+                
+                budgetRepository.insertBudget(
+                    BudgetEntity(
+                        categoryId = requireNotNull(_state.value.categoryId),
+                        subcategoryId = _state.value.subcategoryId,
+                        amount = amount,
+                        period = "MONTHLY",
+                        startDate = month.withDayOfMonth(1),
+                        endDate = month.withDayOfMonth(month.lengthOfMonth()),
+                        isRecurring = false,
+                        parentBudgetId = parentId,
+                        rolloverEnabled = _state.value.rolloverEnabled,
+                        alertThreshold = _state.value.alertThreshold
+                    )
+                )
+                _eventFlow.emit(UiEvent.SaveBudget)
+            } catch (e: Exception) {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Could not save override"))
             }
         }
     }

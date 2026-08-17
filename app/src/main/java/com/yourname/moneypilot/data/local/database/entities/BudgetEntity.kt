@@ -56,7 +56,7 @@ data class BudgetEntity(
 
     @ColumnInfo(name = "end_date")
     @Contextual
-    val endDate: LocalDate,
+    val endDate: LocalDate?,
 
     @ColumnInfo(name = "rollover_enabled")
     val rolloverEnabled: Boolean = false,
@@ -66,6 +66,12 @@ data class BudgetEntity(
 
     @ColumnInfo(name = "spent_amount")
     val spentAmount: Double = 0.0,
+
+    @ColumnInfo(name = "is_recurring")
+    val isRecurring: Boolean = false,
+
+    @ColumnInfo(name = "parent_budget_id")
+    val parentBudgetId: Long? = null,
 
     @ColumnInfo(name = "created_at")
     @Contextual

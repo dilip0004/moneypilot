@@ -17,6 +17,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.yourname.moneypilot.domain.usecase.analytics.GetReportDataUseCase
+import com.yourname.moneypilot.ui.features.reports.ReportType
+import kotlinx.coroutines.flow.combine
+import java.time.YearMonth
 import javax.inject.Inject
 
 data class BudgetsState(
@@ -30,7 +34,8 @@ data class BudgetsState(
 @HiltViewModel
 class BudgetsViewModel @Inject constructor(
     private val budgetRepository: BudgetRepository,
-    private val getBudgetAdvisoryUseCase: GetBudgetAdvisoryUseCase
+    private val getBudgetAdvisoryUseCase: GetBudgetAdvisoryUseCase,
+    private val getReportDataUseCase: GetReportDataUseCase
 ) : BaseViewModel<BudgetsState>() {
 
     private val _state = MutableStateFlow(BudgetsState())
@@ -45,19 +50,34 @@ class BudgetsViewModel @Inject constructor(
         viewModelScope.launch {
             _state.map { it.selectedDate }.distinctUntilChanged().collectLatest { date ->
                 _uiState.value = ScreenState.Loading
-                budgetRepository.refreshActiveBudgets(date)
                 
-                budgetRepository.getActiveBudgetsWithDetails(date).collect { list ->
-                    val totalB = list.sumOf { it.budget.amount }
-                    val totalS = list.sumOf { it.budget.spentAmount }
+                val monthStart = date.withDayOfMonth(1).atStartOfDay()
+                val monthEnd = YearMonth.from(date).atEndOfMonth().atTime(23, 59, 59)
+                
+                val budgetsFlow = budgetRepository.getActiveBudgetsWithDetails(date)
+                val spendingFlow = getReportDataUseCase(monthStart, monthEnd, ReportType.EXPENSE)
+
+                combine(budgetsFlow, spendingFlow) { budgets, spending ->
+                    val breakdown = spending.categoryBreakdown
+                    
+                    val enrichedBudgets = budgets.map { b ->
+                        val spent = breakdown.find { 
+                            it.categoryId == b.budget.categoryId && it.subcategoryId == b.budget.subcategoryId 
+                        }?.amount ?: 0.0
+                        b.copy(budget = b.budget.copy(spentAmount = spent))
+                    }
+                    enrichedBudgets
+                }.collect { enrichedList ->
+                    val totalB = enrichedList.sumOf { it.budget.amount }
+                    val totalS = enrichedList.sumOf { it.budget.spentAmount }
                     
                     _state.update { it.copy(
-                        budgets = list,
+                        budgets = enrichedList,
                         totalBudget = totalB,
                         totalSpent = totalS
                     ) }
                     
-                    if (list.isEmpty()) {
+                    if (enrichedList.isEmpty()) {
                         _uiState.value = ScreenState.Empty
                     } else {
                         _uiState.value = ScreenState.Success(_state.value)

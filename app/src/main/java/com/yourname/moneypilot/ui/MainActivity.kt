@@ -347,7 +347,24 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
             }
             composable(Screen.Stats.route) { ReportsScreen(onPopBackStack = { navController.popBackStack() }) }
             composable(Screen.Accounts.route) { AccountsHubScreen(onAddAccount = { navController.navigate("add_account") }, onAddLoan = { navController.navigate("add_loan") }, onLoanClick = { navController.navigate("loan_details/$it") }, onAccountClick = { navController.navigate("wallet_statement/$it") }, onEditAccount = { navController.navigate("add_account?walletId=$it") }) }
-            composable(Screen.Planning.route) { PlanningHubScreen(onAddGoal = { navController.navigate("add_goal") }, onEditGoal = { navController.navigate("add_goal?goalId=$it") }, onGoalClick = { navController.navigate("goal_statement/$it") }, onAddBudget = { navController.navigate("add_budget") }, onAddInvestment = { navController.navigate("add_investment") }, onAddBigBill = { navController.navigate("add_big_bill") }, onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") }) }
+            composable(Screen.Planning.route) { 
+                PlanningHubScreen(
+                    onAddGoal = { navController.navigate("add_goal") }, 
+                    onEditGoal = { navController.navigate("add_goal?goalId=$it") }, 
+                    onGoalClick = { navController.navigate("goal_statement/$it") }, 
+                    onAddBudget = { month -> 
+                        val route = if (month != null) "add_budget?month=$month" else "add_budget"
+                        navController.navigate(route) 
+                    },
+                    onEditBudget = { id, month ->
+                        val route = if (month != null) "add_budget?budgetId=$id&month=$month" else "add_budget?budgetId=$id"
+                        navController.navigate(route)
+                    },
+                    onAddInvestment = { navController.navigate("add_investment") }, 
+                    onAddBigBill = { navController.navigate("add_big_bill") }, 
+                    onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") }
+                ) 
+            }
             composable(Screen.Settings.route) { SettingsScreen(onNavigateToCategories = { navController.navigate("categories") }, onNavigateToAppearance = { navController.navigate("appearance") }, onNavigateToSecurity = { navController.navigate("security") }, onNavigateToNotifications = { navController.navigate("notifications") }, onNavigateToBackup = { navController.navigate("backup") }, onNavigateToDiagnostics = { navController.navigate("diagnostics") }, onNavigateToWebApp = { navController.navigate("webapp_access") } ) }
             
             composable("backup") { BackupScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToImport = { navController.navigate("bank_import") }) }
@@ -370,7 +387,21 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
             composable("add_big_bill?bigBillId={bigBillId}", arguments = listOf(navArgument("bigBillId") { type = NavType.LongType; defaultValue = -1L })) { AddEditBigBillScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_loan?loanId={loanId}", arguments = listOf(navArgument("loanId") { type = NavType.LongType; defaultValue = -1L })) { AddEditLoanScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("add_budget") { AddEditBudgetScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable(
+                "add_budget?budgetId={budgetId}&month={month}",
+                arguments = listOf(
+                    navArgument("budgetId") { type = NavType.LongType; defaultValue = -1L },
+                    navArgument("month") { type = NavType.StringType; nullable = true }
+                )
+            ) { backStackEntry ->
+                val budgetId = backStackEntry.arguments?.getLong("budgetId") ?: -1L
+                val month = backStackEntry.arguments?.getString("month")
+                AddEditBudgetScreen(
+                    budgetId = budgetId,
+                    month = month,
+                    onPopBackStack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

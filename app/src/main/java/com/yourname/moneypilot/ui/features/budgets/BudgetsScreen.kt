@@ -2,6 +2,7 @@ package com.yourname.moneypilot.ui.features.budgets
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,7 +42,8 @@ import java.util.*
 
 @Composable
 fun BudgetsScreen(
-    onAddBudget: () -> Unit,
+    onAddBudget: (String?) -> Unit,
+    onEditBudget: (Long, String?) -> Unit,
     viewModel: BudgetsViewModel = hiltViewModel(),
     mainViewModel: MainViewModel = hiltViewModel()
 ) {
@@ -48,7 +52,9 @@ fun BudgetsScreen(
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
     val currencySymbol = rememberCurrencySymbol()
     
+    val budgetsState by viewModel.state.collectAsState()
     val state = (uiState as? ScreenState.Success)?.data
+    val selectedMonthStr = budgetsState.selectedDate.toString()
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -77,32 +83,27 @@ fun BudgetsScreen(
                 is ScreenState.Success -> {
                     val data = currentUiState.data
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 88.dp)
                     ) {
                         // Advisory Section
                         if (data.advisories.isNotEmpty()) {
                             items(data.advisories) { advisory ->
                                 BudgetAdvisoryCard(advisory, isPrivacyMode)
                             }
-                            item { Spacer(modifier = Modifier.height(4.dp)) }
                         }
 
                         items(data.budgets, key = { it.budget.id }) { budgetDetails ->
-                            val index = data.budgets.indexOf(budgetDetails)
-                            var visible by remember { mutableStateOf(false) }
-                            LaunchedEffect(Unit) {
-                                kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
-                                visible = true
-                            }
-
-                            AnimatedVisibility(
-                                visible = visible,
-                                enter = slideInVertically(animationSpec = motionTween()) { 20 } + fadeIn(animationSpec = motionTween())
-                            ) {
-                                CompactBudgetItem(budgetDetails, isPrivacyMode, currencySymbol)
-                            }
+                            // PERFORMANCE FIX: Removed staggering animations that cause jank during scroll
+                            CompactBudgetItem(
+                                budgetDetails = budgetDetails, 
+                                isPrivacyMode = isPrivacyMode, 
+                                currencySymbol = currencySymbol,
+                                onClick = { 
+                                    onEditBudget(budgetDetails.budget.id, data.selectedDate.toString()) 
+                                }
+                            )
                         }
                     }
                 }
@@ -112,13 +113,13 @@ fun BudgetsScreen(
                     }
                 }
                 is ScreenState.Empty -> {
-                    BudgetsEmptyState(onAddBudget)
+                    BudgetsEmptyState(onAddBudget = { onAddBudget(selectedMonthStr) })
                 }
             }
         }
 
         FloatingActionButton(
-            onClick = onAddBudget,
+            onClick = { onAddBudget(selectedMonthStr) },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
@@ -210,18 +211,18 @@ fun BudgetsOverviewCard(totalBudget: Double, totalSpent: Double, currencySymbol:
 }
 
 @Composable
-fun CompactBudgetItem(budgetDetails: BudgetWithDetails, isPrivacyMode: Boolean, currencySymbol: String) {
+fun CompactBudgetItem(
+    budgetDetails: BudgetWithDetails, 
+    isPrivacyMode: Boolean, 
+    currencySymbol: String,
+    onClick: () -> Unit
+) {
     val budget = budgetDetails.budget
     val category = budgetDetails.category
     val subcategory = budgetDetails.subcategory
     val financeColors = LocalFinanceColors.current
     
     val usage = if (budget.amount > 0) (budget.spentAmount / budget.amount).toFloat() else 0f
-    val animatedProgress by animateFloatAsState(
-        targetValue = usage.coerceAtMost(1f),
-        animationSpec = motionTween(400),
-        label = "budget_progress"
-    )
     
     val isOverBudget = budget.spentAmount > budget.amount
     val isNearLimit = !isOverBudget && (usage * 100) >= budget.alertThreshold
@@ -233,47 +234,57 @@ fun CompactBudgetItem(budgetDetails: BudgetWithDetails, isPrivacyMode: Boolean, 
     }
     
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp), // Sharper premium look
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(36.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.size(32.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = statusColor.copy(alpha = 0.1f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(text = category.icon, fontSize = 18.sp)
+                        Text(text = category.icon, fontSize = 16.sp)
                     }
                 }
                 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = category.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = category.name, 
+                        style = MaterialTheme.typography.bodyMedium, 
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     if (subcategory != null) {
                         Text(
                             text = subcategory.name,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontSize = 8.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
                 }
                 
                 Text(
                     text = "${(usage * 100).toInt()}%",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     color = statusColor,
                     fontWeight = FontWeight.Black
                 )
             }
             
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 val displaySpent = if(isPrivacyMode) "••••" else budget.spentAmount.formatCompact(currencySymbol)
@@ -281,35 +292,28 @@ fun CompactBudgetItem(budgetDetails: BudgetWithDetails, isPrivacyMode: Boolean, 
                 
                 Text(
                     text = "$displaySpent / $displayLimit",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Black
                 )
                 
-                if (isOverBudget) {
-                    val over = budget.spentAmount - budget.amount
+                if (budget.isRecurring) {
                     Text(
-                        text = "₹${over.toInt()} over",
+                        text = "Recurring",
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor
-                    )
-                } else if (isNearLimit) {
-                    Text(
-                        text = "Near Limit",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor
+                        fontSize = 8.sp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             LinearProgressIndicator(
-                progress = { animatedProgress },
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                progress = { usage.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                 color = statusColor,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 strokeCap = StrokeCap.Round
             )
         }

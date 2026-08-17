@@ -33,7 +33,7 @@ import net.sqlcipher.database.SQLiteDatabase
         BigBillEntity::class,
         LoanEventEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class, TransactionTypeConverter::class)
@@ -232,9 +232,44 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_17_18: Migration = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS budgets_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    category_id INTEGER NOT NULL,
+                    subcategory_id INTEGER,
+                    amount REAL NOT NULL,
+                    period TEXT NOT NULL,
+                    start_date TEXT NOT NULL,
+                    end_date TEXT,
+                    rollover_enabled INTEGER NOT NULL DEFAULT 0,
+                    alert_threshold INTEGER NOT NULL DEFAULT 90,
+                    spent_amount REAL NOT NULL DEFAULT 0.0,
+                    is_recurring INTEGER NOT NULL DEFAULT 0,
+                    parent_budget_id INTEGER DEFAULT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(category_id) REFERENCES categories(id) ON UPDATE NO ACTION ON DELETE CASCADE,
+                    FOREIGN KEY(subcategory_id) REFERENCES subcategories(id) ON UPDATE NO ACTION ON DELETE SET NULL
+                )
+            """)
+            db.execSQL("""
+                INSERT INTO budgets_new (id, category_id, subcategory_id, amount, period, start_date, end_date, rollover_enabled, alert_threshold, spent_amount, created_at, updated_at)
+                SELECT id, category_id, subcategory_id, amount, period, start_date, end_date, rollover_enabled, alert_threshold, spent_amount, created_at, updated_at FROM budgets
+            """)
+            db.execSQL("DROP TABLE budgets")
+            db.execSQL("ALTER TABLE budgets_new RENAME TO budgets")
+            db.execSQL("CREATE INDEX index_budgets_category_id ON budgets (category_id)")
+            db.execSQL("CREATE INDEX index_budgets_subcategory_id ON budgets (subcategory_id)")
+            db.execSQL("CREATE INDEX index_budgets_start_date ON budgets (start_date)")
+            db.execSQL("CREATE INDEX index_budgets_end_date ON budgets (end_date)")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, 
         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, 
-        MIGRATION_15_16, MIGRATION_16_17
+        MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18
     )
 }
