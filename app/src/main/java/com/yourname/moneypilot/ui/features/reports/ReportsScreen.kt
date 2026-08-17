@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -206,8 +207,9 @@ fun ReportsScreen(
                             )
                         }
 
+                        // Spec 7: Spending Breakdown
                         if (data.reportType != ReportType.CASH_FLOW && data.categoryBreakdown.isNotEmpty()) {
-                            item {
+                            item(key = "breakdown_title") {
                                 Text(
                                     "Spending Breakdown", 
                                     style = MaterialTheme.typography.labelLarge, 
@@ -216,26 +218,15 @@ fun ReportsScreen(
                                 )
                             }
                             
-                            itemsIndexed(
+                            items(
                                 items = data.categoryBreakdown,
-                                key = { index, rank -> "${rank.name}_${rank.subcategoryId}_$index" }
-                            ) { index, rank ->
-                                var visible by remember { mutableStateOf(false) }
-                                LaunchedEffect(Unit) {
-                                    kotlinx.coroutines.delay(index * MotionConstants.StaggerDelay.toLong())
-                                    visible = true
-                                }
-                                AnimatedVisibility(
-                                    visible = visible,
-                                    enter = slideInVertically { 10 } + fadeIn()
-                                ) {
-                                    SpendingBreakdownItem(
-                                        rank = rank,
-                                        color = CHART_COLORS[index % CHART_COLORS.size],
-                                        isPrivacyMode = isPrivacyMode,
-                                        currencySymbol = currencySymbol
-                                    )
-                                }
+                                key = { rank -> "${rank.name}_${rank.subcategoryId}_${rank.categoryId}" }
+                            ) { rank ->
+                                SpendingBreakdownItem(
+                                    rank = rank,
+                                    color = CHART_COLORS[data.categoryBreakdown.indexOf(rank) % CHART_COLORS.size],
+                                    isPrivacyMode = isPrivacyMode
+                                )
                             }
                         }
                     }
@@ -259,7 +250,7 @@ fun KPICard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.height(62.dp),
+        modifier = modifier.height(62.dp), // Spec 1: Significantly minimized
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
@@ -317,11 +308,11 @@ fun TotalAmountCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)), // Subtle gradient placeholder
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp).fillMaxWidth(),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp).fillMaxWidth(), // Spec 5: 10% height reduction
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -339,7 +330,7 @@ fun TotalAmountCard(
                 )
                 Text(
                     text = if(isPrivacyMode) "••••" else amount.formatCurrency(currencySymbol),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
                     color = if (type == ReportType.CASH_FLOW && amount < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
@@ -385,7 +376,7 @@ fun ChartCard(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(240.dp),
+                                .height(320.dp), // Spec 7: Increased height for many labels
                             contentAlignment = Alignment.Center
                         ) {
                             PieChartWithCallouts(categoryBreakdown, isPrivacyMode)
@@ -406,6 +397,8 @@ fun ChartCard(
 
 @Composable
 fun PieChartWithCallouts(ranks: List<CategoryRank>, isPrivacyMode: Boolean = false) {
+    if (ranks.isEmpty()) return
+    
     val total = ranks.sumOf { it.amount }
     val animationProgress = remember { Animatable(0f) }
     val onSurface = MaterialTheme.colorScheme.onSurface
@@ -415,12 +408,16 @@ fun PieChartWithCallouts(ranks: List<CategoryRank>, isPrivacyMode: Boolean = fal
         animationProgress.animateTo(1f, tween(1000))
     }
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.size(130.dp)) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2, size.height / 2)
-            val radius = size.width / 2
+            val donutRadius = size.minDimension * 0.22f // Reduced diameter to make room for labels
             var startAngle = -90f
             
+            // Collect label targets
+            val rightLabels = mutableListOf<LabelTarget>()
+            val leftLabels = mutableListOf<LabelTarget>()
+
             ranks.forEachIndexed { index, rank ->
                 if (total > 0) {
                     val sweepAngle = (rank.amount / total).toFloat() * 360f * animationProgress.value
@@ -431,37 +428,67 @@ fun PieChartWithCallouts(ranks: List<CategoryRank>, isPrivacyMode: Boolean = fal
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = false,
-                        style = Stroke(width = 20.dp.toPx(), cap = StrokeCap.Butt)
+                        style = Stroke(width = 22.dp.toPx(), cap = StrokeCap.Butt)
                     )
                     
-                    if (index < 3 && sweepAngle > 8f && animationProgress.value > 0.9f) {
-                        val midAngle = (startAngle + sweepAngle / 2) * (Math.PI / 180f).toFloat()
-                        val lineStart = Offset(center.x + cos(midAngle.toDouble()).toFloat() * (radius * 0.9f), center.y + sin(midAngle.toDouble()).toFloat() * (radius * 0.9f))
-                        val lineEnd = Offset(center.x + cos(midAngle.toDouble()).toFloat() * (radius * 1.35f), center.y + sin(midAngle.toDouble()).toFloat() * (radius * 1.35f))
+                    if (animationProgress.value > 0.8f) {
+                        val midAngleDeg = startAngle + sweepAngle / 2
+                        val midAngleRad = Math.toRadians(midAngleDeg.toDouble())
                         
-                        drawLine(color = color.copy(alpha = 0.5f), start = lineStart, end = lineEnd, strokeWidth = 1.dp.toPx())
-                        
-                        val isRight = cos(midAngle.toDouble()) > 0
-                        val paint = android.graphics.Paint().apply {
-                            this.color = onSurface.toArgb()
-                            this.textSize = 20f
-                            this.textAlign = if (isRight) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.RIGHT
-                            this.isFakeBoldText = true
-                        }
-                        
-                        drawContext.canvas.nativeCanvas.drawText(
-                            "${rank.name} ${(rank.percentage * 100).toInt()}%",
-                            lineEnd.x + if (isRight) 5f else -5f,
-                            lineEnd.y + if (sin(midAngle.toDouble()) > 0) 15f else -5f,
-                            paint
+                        val isRight = cos(midAngleRad) > 0
+                        val target = LabelTarget(
+                            rank = rank,
+                            color = color,
+                            midAngleRad = midAngleRad,
+                            anchorPoint = Offset(
+                                center.x + cos(midAngleRad).toFloat() * (donutRadius * 1.15f),
+                                center.y + sin(midAngleRad).toFloat() * (donutRadius * 1.15f)
+                            )
                         )
+                        
+                        if (isRight) rightLabels.add(target) else leftLabels.add(target)
                     }
+                    
                     startAngle += sweepAngle
                 }
             }
+
+            // Distribute labels vertically to avoid overlap
+            distributeLabels(rightLabels)
+            distributeLabels(leftLabels)
+
+            // Draw Leader Lines and Labels
+            val paint = android.graphics.Paint().apply {
+                this.color = onSurface.toArgb()
+                this.textSize = 24f
+                this.isFakeBoldText = true
+            }
+
+            (rightLabels + leftLabels).forEach { target ->
+                // Leader line
+                val path = Path().apply {
+                    moveTo(target.anchorPoint.x, target.anchorPoint.y)
+                    val elbowX = if (cos(target.midAngleRad) > 0) center.x + donutRadius * 1.6f else center.x - donutRadius * 1.6f
+                    lineTo(elbowX, target.yPos)
+                    lineTo(if (cos(target.midAngleRad) > 0) elbowX + 10f else elbowX - 10f, target.yPos)
+                }
+                drawPath(path, target.color.copy(alpha = 0.4f), style = Stroke(width = 1.dp.toPx()))
+
+                // Label text
+                val labelText = if(isPrivacyMode) "${target.rank.icon} ••• ${target.rank.formattedPercentage}" else "${target.rank.icon} ${target.rank.name} · ${target.rank.formattedPercentage}"
+                paint.textAlign = if (cos(target.midAngleRad) > 0) android.graphics.Paint.Align.LEFT else android.graphics.Paint.Align.RIGHT
+                
+                drawContext.canvas.nativeCanvas.drawText(
+                    labelText,
+                    if (cos(target.midAngleRad) > 0) center.x + donutRadius * 1.7f else center.x - donutRadius * 1.7f,
+                    target.yPos + 8f,
+                    paint
+                )
+            }
         }
         
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+        // Donut Center
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Top Category", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp)
             val topCategory = ranks.firstOrNull()
             Text(
@@ -472,46 +499,86 @@ fun PieChartWithCallouts(ranks: List<CategoryRank>, isPrivacyMode: Boolean = fal
                 overflow = TextOverflow.Ellipsis
             )
             if (topCategory?.subcategoryName != null && !isPrivacyMode) {
-                Text(topCategory.subcategoryName, style = MaterialTheme.typography.labelSmall, fontSize = 7.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                Text(
+                    text = topCategory.subcategoryName,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 7.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+
+private data class LabelTarget(
+    val rank: CategoryRank,
+    val color: Color,
+    val midAngleRad: Double,
+    val anchorPoint: Offset,
+    var yPos: Float = 0f
+)
+
+private fun distributeLabels(targets: MutableList<LabelTarget>) {
+    if (targets.isEmpty()) return
+    
+    // Initial sort by midAngle to maintain order
+    targets.sortBy { sin(it.midAngleRad) }
+    
+    // Initial Y positions
+    targets.forEach { it.yPos = it.anchorPoint.y }
+
+    val minGap = 35f // Minimum vertical gap between label baselines
+    
+    // Iterative overlap correction
+    repeat(10) {
+        for (i in 0 until targets.size - 1) {
+            val current = targets[i]
+            val next = targets[i+1]
+            if (next.yPos - current.yPos < minGap) {
+                val shift = (minGap - (next.yPos - current.yPos)) / 2
+                current.yPos -= shift
+                next.yPos += shift
             }
         }
     }
 }
 
 @Composable
-fun SpendingBreakdownItem(rank: CategoryRank, color: Color, isPrivacyMode: Boolean = false, currencySymbol: String) {
+fun SpendingBreakdownItem(rank: CategoryRank, color: Color, isPrivacyMode: Boolean = false) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            modifier = Modifier.size(28.dp),
-            shape = RoundedCornerShape(6.dp),
-            color = color.copy(alpha = 0.1f)
+            modifier = Modifier.size(32.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = color.copy(alpha = 0.12f)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(rank.icon, fontSize = 12.sp)
+                Text(rank.icon, fontSize = 14.sp)
             }
         }
-        Column(modifier = Modifier.weight(1f).padding(horizontal = 10.dp)) {
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 val nameDisplay = if(isPrivacyMode) "••••" else rank.name
-                Text(text = nameDisplay, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(if(isPrivacyMode) "••••" else rank.amount.formatCurrency(currencySymbol), fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text(text = nameDisplay, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if(isPrivacyMode) "••••" else rank.formattedAmount, fontSize = 13.sp, fontWeight = FontWeight.Black)
             }
             if (rank.subcategoryName != null && !isPrivacyMode) {
                 Text(rank.subcategoryName, style = MaterialTheme.typography.labelSmall, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
             }
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             LinearProgressIndicator(
                 progress = { rank.percentage },
-                modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
+                modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                 color = color,
                 strokeCap = StrokeCap.Round,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             )
         }
-        Text(text = "${(rank.percentage * 100).toInt()}%", modifier = Modifier.width(32.dp), textAlign = TextAlign.End, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = rank.formattedPercentage, modifier = Modifier.width(36.dp), textAlign = TextAlign.End, fontSize = 11.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

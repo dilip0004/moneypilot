@@ -11,6 +11,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.yourname.moneypilot.util.formatCompact
+import com.yourname.moneypilot.util.formatCurrency
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.TreeMap
@@ -113,10 +115,16 @@ class ReportsViewModel @Inject constructor(
                 
                 val anomalies = if (prefs.showSpendingInsights) detectAnomaliesUseCase(currentData.filteredTransactions) else emptyList()
 
+                val currentRanksFormatted = currentData.categoryBreakdown.map { rank ->
+                    val formattedAmt = rank.amount.formatCurrency(prefs.currency)
+                    val formattedPct = "${(rank.percentage * 100).toInt()}%"
+                    rank.copy(formattedAmount = formattedAmt, formattedPercentage = formattedPct)
+                }
+
                 _reportState.update { it.copy(
                     totalAmount = currentData.totalAmount,
                     secondaryAmount = if (currentState.reportType == ReportType.CASH_FLOW) currentData.totalOutflow else 0.0,
-                    categoryBreakdown = currentData.categoryBreakdown,
+                    categoryBreakdown = currentRanksFormatted,
                     chartData = chartDataMap,
                     rangeStart = start.toLocalDate(),
                     rangeEnd = end.toLocalDate(),
@@ -192,5 +200,7 @@ data class CategoryRank(
     val subcategoryName: String? = null,
     val icon: String,
     val amount: Double,
-    val percentage: Float
+    val percentage: Float,
+    val formattedAmount: String = "",
+    val formattedPercentage: String = ""
 )
