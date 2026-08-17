@@ -39,7 +39,10 @@ import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import com.yourname.moneypilot.util.rememberCurrencySymbol
 import java.time.LocalDate
 import java.time.format.TextStyle
-import java.util.*
+import androidx.compose.ui.graphics.Brush
+import com.yourname.moneypilot.ui.components.AppDateNavigator
+import com.yourname.moneypilot.ui.components.MoneyPilotSegmentedControl
+import java.util.Locale
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,89 +70,39 @@ fun DashboardHubScreen(
         topBar = {
             Surface(tonalElevation = 2.dp) {
                 Column(modifier = Modifier.statusBarsPadding()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    if (isYearlyTab) viewModel.onYearChange(hubState.currentYear.minusYears(1))
-                                    else viewModel.onMonthChange(hubState.currentMonth.minusMonths(1))
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev")
-                            }
-
-                            val headerText = if (isYearlyTab) {
-                                hubState.currentYear.toString()
-                            } else {
-                                "${hubState.currentMonth.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${hubState.currentMonth.year}"
-                            }
-
-                            Text(
-                                text = headerText,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            IconButton(
-                                onClick = {
-                                    if (isYearlyTab) viewModel.onYearChange(hubState.currentYear.plusYears(1))
-                                    else viewModel.onMonthChange(hubState.currentMonth.plusMonths(1))
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
-                            }
-                        }
-
-                        IconButton(onClick = { /* Search logic */ }, modifier = Modifier.size(40.dp)) {
-                            Icon(Icons.Default.Search, contentDescription = "Search")
-                        }
+                    val headerText = if (isYearlyTab) {
+                        hubState.currentYear.toString()
+                    } else {
+                        "${hubState.currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${hubState.currentMonth.year}"
                     }
 
-                    ScrollableTabRow(
-                        selectedTabIndex = selectedTabIndex,
-                        containerColor = Color.Transparent,
-                        edgePadding = 8.dp,
-                        divider = {},
-                        indicator = { tabPositions ->
-                            if (selectedTabIndex < tabPositions.size) {
-                                TabRowDefaults.SecondaryIndicator(
-                                    Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                    height = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                    AppDateNavigator(
+                        label = headerText,
+                        onPrev = {
+                            if (isYearlyTab) viewModel.onYearChange(hubState.currentYear.minusYears(1))
+                            else viewModel.onMonthChange(hubState.currentMonth.minusMonths(1))
                         },
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        tabs.forEachIndexed { index, title ->
-                            val isSelected = selectedTabIndex == index
-                            Tab(
-                                selected = isSelected,
-                                onClick = { selectedTabIndex = index },
-                                text = {
-                                    Text(
-                                        text = title,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Visible
-                                    )
-                                },
-                                modifier = Modifier.testTag("tab_${title.lowercase()}")
-                            )
+                        onNext = {
+                            if (isYearlyTab) viewModel.onYearChange(hubState.currentYear.plusYears(1))
+                            else viewModel.onMonthChange(hubState.currentMonth.plusMonths(1))
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        actions = {
+                            IconButton(onClick = { /* Search logic */ }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(22.dp))
+                            }
                         }
-                    }
+                    )
+
+                    MoneyPilotSegmentedControl(
+                        options = tabs,
+                        selectedOption = tabs[selectedTabIndex],
+                        onOptionSelected = { selectedTabIndex = tabs.indexOf(it) },
+                        labelExtractor = { it },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        height = 36.dp,
+                        showIcon = false
+                    )
 
                     val income = if (isYearlyTab) hubState.yearlyIncome else hubState.monthlyIncome
                     val expense = if (isYearlyTab) hubState.yearlyExpense else hubState.monthlyExpense
@@ -159,12 +112,12 @@ fun DashboardHubScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 10.dp, horizontal = 16.dp),
+                            .padding(bottom = 10.dp, top = 2.dp, start = 16.dp, end = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem(label = "Inflow", value = if(isPrivacyMode) "••••" else "$currencySymbol ${income.toInt()}", color = financeColors.income)
-                        SummaryItem(label = "Outflow", value = if(isPrivacyMode) "••••" else "$currencySymbol ${expense.toInt()}", color = financeColors.expense)
-                        SummaryItem(label = "Net", value = if(isPrivacyMode) "••••" else "$currencySymbol ${net.toInt()}", color = if (net >= 0) financeColors.income else financeColors.expense)
+                        SummaryItem(label = "Inflow", value = if(isPrivacyMode) "••••" else currencySymbol + income.toInt(), color = financeColors.income)
+                        SummaryItem(label = "Outflow", value = if(isPrivacyMode) "••••" else currencySymbol + expense.toInt(), color = financeColors.expense)
+                        SummaryItem(label = "Net", value = if(isPrivacyMode) "••••" else currencySymbol + net.toInt(), color = if (net >= 0) financeColors.income else financeColors.expense)
                         SummaryItem(
                             label = "Saved", 
                             value = if(isPrivacyMode) "••%" else "${savingsRate.toInt()}%", 
@@ -176,16 +129,24 @@ fun DashboardHubScreen(
         },
         floatingActionButtonPosition = FabPosition.End,
         floatingActionButton = {
+            val primary = MaterialTheme.colorScheme.primary
+            val gradient = Brush.linearGradient(
+                colors = listOf(primary, primary.copy(alpha = 0.8f))
+            )
+            
             FloatingActionButton(
-                onClick = { 
-                    onAddTransaction(hubState.selectedDate) 
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
+                onClick = { onAddTransaction(hubState.selectedDate) },
+                containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape,
-                modifier = Modifier.testTag("fab_add_transaction")
+                modifier = Modifier
+                    .testTag("fab_add_transaction")
+                    .padding(bottom = 12.dp) // Space from bottom nav
+                    .background(gradient, CircleShape)
+                    .size(56.dp),
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp) // Handle elevation on container if needed or just use default
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
+                Icon(Icons.Default.Add, contentDescription = "Add", modifier = Modifier.size(28.dp))
             }
         }
     ) { padding ->
@@ -441,13 +402,19 @@ fun FlowRow(label: String, value: String, color: Color) {
 
 @Composable
 fun SummaryItem(label: String, value: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        Text(
+            text = label, 
+            style = MaterialTheme.typography.labelSmall, 
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            fontSize = 10.sp
+        )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = color
+            fontWeight = FontWeight.Black,
+            color = color,
+            fontSize = 13.sp
         )
     }
 }

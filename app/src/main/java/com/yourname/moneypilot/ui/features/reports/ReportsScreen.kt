@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.components.AppDateNavigator
 import com.yourname.moneypilot.ui.components.MoneyPilotSegmentedControl
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import com.yourname.moneypilot.ui.theme.ExpenseRed
@@ -112,11 +113,17 @@ fun ReportsScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp)
                     ) {
                         item {
-                            DateNavigatorCompact(
-                                date = data.selectedDate,
-                                rangeStart = data.rangeStart,
-                                rangeEnd = data.rangeEnd,
-                                range = data.timeRange,
+                            val label = when (data.timeRange) {
+                                TimeRange.WEEKLY -> {
+                                    val formatter = DateTimeFormatter.ofPattern("dd MMM")
+                                    "${data.rangeStart.format(formatter)} – ${data.rangeEnd.format(formatter)}"
+                                }
+                                TimeRange.MONTHLY -> "${data.selectedDate.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${data.selectedDate.year}"
+                                TimeRange.YEARLY -> "${data.selectedDate.year}"
+                            }
+                            
+                            AppDateNavigator(
+                                label = label,
                                 onPrev = { 
                                     val nextDate = when(data.timeRange) {
                                         TimeRange.WEEKLY -> data.selectedDate.minusWeeks(1)
@@ -546,27 +553,6 @@ fun TrendLineGraphCompact(data: Map<Int, Double>, color: Color, timeRange: TimeR
             }
             xLabels.forEach { label -> Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = onSurface) }
         }
-    }
-}
-
-@Composable
-fun DateNavigatorCompact(date: LocalDate, rangeStart: LocalDate, rangeEnd: LocalDate, range: TimeRange, onPrev: () -> Unit, onNext: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().height(40.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowLeft, null) }
-        val label = when (range) {
-            TimeRange.WEEKLY -> {
-                val formatter = DateTimeFormatter.ofPattern("dd MMM")
-                "${rangeStart.format(formatter)} – ${rangeEnd.format(formatter)}"
-            }
-            TimeRange.MONTHLY -> "${date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${date.year}"
-            TimeRange.YEARLY -> "${date.year}"
-        }
-        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp))
-        IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.KeyboardArrowRight, null) }
     }
 }
 

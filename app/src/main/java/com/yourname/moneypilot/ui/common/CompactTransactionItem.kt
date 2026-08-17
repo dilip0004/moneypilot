@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
+import java.util.Locale
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -55,12 +56,13 @@ fun CompactTransactionItem(
 
     val displayTitle = if (semanticLabel.isNotBlank()) "$title ($semanticLabel)" else title
 
-    Column(modifier = Modifier.padding(vertical = 4.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(modifier = Modifier.padding(vertical = 2.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = displayTitle,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -74,12 +76,13 @@ fun CompactTransactionItem(
                 else -> "" to MaterialTheme.colorScheme.onSurface
             }
 
-            val displayAmount = if (isPrivacyMode) "••••" else "${sign}₹${tx.amount}"
+            val displayAmount = if (isPrivacyMode) "••••" 
+            else "${sign}₹${if(tx.amount % 1.0 == 0.0) tx.amount.toInt() else String.format(Locale.getDefault(), "%.2f", tx.amount)}"
 
             Text(
                 displayAmount,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Black,
                 color = color
             )
         }
@@ -90,8 +93,8 @@ fun CompactTransactionItem(
 
         Text(
             text = secondLine,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

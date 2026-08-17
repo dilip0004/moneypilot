@@ -28,7 +28,14 @@ import com.yourname.moneypilot.ui.common.ScreenState
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import com.yourname.moneypilot.util.rememberCurrencySymbol
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.ui.graphics.Brush
 import java.time.YearMonth
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -72,74 +79,98 @@ fun TransactionsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (showSearchBar) {
+                val primary = MaterialTheme.colorScheme.primary
+                val gradient = Brush.linearGradient(
+                    colors = listOf(primary, primary.copy(alpha = 0.8f))
+                )
+                
                 FloatingActionButton(
                     onClick = onAddTransaction,
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier
                         .testTag("transactions_fab_add")
-                        .navigationBarsPadding()
+                        .padding(bottom = 12.dp)
+                        .background(gradient, CircleShape)
+                        .size(56.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Transaction")
+                    Icon(Icons.Default.Add, contentDescription = "Add Transaction", modifier = Modifier.size(28.dp))
                 }
             }
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
+                .padding(bottom = innerPadding.calculateBottomPadding())
+                .fillMaxSize()
                 .testTag("transactions_daily_root")
         ) {
             if (showSearchBar) {
                 val state = (uiState as? ScreenState.Success)?.data
 
-                ExposedDropdownMenuBox(
-                    expanded = walletExpanded,
-                    onExpandedChange = { walletExpanded = !walletExpanded }
-                ) {
-                    val selectedWalletName = state?.wallets?.find { it.id == state.selectedWalletId }?.name ?: "All Wallets"
-                    OutlinedTextField(
-                        value = selectedWalletName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Wallet") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = walletExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = walletExpanded,
-                        onDismissRequest = { walletExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("All Wallets") },
-                            onClick = {
-                                viewModel.onWalletSelected(-1L)
-                                walletExpanded = false
-                            }
-                        )
-                        state?.wallets?.forEach { wallet ->
-                            DropdownMenuItem(
-                                text = { Text(wallet.name) },
-                                onClick = {
-                                    viewModel.onWalletSelected(wallet.id)
-                                    walletExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = state?.searchQuery ?: "",
-                    onValueChange = { viewModel.onSearchQueryChange(it) },
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    placeholder = { Text("Search transactions...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    shape = MaterialTheme.shapes.medium
-                )
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Wallet Dropdown - Compact
+                    Box(modifier = Modifier.weight(1.2f)) {
+                        ExposedDropdownMenuBox(
+                            expanded = walletExpanded,
+                            onExpandedChange = { walletExpanded = !walletExpanded }
+                        ) {
+                            val selectedWalletName = state?.wallets?.find { it.id == state.selectedWalletId }?.name ?: "All Wallets"
+                            OutlinedTextField(
+                                value = selectedWalletName,
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = walletExpanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    unfocusedBorderColor = Color.Transparent
+                                )
+                            )
+                            ExposedDropdownMenu(
+                                expanded = walletExpanded,
+                                onDismissRequest = { walletExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("All Wallets") },
+                                    onClick = { viewModel.onWalletSelected(-1L); walletExpanded = false }
+                                )
+                                state?.wallets?.forEach { wallet ->
+                                    DropdownMenuItem(
+                                        text = { Text(wallet.name) },
+                                        onClick = { viewModel.onWalletSelected(wallet.id); walletExpanded = false }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Search Bar - Compact
+                    OutlinedTextField(
+                        value = state?.searchQuery ?: "",
+                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                        modifier = Modifier.weight(2f).height(48.dp),
+                        placeholder = { Text("Search...", fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp)) },
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                            unfocusedBorderColor = Color.Transparent
+                        )
+                    )
+                }
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -186,58 +217,55 @@ fun TransactionHistoryContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp)
             .testTag("tx_daily_list"),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 80.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp), // Tighter vertical spacing
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 120.dp) // Proper bottom padding
     ) {
         state.groupedTransactions.forEach { grouped ->
-            item(key = "header_${grouped.dateLabel}") {
+            // Spec 8: Root cause fix for glitch - stable keys and remove AnimatedVisibility inside list
+            item(key = "header_${grouped.date}") {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateItemPlacement()
-                        .padding(vertical = 8.dp),
+                        .padding(top = 16.dp, bottom = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = grouped.dateLabel,
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Black
                     )
-                    val displayTotal = if (isPrivacyMode) "••••" else "$currencySymbol${String.format("%.2f", grouped.dailyTotal)}"
+                    
+                    val amount = grouped.dailyTotal
+                    val isNegative = amount < 0
+                    val absAmount = Math.abs(amount)
+                    val displayTotal = if (isPrivacyMode) "••••" 
+                    else "${if(isNegative) "−" else ""}$currencySymbol${if(absAmount % 1.0 == 0.0) absAmount.toInt() else String.format("%.2f", absAmount)}"
+                    
                     Text(
                         text = displayTotal,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (grouped.dailyTotal >= 0) financeColors.income else financeColors.expense
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (amount >= 0) financeColors.income else financeColors.expense
                     )
                 }
             }
+            
             items(
                 items = grouped.transactions,
                 key = { it.transaction.id }
             ) { transactionWithDetails ->
-                val index = grouped.transactions.indexOf(transactionWithDetails)
-                var visible by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    kotlinx.coroutines.delay(index * 30L)
-                    visible = true
-                }
-
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = slideInVertically { 10 } + fadeIn(),
+                // Spec 8: Removed LaunchedEffect delay and AnimatedVisibility which caused visual jumps during scroll
+                TransactionListItemWithMenu(
+                    transactionWithDetails = transactionWithDetails,
+                    onEdit = { onEdit(transactionWithDetails.transaction.id) },
+                    onDelete = { onDelete(transactionWithDetails.transaction) },
+                    isPrivacyMode = isPrivacyMode,
                     modifier = Modifier.animateItemPlacement()
-                ) {
-                    TransactionListItemWithMenu(
-                        transactionWithDetails = transactionWithDetails,
-                        onEdit = { onEdit(transactionWithDetails.transaction.id) },
-                        onDelete = { onDelete(transactionWithDetails.transaction) },
-                        isPrivacyMode = isPrivacyMode
-                    )
-                }
+                )
             }
         }
     }
@@ -248,21 +276,24 @@ fun TransactionListItemWithMenu(
     transactionWithDetails: TransactionWithDetails,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    isPrivacyMode: Boolean
+    isPrivacyMode: Boolean,
+    modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Box {
+    Box(modifier = modifier) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp)) // Subtle rounding for group items
                 .testTag("tx_item_${transactionWithDetails.transaction.id}")
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onLongPress = { showMenu = true },
                         onTap = { onEdit() }
                     )
-                }
+                },
+            color = Color.Transparent // Keep it lightweight
         ) {
             CompactTransactionItem(transactionWithDetails, isPrivacyMode = isPrivacyMode)
         }
