@@ -18,6 +18,7 @@ data class InvestmentState(
     val investments: List<InvestmentEntity> = emptyList(),
     val wallets: List<WalletEntity> = emptyList(),
     val totalValue: Double = 0.0,
+    val totalInvested: Double = 0.0,
     val totalGain: Double = 0.0,
     val gainPercentage: Double = 0.0
 )
@@ -40,15 +41,42 @@ class InvestmentsViewModel @Inject constructor(
                 investmentRepository.getAllInvestments(),
                 walletRepository.getAllWallets()
             ) { investments, wallets ->
-                val totalValue = investments.sumOf { it.quantity * it.currentPrice }
-                val totalCost = investments.sumOf { it.quantity * it.averagePrice }
-                val totalGain = totalValue - totalCost
-                val gainPct = if (totalCost > 0) (totalGain / totalCost) * 100 else 0.0
+                var totalValue = 0.0
+                var totalInvested = 0.0
+
+                investments.forEach { inv ->
+                    when (inv.type) {
+                        "STOCKS", "CRYPTO", "GOLD" -> {
+                            totalValue += inv.quantity * inv.currentPrice
+                            totalInvested += inv.quantity * inv.averagePrice
+                        }
+                        "FD", "RD", "PPF" -> {
+                            totalValue += inv.currentPrice
+                            totalInvested += inv.averagePrice
+                        }
+                        "REAL_ESTATE" -> {
+                            totalValue += inv.currentPrice
+                            totalInvested += inv.averagePrice
+                        }
+                        "SIP" -> {
+                            totalValue += inv.currentPrice
+                            totalInvested += inv.averagePrice
+                        }
+                        else -> {
+                            totalValue += inv.quantity * inv.currentPrice
+                            totalInvested += inv.quantity * inv.averagePrice
+                        }
+                    }
+                }
+
+                val totalGain = totalValue - totalInvested
+                val gainPct = if (totalInvested > 0) (totalGain / totalInvested) * 100 else 0.0
                 
                 InvestmentState(
                     investments = investments,
                     wallets = wallets,
                     totalValue = totalValue,
+                    totalInvested = totalInvested,
                     totalGain = totalGain,
                     gainPercentage = gainPct
                 )

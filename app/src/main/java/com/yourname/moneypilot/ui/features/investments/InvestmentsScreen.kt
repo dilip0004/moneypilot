@@ -137,64 +137,94 @@ fun InvestmentItem(
     onSell: (InvestmentEntity) -> Unit
 ) {
     val financeColors = LocalFinanceColors.current
-    val totalHoldings = investment.quantity * investment.currentPrice
-    val totalGain = (investment.currentPrice - investment.averagePrice) * investment.quantity
+    val totalHoldings = when (investment.type) {
+        "STOCKS", "CRYPTO", "GOLD" -> investment.quantity * investment.currentPrice
+        else -> investment.currentPrice
+    }
+    val totalInvested = when (investment.type) {
+        "STOCKS", "CRYPTO", "GOLD" -> investment.quantity * investment.averagePrice
+        else -> investment.averagePrice
+    }
+    val totalGain = totalHoldings - totalInvested
     val isProfit = totalGain >= 0
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(12.dp), // Slightly more compact
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = investment.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    val quantityLabel = if(isPrivacyMode) "•••• units" else "${String.format("%.2f", investment.quantity)} units"
-                    val priceLabel = if(isPrivacyMode) "@ ••••" else "@ ₹${String.format("%.2f", investment.averagePrice)}"
+                    Text(text = investment.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    
+                    val subLabel = when(investment.type) {
+                        "STOCKS", "CRYPTO", "GOLD" -> {
+                            val qtyLabel = if(isPrivacyMode) "••••" else String.format("%.2f", investment.quantity)
+                            val priceLabel = if(isPrivacyMode) "••••" else String.format("%.2f", investment.averagePrice)
+                            "$qtyLabel units @ ₹$priceLabel"
+                        }
+                        "FD", "RD" -> {
+                            "Maturity tracking active"
+                        }
+                        "SIP" -> {
+                            "Recurring contribution"
+                        }
+                        else -> investment.type
+                    }
+                    
                     Text(
-                        text = "$quantityLabel $priceLabel",
+                        text = subLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
                 
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(text = if(isPrivacyMode) "••••" else "₹ ${String.format("%.0f", totalHoldings)}", fontWeight = FontWeight.ExtraBold)
                     Text(
-                        text = if(isPrivacyMode) "••••" else "${if (isProfit) "+" else ""}₹${totalGain.toInt()}",
-                        color = if (isProfit) financeColors.income else financeColors.expense,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        text = if(isPrivacyMode) "••••" else "₹ ${String.format("%.0f", totalHoldings)}", 
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Black
                     )
+                    if (totalGain != 0.0) {
+                        Text(
+                            text = if(isPrivacyMode) "••••" else "${if (isProfit) "+" else ""}₹${totalGain.toInt()}",
+                            color = if (isProfit) financeColors.income else financeColors.expense,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { onBuy(investment) },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary)
+                    modifier = Modifier.weight(1f).height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), contentColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Buy More", fontSize = 12.sp)
+                    Text(if(investment.type == "STOCKS" || investment.type == "CRYPTO") "Buy More" else "Add Contribution", fontSize = 11.sp)
                 }
                 
                 OutlinedButton(
                     onClick = { onSell(investment) },
-                    modifier = Modifier.weight(1f).height(36.dp),
-                    contentPadding = PaddingValues(0.dp)
+                    modifier = Modifier.weight(0.5f).height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                 ) {
-                    Icon(Icons.Default.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Sell", fontSize = 12.sp)
+                    Text("Exit / Sell", fontSize = 11.sp)
                 }
             }
         }

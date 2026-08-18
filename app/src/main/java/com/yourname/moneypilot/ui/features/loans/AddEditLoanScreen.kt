@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.components.AppDatePickerField
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -124,6 +125,12 @@ fun AddEditLoanScreen(
                     singleLine = true
                 )
             }
+
+            AppDatePickerField(
+                label = "Loan Start Date",
+                value = state.startDate,
+                onChange = { viewModel.onEvent(AddEditLoanEvent.StartDateChanged(it)) }
+            )
 
             Row(modifier = Modifier.fillMaxWidth()) {
                 var expandedType by remember { mutableStateOf(false) }

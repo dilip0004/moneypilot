@@ -13,33 +13,24 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.YearMonth
 import java.util.UUID
 import javax.inject.Inject
 
 @Serializable
 data class InvestmentExtraData(
-    val symbol: String? = null,
-    val buyDate: String? = null,
-    val weight: Double? = null,
-    val purchaseDate: String? = null,
-    val depositAmount: Double? = null,
-    val monthlyDeposit: Double? = null,
     val interestRate: Double? = null,
-    val startDate: String? = null,
     val maturityDate: String? = null,
-    val tenure: Int? = null,
-    val monthlyAmount: Double? = null,
-    val fundName: String? = null,
-    val expectedReturn: Double? = null,
-    val propertyName: String? = null,
-    val purchasePrice: Double? = null,
-    val currentValue: Double? = null,
-    val employeeContribution: Double? = null,
-    val employerContribution: Double? = null,
-    val currentBalance: Double? = null,
-    val contribution: Double? = null,
-    val pensionEquitySplit: String? = null
+    val tenureMonths: Int? = null,
+    val monthlyInstallment: Double? = null,
+    val annualContribution: Double? = null,
+    val sipAmount: Double? = null,
+    val frequency: String? = null, // MONTHLY, QUARTERLY, YEARLY
+    val purchaseValue: Double? = null,
+    val currentValuation: Double? = null,
+    val currentBalance: Double? = null
 )
 
 data class AddEditInvestmentState(
@@ -50,30 +41,20 @@ data class AddEditInvestmentState(
     val averagePrice: String = "",
     val currentPrice: String = "",
     val currency: String = "INR",
+    val startDate: LocalDate = LocalDate.now(),
     val linkedWalletId: Long? = null,
     val wallets: List<WalletEntity> = emptyList(),
     val isEditMode: Boolean = false,
-    // Form data
-    val buyDate: String = "",
-    val weight: String = "",
-    val purchaseDate: String = "",
-    val depositAmount: String = "",
-    val monthlyDeposit: String = "",
+    // Type-specific fields
     val interestRate: String = "",
-    val startDate: String = "",
-    val maturityDate: String = "",
-    val tenure: String = "",
-    val monthlyAmount: String = "",
-    val fundName: String = "",
-    val expectedReturn: String = "",
-    val propertyName: String = "",
-    val purchasePrice: String = "",
-    val currentValue: String = "",
-    val employeeContribution: String = "",
-    val employerContribution: String = "",
+    val tenureMonths: String = "",
+    val monthlyInstallment: String = "",
+    val annualContribution: String = "",
+    val sipAmount: String = "",
+    val frequency: String = "MONTHLY",
+    val purchaseValue: String = "",
+    val currentValuation: String = "",
     val currentBalance: String = "",
-    val contribution: String = "",
-    val pensionEquitySplit: String = "",
     val principal: String = ""
 )
 
@@ -126,6 +107,7 @@ class AddEditInvestmentViewModel @Inject constructor(
                         averagePrice = investment.averagePrice.toString(),
                         currentPrice = investment.currentPrice.toString(),
                         currency = investment.currency,
+                        startDate = investment.startDate ?: LocalDate.now(),
                         linkedWalletId = investment.linkedWalletId,
                         isEditMode = true
                     )
@@ -133,27 +115,16 @@ class AddEditInvestmentViewModel @Inject constructor(
                         try {
                             val extra = Json.decodeFromString<InvestmentExtraData>(it)
                             _state.value = _state.value.copy(
-                                buyDate = extra.buyDate ?: "",
-                                weight = extra.weight?.toString() ?: "",
-                                purchaseDate = extra.purchaseDate ?: "",
-                                depositAmount = extra.depositAmount?.toString() ?: "",
-                                monthlyDeposit = extra.monthlyDeposit?.toString() ?: "",
                                 interestRate = extra.interestRate?.toString() ?: "",
-                                startDate = extra.startDate ?: "",
-                                maturityDate = extra.maturityDate ?: "",
-                                tenure = extra.tenure?.toString() ?: "",
-                                monthlyAmount = extra.monthlyAmount?.toString() ?: "",
-                                fundName = extra.fundName ?: "",
-                                expectedReturn = extra.expectedReturn?.toString() ?: "",
-                                propertyName = extra.propertyName ?: "",
-                                purchasePrice = extra.purchasePrice?.toString() ?: "",
-                                currentValue = extra.currentValue?.toString() ?: "",
-                                employeeContribution = extra.employeeContribution?.toString() ?: "",
-                                employerContribution = extra.employerContribution?.toString() ?: "",
+                                tenureMonths = extra.tenureMonths?.toString() ?: "",
+                                monthlyInstallment = extra.monthlyInstallment?.toString() ?: "",
+                                annualContribution = extra.annualContribution?.toString() ?: "",
+                                sipAmount = extra.sipAmount?.toString() ?: "",
+                                frequency = extra.frequency ?: "MONTHLY",
+                                purchaseValue = extra.purchaseValue?.toString() ?: "",
+                                currentValuation = extra.currentValuation?.toString() ?: "",
                                 currentBalance = extra.currentBalance?.toString() ?: "",
-                                contribution = extra.contribution?.toString() ?: "",
-                                pensionEquitySplit = extra.pensionEquitySplit ?: "",
-                                principal = extra.depositAmount?.toString() ?: ""
+                                principal = extra.currentBalance?.toString() ?: ""
                             )
                         } catch (e: Exception) { /* Ignore parsing errors */ }
                     }
@@ -171,28 +142,19 @@ class AddEditInvestmentViewModel @Inject constructor(
             is AddEditInvestmentEvent.EnteredCurrentPrice -> _state.value = _state.value.copy(currentPrice = event.value)
             is AddEditInvestmentEvent.TypeChanged -> _state.value = _state.value.copy(type = event.value)
             is AddEditInvestmentEvent.WalletLinked -> _state.value = _state.value.copy(linkedWalletId = event.value)
-            is AddEditInvestmentEvent.EnteredBuyDate -> _state.value = _state.value.copy(buyDate = event.value)
-            is AddEditInvestmentEvent.EnteredWeight -> _state.value = _state.value.copy(weight = event.value)
-            is AddEditInvestmentEvent.EnteredPurchaseDate -> _state.value = _state.value.copy(purchaseDate = event.value)
-            is AddEditInvestmentEvent.EnteredDepositAmount -> _state.value = _state.value.copy(depositAmount = event.value)
-            is AddEditInvestmentEvent.EnteredMonthlyDeposit -> _state.value = _state.value.copy(monthlyDeposit = event.value)
+            is AddEditInvestmentEvent.StartDateChanged -> _state.value = _state.value.copy(startDate = event.value)
             is AddEditInvestmentEvent.EnteredInterestRate -> _state.value = _state.value.copy(interestRate = event.value)
-            is AddEditInvestmentEvent.EnteredStartDate -> _state.value = _state.value.copy(startDate = event.value)
-            is AddEditInvestmentEvent.EnteredMaturityDate -> _state.value = _state.value.copy(maturityDate = event.value)
-            is AddEditInvestmentEvent.EnteredTenure -> _state.value = _state.value.copy(tenure = event.value)
-            is AddEditInvestmentEvent.EnteredMonthlyAmount -> _state.value = _state.value.copy(monthlyAmount = event.value)
-            is AddEditInvestmentEvent.EnteredFundName -> _state.value = _state.value.copy(fundName = event.value)
-            is AddEditInvestmentEvent.EnteredExpectedReturn -> _state.value = _state.value.copy(expectedReturn = event.value)
-            is AddEditInvestmentEvent.EnteredPropertyName -> _state.value = _state.value.copy(propertyName = event.value)
-            is AddEditInvestmentEvent.EnteredPurchasePrice -> _state.value = _state.value.copy(purchasePrice = event.value)
-            is AddEditInvestmentEvent.EnteredCurrentValue -> _state.value = _state.value.copy(currentValue = event.value)
-            is AddEditInvestmentEvent.EnteredEmployeeContribution -> _state.value = _state.value.copy(employeeContribution = event.value)
-            is AddEditInvestmentEvent.EnteredEmployerContribution -> _state.value = _state.value.copy(employerContribution = event.value)
+            is AddEditInvestmentEvent.EnteredTenureMonths -> _state.value = _state.value.copy(tenureMonths = event.value)
+            is AddEditInvestmentEvent.EnteredMonthlyInstallment -> _state.value = _state.value.copy(monthlyInstallment = event.value)
+            is AddEditInvestmentEvent.EnteredAnnualContribution -> _state.value = _state.value.copy(annualContribution = event.value)
+            is AddEditInvestmentEvent.EnteredSipAmount -> _state.value = _state.value.copy(sipAmount = event.value)
+            is AddEditInvestmentEvent.FrequencyChanged -> _state.value = _state.value.copy(frequency = event.value)
+            is AddEditInvestmentEvent.EnteredPurchaseValue -> _state.value = _state.value.copy(purchaseValue = event.value)
+            is AddEditInvestmentEvent.EnteredCurrentValuation -> _state.value = _state.value.copy(currentValuation = event.value)
             is AddEditInvestmentEvent.EnteredCurrentBalance -> _state.value = _state.value.copy(currentBalance = event.value)
-            is AddEditInvestmentEvent.EnteredContribution -> _state.value = _state.value.copy(contribution = event.value)
-            is AddEditInvestmentEvent.EnteredPensionEquitySplit -> _state.value = _state.value.copy(pensionEquitySplit = event.value)
             is AddEditInvestmentEvent.EnteredPrincipal -> _state.value = _state.value.copy(principal = event.value)
             is AddEditInvestmentEvent.SaveInvestment -> saveInvestment()
+            else -> {}
         }
     }
 
@@ -203,13 +165,14 @@ class AddEditInvestmentViewModel @Inject constructor(
                 val qty = s.quantity.toDoubleOrNull() ?: 0.0
                 val avgPrice = s.averagePrice.toDoubleOrNull() ?: 0.0
                 val currentPrice = s.currentPrice.toDoubleOrNull() ?: avgPrice
+                
                 val investedAmount = when (s.type) {
-                    "STOCKS", "MUTUAL_FUNDS", "CRYPTO", "GOLD" -> qty * avgPrice
-                    "FD", "PPF" -> s.depositAmount.toDoubleOrNull() ?: 0.0
-                    "SIP" -> s.monthlyAmount.toDoubleOrNull() ?: 0.0
-                    "RD" -> (s.monthlyDeposit.toDoubleOrNull() ?: 0.0) * (s.tenure.toIntOrNull() ?: 0)
-                    "REAL_ESTATE" -> s.purchasePrice.toDoubleOrNull() ?: 0.0
-                    "EPF", "NPS" -> s.contribution.toDoubleOrNull() ?: 0.0
+                    "STOCKS", "CRYPTO", "GOLD" -> qty * avgPrice
+                    "FD" -> s.principal.toDoubleOrNull() ?: 0.0
+                    "RD" -> s.monthlyInstallment.toDoubleOrNull() ?: 0.0
+                    "PPF" -> 0.0 // PPF often starts with 0 or a first contribution
+                    "SIP" -> s.sipAmount.toDoubleOrNull() ?: 0.0
+                    "REAL_ESTATE" -> s.purchaseValue.toDoubleOrNull() ?: 0.0
                     else -> 0.0
                 }
 
@@ -218,28 +181,58 @@ class AddEditInvestmentViewModel @Inject constructor(
                     return@launch
                 }
 
+                // Validation logic (Spec 9)
+                try {
+                    when (s.type) {
+                        "STOCKS", "CRYPTO", "GOLD" -> {
+                            if (qty <= 0) throw Exception("Quantity must be positive.")
+                            if (avgPrice <= 0) throw Exception("Average price must be positive.")
+                        }
+                        "FD" -> {
+                            if ((s.principal.toDoubleOrNull() ?: 0.0) <= 0) throw Exception("Principal must be positive.")
+                            if ((s.interestRate.toDoubleOrNull() ?: 0.0) < 0) throw Exception("Invalid interest rate.")
+                            if ((s.tenureMonths.toIntOrNull() ?: 0) <= 0) throw Exception("Tenure must be positive.")
+                        }
+                        "RD" -> {
+                            if ((s.monthlyInstallment.toDoubleOrNull() ?: 0.0) <= 0) throw Exception("Installment must be positive.")
+                            if ((s.interestRate.toDoubleOrNull() ?: 0.0) < 0) throw Exception("Invalid interest rate.")
+                            if ((s.tenureMonths.toIntOrNull() ?: 0) <= 0) throw Exception("Tenure must be positive.")
+                        }
+                        "PPF" -> {
+                            if ((s.currentBalance.toDoubleOrNull() ?: -1.0) < 0) throw Exception("Invalid current balance.")
+                            if ((s.interestRate.toDoubleOrNull() ?: 0.0) < 0) throw Exception("Invalid interest rate.")
+                        }
+                        "SIP" -> {
+                            if ((s.sipAmount.toDoubleOrNull() ?: 0.0) <= 0) throw Exception("SIP amount must be positive.")
+                        }
+                        "REAL_ESTATE" -> {
+                            if ((s.purchaseValue.toDoubleOrNull() ?: 0.0) <= 0) throw Exception("Purchase price must be positive.")
+                        }
+                    }
+                } catch (e: Exception) {
+                    _eventFlow.emit(UiEvent.ShowSnackbar(e.message ?: "Validation failed"))
+                    return@launch
+                }
+
+                val maturityDate = when(s.type) {
+                    "FD", "RD" -> {
+                        val tenure = s.tenureMonths.toIntOrNull() ?: 0
+                        if (tenure > 0) s.startDate.plusMonths(tenure.toLong()).toString() else null
+                    }
+                    else -> null
+                }
+
                 val extra = InvestmentExtraData(
-                    symbol = s.symbol.takeIf { it.isNotBlank() },
-                    buyDate = s.buyDate.takeIf { it.isNotBlank() },
-                    weight = s.weight.toDoubleOrNull(),
-                    purchaseDate = s.purchaseDate.takeIf { it.isNotBlank() },
-                    depositAmount = s.depositAmount.toDoubleOrNull() ?: s.principal.toDoubleOrNull(),
-                    monthlyDeposit = s.monthlyDeposit.toDoubleOrNull(),
                     interestRate = s.interestRate.toDoubleOrNull(),
-                    startDate = s.startDate.takeIf { it.isNotBlank() },
-                    maturityDate = s.maturityDate.takeIf { it.isNotBlank() },
-                    tenure = s.tenure.toIntOrNull(),
-                    monthlyAmount = s.monthlyAmount.toDoubleOrNull(),
-                    fundName = s.fundName.takeIf { it.isNotBlank() },
-                    expectedReturn = s.expectedReturn.toDoubleOrNull(),
-                    propertyName = s.propertyName.takeIf { it.isNotBlank() },
-                    purchasePrice = s.purchasePrice.toDoubleOrNull(),
-                    currentValue = s.currentValue.toDoubleOrNull(),
-                    employeeContribution = s.employeeContribution.toDoubleOrNull(),
-                    employerContribution = s.employerContribution.toDoubleOrNull(),
-                    currentBalance = s.currentBalance.toDoubleOrNull(),
-                    contribution = s.contribution.toDoubleOrNull(),
-                    pensionEquitySplit = s.pensionEquitySplit.takeIf { it.isNotBlank() }
+                    maturityDate = maturityDate,
+                    tenureMonths = s.tenureMonths.toIntOrNull(),
+                    monthlyInstallment = s.monthlyInstallment.toDoubleOrNull(),
+                    annualContribution = s.annualContribution.toDoubleOrNull(),
+                    sipAmount = s.sipAmount.toDoubleOrNull(),
+                    frequency = s.frequency,
+                    purchaseValue = s.purchaseValue.toDoubleOrNull(),
+                    currentValuation = s.currentValuation.toDoubleOrNull(),
+                    currentBalance = s.currentBalance.toDoubleOrNull()
                 )
                 val extraJson = Json.encodeToString(extra)
 
@@ -248,13 +241,11 @@ class AddEditInvestmentViewModel @Inject constructor(
                     name = s.name,
                     type = s.type,
                     symbol = s.symbol,
-                    // GHOST WRITE FIX: In Edit mode, we preserve existing quantity/price.
-                    // New buys must be driven by Ledger Transactions.
-                    quantity = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.quantity ?: 0.0 else 0.0,
-                    averagePrice = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.averagePrice ?: 0.0 else 0.0,
+                    quantity = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.quantity ?: 0.0 else qty,
+                    averagePrice = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.averagePrice ?: 0.0 else avgPrice,
                     currentPrice = currentPrice,
                     currency = s.currency,
-                    linkedWalletId = s.linkedWalletId,
+                    startDate = s.startDate,
                     extraData = extraJson,
                     lastUpdated = LocalDateTime.now()
                 )
@@ -293,26 +284,16 @@ sealed class AddEditInvestmentEvent {
     data class EnteredCurrentPrice(val value: String) : AddEditInvestmentEvent()
     data class TypeChanged(val value: String) : AddEditInvestmentEvent()
     data class WalletLinked(val value: Long?) : AddEditInvestmentEvent()
-    data class EnteredBuyDate(val value: String) : AddEditInvestmentEvent()
-    data class EnteredWeight(val value: String) : AddEditInvestmentEvent()
-    data class EnteredPurchaseDate(val value: String) : AddEditInvestmentEvent()
-    data class EnteredDepositAmount(val value: String) : AddEditInvestmentEvent()
-    data class EnteredMonthlyDeposit(val value: String) : AddEditInvestmentEvent()
+    data class StartDateChanged(val value: LocalDate) : AddEditInvestmentEvent()
     data class EnteredInterestRate(val value: String) : AddEditInvestmentEvent()
-    data class EnteredStartDate(val value: String) : AddEditInvestmentEvent()
-    data class EnteredMaturityDate(val value: String) : AddEditInvestmentEvent()
-    data class EnteredTenure(val value: String) : AddEditInvestmentEvent()
-    data class EnteredMonthlyAmount(val value: String) : AddEditInvestmentEvent()
-    data class EnteredFundName(val value: String) : AddEditInvestmentEvent()
-    data class EnteredExpectedReturn(val value: String) : AddEditInvestmentEvent()
-    data class EnteredPropertyName(val value: String) : AddEditInvestmentEvent()
-    data class EnteredPurchasePrice(val value: String) : AddEditInvestmentEvent()
-    data class EnteredCurrentValue(val value: String) : AddEditInvestmentEvent()
-    data class EnteredEmployeeContribution(val value: String) : AddEditInvestmentEvent()
-    data class EnteredEmployerContribution(val value: String) : AddEditInvestmentEvent()
+    data class EnteredTenureMonths(val value: String) : AddEditInvestmentEvent()
+    data class EnteredMonthlyInstallment(val value: String) : AddEditInvestmentEvent()
+    data class EnteredAnnualContribution(val value: String) : AddEditInvestmentEvent()
+    data class EnteredSipAmount(val value: String) : AddEditInvestmentEvent()
+    data class FrequencyChanged(val value: String) : AddEditInvestmentEvent()
+    data class EnteredPurchaseValue(val value: String) : AddEditInvestmentEvent()
+    data class EnteredCurrentValuation(val value: String) : AddEditInvestmentEvent()
     data class EnteredCurrentBalance(val value: String) : AddEditInvestmentEvent()
-    data class EnteredContribution(val value: String) : AddEditInvestmentEvent()
-    data class EnteredPensionEquitySplit(val value: String) : AddEditInvestmentEvent()
     data class EnteredPrincipal(val value: String) : AddEditInvestmentEvent()
     object SaveInvestment : AddEditInvestmentEvent()
 }

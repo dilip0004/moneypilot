@@ -2,6 +2,7 @@ package com.yourname.moneypilot.ui.features.investments
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -9,11 +10,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.components.AppDatePickerField
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,7 +42,7 @@ fun AddEditInvestmentScreen(
         }
     }
 
-    val assetTypes = listOf("STOCKS", "MUTUAL_FUNDS", "CRYPTO", "GOLD", "FD", "RD", "PPF", "SIP", "REAL_ESTATE")
+    val assetTypes = listOf("STOCKS", "CRYPTO", "GOLD", "FD", "RD", "PPF", "SIP", "REAL_ESTATE")
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -69,48 +74,65 @@ fun AddEditInvestmentScreen(
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredName(it)) },
-                label = { Text("Asset Name (e.g. HDFC Fixed Deposit)") },
+                label = { Text("Asset Name") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
             )
 
-            var expandedType by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = expandedType,
-                onExpandedChange = { expandedType = it },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = state.type,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Asset Type") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
-                )
-                ExposedDropdownMenu(expanded = expandedType, onDismissRequest = { expandedType = false }) {
-                    assetTypes.forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(type) },
-                            onClick = {
-                                viewModel.onEvent(AddEditInvestmentEvent.TypeChanged(type))
-                                expandedType = false
-                            }
-                        )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                var expandedType by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = expandedType,
+                    onExpandedChange = { expandedType = it },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value = state.type,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Asset Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedType) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    ExposedDropdownMenu(expanded = expandedType, onDismissRequest = { expandedType = false }) {
+                        assetTypes.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type) },
+                                onClick = {
+                                    viewModel.onEvent(AddEditInvestmentEvent.TypeChanged(type))
+                                    expandedType = false
+                                }
+                            )
+                        }
                     }
                 }
+
+                AppDatePickerField(
+                    label = "Start Date",
+                    value = state.startDate,
+                    onChange = { viewModel.onEvent(AddEditInvestmentEvent.StartDateChanged(it)) },
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             // 2. Dynamic Fields Section
             when (state.type) {
-                "STOCKS", "MUTUAL_FUNDS", "CRYPTO", "GOLD" -> {
-                    MarketLinkedFields(state, viewModel)
+                "STOCKS", "CRYPTO" -> {
+                    StockCryptoFields(state, viewModel)
                 }
-                "FD", "PPF" -> {
+                "GOLD" -> {
+                    GoldFields(state, viewModel)
+                }
+                "FD" -> {
                     FixedDepositFields(state, viewModel)
                 }
                 "RD" -> {
                     RecurringDepositFields(state, viewModel)
+                }
+                "PPF" -> {
+                    PpfFields(state, viewModel)
                 }
                 "SIP" -> {
                     SipFields(state, viewModel)
@@ -129,14 +151,15 @@ fun AddEditInvestmentScreen(
                 expanded = expandedWallet,
                 onExpandedChange = { expandedWallet = it }
             ) {
-                OutlinedTextField(
-                    value = state.wallets.find { it.id == state.linkedWalletId }?.name ?: "No Wallet Linked",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Deduct from Wallet") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWallet) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
-                )
+            OutlinedTextField(
+                value = state.wallets.find { it.id == state.linkedWalletId }?.name ?: "No Wallet Linked",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Deduct from Wallet") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWallet) },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
                 ExposedDropdownMenu(expanded = expandedWallet, onDismissRequest = { expandedWallet = false }) {
                     DropdownMenuItem(text = { Text("None (Already Paid)") }, onClick = {
                         viewModel.onEvent(AddEditInvestmentEvent.WalletLinked(null))
@@ -162,22 +185,25 @@ fun AddEditInvestmentScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MarketLinkedFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
+fun StockCryptoFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         OutlinedTextField(
             value = state.symbol,
             onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredSymbol(it)) },
-            label = { Text("Ticker / Symbol") },
-            modifier = Modifier.fillMaxWidth()
+            label = { Text(if(state.type == "STOCKS") "Ticker / Symbol" else "Crypto Name / Code") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = state.quantity,
                 onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredQuantity(it)) },
-                label = { Text("Units / Quantity") },
+                label = { Text("Quantity") },
                 modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                shape = RoundedCornerShape(12.dp)
             )
             OutlinedTextField(
                 value = state.averagePrice,
@@ -185,30 +211,51 @@ fun MarketLinkedFields(state: AddEditInvestmentState, viewModel: AddEditInvestme
                 label = { Text("Avg Buy Price") },
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                prefix = { Text("₹") }
+                prefix = { Text("₹") },
+                shape = RoundedCornerShape(12.dp)
             )
         }
-        OutlinedTextField(
-            value = state.currentPrice,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredCurrentPrice(it)) },
-            label = { Text("Current Market Price") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            prefix = { Text("₹") }
-        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GoldFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = state.quantity,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredQuantity(it)) },
+                label = { Text("Weight (grams)") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                shape = RoundedCornerShape(12.dp)
+            )
+            OutlinedTextField(
+                value = state.averagePrice,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredAvgPrice(it)) },
+                label = { Text("Purchase Price /g") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                prefix = { Text("₹") },
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FixedDepositFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         OutlinedTextField(
-            value = state.depositAmount,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredDepositAmount(it)) },
+            value = state.principal,
+            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredPrincipal(it)) },
             label = { Text("Principal Amount") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            prefix = { Text("₹") }
+            prefix = { Text("₹") },
+            shape = RoundedCornerShape(12.dp)
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -216,36 +263,33 @@ fun FixedDepositFields(state: AddEditInvestmentState, viewModel: AddEditInvestme
                 onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredInterestRate(it)) },
                 label = { Text("Interest Rate (%)") },
                 modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                shape = RoundedCornerShape(12.dp)
             )
             OutlinedTextField(
-                value = state.tenure,
-                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredTenure(it)) },
+                value = state.tenureMonths,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredTenureMonths(it)) },
                 label = { Text("Tenure (Months)") },
                 modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp)
             )
         }
-        OutlinedTextField(
-            value = state.maturityDate,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredMaturityDate(it)) },
-            label = { Text("Maturity Date (YYYY-MM-DD)") },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Optional") }
-        )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecurringDepositFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         OutlinedTextField(
-            value = state.monthlyDeposit,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredMonthlyDeposit(it)) },
+            value = state.monthlyInstallment,
+            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredMonthlyInstallment(it)) },
             label = { Text("Monthly Installment") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            prefix = { Text("₹") }
+            prefix = { Text("₹") },
+            shape = RoundedCornerShape(12.dp)
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -253,57 +297,124 @@ fun RecurringDepositFields(state: AddEditInvestmentState, viewModel: AddEditInve
                 onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredInterestRate(it)) },
                 label = { Text("Rate of Interest (%)") },
                 modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                shape = RoundedCornerShape(12.dp)
             )
             OutlinedTextField(
-                value = state.tenure,
-                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredTenure(it)) },
+                value = state.tenureMonths,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredTenureMonths(it)) },
                 label = { Text("Tenure (Months)") },
                 modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp)
             )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SipFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
+fun PpfFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         OutlinedTextField(
-            value = state.monthlyAmount,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredMonthlyAmount(it)) },
-            label = { Text("SIP Amount") },
+            value = state.currentBalance,
+            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredCurrentBalance(it)) },
+            label = { Text("Current Balance") },
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            prefix = { Text("₹") }
+            prefix = { Text("₹") },
+            shape = RoundedCornerShape(12.dp)
         )
-        OutlinedTextField(
-            value = state.fundName,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredFundName(it)) },
-            label = { Text("Mutual Fund Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = state.annualContribution,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredAnnualContribution(it)) },
+                label = { Text("Annual Contribution") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                prefix = { Text("₹") },
+                shape = RoundedCornerShape(12.dp)
+            )
+            OutlinedTextField(
+                value = state.interestRate,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredInterestRate(it)) },
+                label = { Text("Interest Rate (%)") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SipFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = state.sipAmount,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredSipAmount(it)) },
+                label = { Text("SIP Amount") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                prefix = { Text("₹") },
+                shape = RoundedCornerShape(12.dp)
+            )
+            var expandedFreq by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expandedFreq,
+                onExpandedChange = { expandedFreq = it },
+                modifier = Modifier.weight(1f)
+            ) {
+                OutlinedTextField(
+                    value = state.frequency,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Frequency") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFreq) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                ExposedDropdownMenu(expanded = expandedFreq, onDismissRequest = { expandedFreq = false }) {
+                    listOf("MONTHLY", "QUARTERLY", "YEARLY").forEach { freq ->
+                        DropdownMenuItem(
+                            text = { Text(freq) },
+                            onClick = {
+                                viewModel.onEvent(AddEditInvestmentEvent.FrequencyChanged(freq))
+                                expandedFreq = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RealEstateFields(state: AddEditInvestmentState, viewModel: AddEditInvestmentViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        OutlinedTextField(
-            value = state.purchasePrice,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredPurchasePrice(it)) },
-            label = { Text("Purchase Price") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            prefix = { Text("₹") }
-        )
-        OutlinedTextField(
-            value = state.currentValue,
-            onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredCurrentValue(it)) },
-            label = { Text("Current Market Valuation") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            prefix = { Text("₹") }
-        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = state.purchaseValue,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredPurchaseValue(it)) },
+                label = { Text("Purchase Price") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                prefix = { Text("₹") },
+                shape = RoundedCornerShape(12.dp)
+            )
+            OutlinedTextField(
+                value = state.currentValuation,
+                onValueChange = { viewModel.onEvent(AddEditInvestmentEvent.EnteredCurrentValuation(it)) },
+                label = { Text("Current Valuation") },
+                modifier = Modifier.weight(1f),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                prefix = { Text("₹") },
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
     }
 }

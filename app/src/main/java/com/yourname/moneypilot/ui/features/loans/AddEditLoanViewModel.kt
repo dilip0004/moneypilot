@@ -36,6 +36,7 @@ sealed class AddEditLoanEvent {
     data class EnteredInterest(val value: String) : AddEditLoanEvent()
     data class EnteredMonthlyPayment(val value: String) : AddEditLoanEvent()
     data class EnteredDuration(val value: String) : AddEditLoanEvent()
+    data class StartDateChanged(val value: LocalDate) : AddEditLoanEvent()
     data class TypeChanged(val value: String) : AddEditLoanEvent()
     data class RepaymentDayChanged(val value: Int) : AddEditLoanEvent()
     data class WalletLinked(val value: Long?) : AddEditLoanEvent()
@@ -103,6 +104,7 @@ class AddEditLoanViewModel @Inject constructor(
             is AddEditLoanEvent.EnteredInterest -> _state.update { it.copy(interestRate = event.value) }
             is AddEditLoanEvent.EnteredMonthlyPayment -> _state.update { it.copy(monthlyPayment = event.value) }
             is AddEditLoanEvent.EnteredDuration -> _state.update { it.copy(durationMonths = event.value) }
+            is AddEditLoanEvent.StartDateChanged -> _state.update { it.copy(startDate = event.value) }
             is AddEditLoanEvent.TypeChanged -> _state.update { it.copy(type = event.value) }
             is AddEditLoanEvent.RepaymentDayChanged -> _state.update { it.copy(repaymentDayOfMonth = event.value) }
             is AddEditLoanEvent.WalletLinked -> _state.update { it.copy(linkedWalletId = event.value) }

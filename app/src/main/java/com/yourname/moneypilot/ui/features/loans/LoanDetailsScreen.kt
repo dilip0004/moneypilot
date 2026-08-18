@@ -1,7 +1,9 @@
 package com.yourname.moneypilot.ui.features.loans
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +15,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
@@ -20,8 +24,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,7 +36,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.LoanEventEntity
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
-import com.yourname.moneypilot.domain.loan.LoanCalculator
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -101,129 +106,229 @@ fun LoanDetailsScreen(
                 val loan = state.loan!!
                 val snapshot = state.snapshot ?: return@Scaffold
                 val fmt = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
-                val dateFmt = DateTimeFormatter.ofPattern("MMM yyyy")
+                fmt.maximumFractionDigits = 0
+                val dateFmt = DateTimeFormatter.ofPattern("dd MMM yyyy")
+                val monthYearFmt = DateTimeFormatter.ofPattern("MMM yyyy")
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // 1. Top Card: Outstanding Principal & Core Stats
                     item {
                         Card(
                             shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                         ) {
-                            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Outstanding Principal", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(fmt.format(snapshot.outstandingPrincipal), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "Outstanding Principal", 
+                                    style = MaterialTheme.typography.labelMedium, 
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    fmt.format(snapshot.outstandingPrincipal), 
+                                    style = MaterialTheme.typography.headlineMedium, 
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = (-0.5).sp
+                                )
+                                
+                                val progress = if (snapshot.originalPrincipal > 0) 
+                                    ((snapshot.originalPrincipal - snapshot.outstandingPrincipal) / snapshot.originalPrincipal).toFloat().coerceIn(0f, 1f)
+                                    else 0f
+                                
+                                Spacer(Modifier.height(12.dp))
+                                
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    strokeCap = StrokeCap.Round
+                                )
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        "Paid: ${fmt.format(snapshot.originalPrincipal - snapshot.outstandingPrincipal)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        "Original: ${fmt.format(snapshot.originalPrincipal)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
 
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    StatBox("Interest Rate", "${snapshot.currentInterestRate}%", Modifier.weight(1f))
-                                    StatBox("Monthly EMI", fmt.format(snapshot.currentEmi), Modifier.weight(1.5f))
+                                Spacer(Modifier.height(20.dp))
+
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                    CompactStatItem("${snapshot.currentInterestRate}%", "Interest", Modifier.weight(1f))
+                                    VerticalDivider(Modifier.height(32.dp).padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                                    CompactStatItem(fmt.format(snapshot.currentEmi), "Monthly EMI", Modifier.weight(1.5f))
+                                    VerticalDivider(Modifier.height(32.dp).padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                                    
+                                    val years = snapshot.monthsRemaining / 12
+                                    val months = snapshot.monthsRemaining % 12
+                                    val tenureStr = if (years > 0) "${years}Y ${months}M" else "${months}M"
+                                    CompactStatItem(tenureStr, "Remaining", Modifier.weight(1f))
                                 }
                             }
                         }
                     }
 
+                    // 2. Next EMI Info
                     item {
                         Card(
+                            modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.1f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f))
                         ) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("Loan Timeline", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Months Remaining", style = MaterialTheme.typography.bodySmall)
-                                    Text("${snapshot.monthsRemaining}", fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Next EMI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        "${snapshot.nextDueDate.format(dateFmt)} · ${fmt.format(snapshot.currentEmi)}",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
                                 }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Expected End Date", style = MaterialTheme.typography.bodySmall)
-                                    Text(snapshot.expectedEndDate.format(DateTimeFormatter.ofPattern("MMM yyyy")), fontWeight = FontWeight.Bold)
-                                }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Total Principal Paid", style = MaterialTheme.typography.bodySmall)
-                                    Text(fmt.format(snapshot.totalPrincipalPaid), fontWeight = FontWeight.Bold)
-                                }
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Total Interest Paid", style = MaterialTheme.typography.bodySmall)
-                                    Text(fmt.format(snapshot.totalInterestPaid), fontWeight = FontWeight.Bold)
-                                }
+                                Icon(Icons.Default.Verified, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(24.dp))
                             }
                         }
                     }
 
+                    // 3. Repayment Timeline
                     item {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Card(
-                                modifier = Modifier.weight(1f),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF00A36C).copy(alpha = 0.1f)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00A36C).copy(alpha = 0.3f))
-                            ) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Icon(Icons.Default.Verified, null, tint = Color(0xFF00A36C), modifier = Modifier.size(20.dp))
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("Interest Saved", style = MaterialTheme.typography.labelSmall, color = Color(0xFF00A36C))
-                                    Text(fmt.format(snapshot.interestSavedApprox), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF00A36C))
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                        ) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Repayment", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+                                
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column {
+                                        Text("${snapshot.monthsRemaining} months remaining", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                        Text("Started ${loan.startDate.format(monthYearFmt)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(snapshot.expectedEndDate.format(monthYearFmt), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text("Expected completion", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
-                            }
 
-                            if (snapshot.tenureSavedMonths > 0) {
-                                Card(
-                                    modifier = Modifier.weight(1f),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
-                                ) {
-                                    Column(Modifier.padding(16.dp)) {
-                                        Text("🏃 Tenure Saved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                        Spacer(Modifier.height(8.dp))
-                                        Text("${snapshot.tenureSavedMonths} Months", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                        Text("Ended by ${snapshot.expectedEndDate.format(dateFmt)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column {
+                                        Text("Principal Paid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(fmt.format(snapshot.totalPrincipalPaid), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("Interest Paid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(fmt.format(snapshot.totalInterestPaid), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
                         }
                     }
 
+                    // 4. Interest Saved
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF00A36C).copy(alpha = 0.08f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00A36C).copy(alpha = 0.2f)),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.History, null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Audit Trail", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            }
-                            Row {
-                                IconButton(onClick = { showRoiDialog = true }) {
-                                    Icon(Icons.Default.TrendingUp, contentDescription = "ROI Change", tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Verified, null, tint = Color(0xFF00A36C), modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Interest Saved", style = MaterialTheme.typography.labelSmall, color = Color(0xFF00A36C), fontWeight = FontWeight.Bold)
                                 }
-                                IconButton(onClick = { showPrepaymentDialog = true }) {
-                                    Icon(Icons.Default.Add, contentDescription = "Log Prepayment", tint = MaterialTheme.colorScheme.primary)
-                                }
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    if (snapshot.interestSavedApprox > 0) fmt.format(snapshot.interestSavedApprox) else "₹0",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF00A36C)
+                                )
+                                val savedMsg = if (snapshot.tenureSavedMonths > 0) 
+                                    "Saved ${snapshot.tenureSavedMonths} months of tenure" 
+                                    else "Make a prepayment to save interest"
+                                Text(savedMsg, style = MaterialTheme.typography.labelSmall, color = Color(0xFF00A36C).copy(alpha = 0.7f))
                             }
                         }
                     }
 
-                    if (state.events.isEmpty()) {
-                        item {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    // 5. Audit Trail Header
+                    item {
+                        var isAuditVisible by remember { mutableStateOf(true) }
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(
-                                    "No historical changes recorded. Use the icons above to log ROI changes or prepayments.",
-                                    modifier = Modifier.padding(16.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable { isAuditVisible = !isAuditVisible }
+                                ) {
+                                    Icon(Icons.Default.History, null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Audit Trail", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                                    Icon(
+                                        if (isAuditVisible) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Row {
+                                    IconButton(onClick = { showRoiDialog = true }) {
+                                        Icon(Icons.Default.TrendingUp, contentDescription = "ROI Change", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    IconButton(onClick = { showPrepaymentDialog = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = "Log Prepayment", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
                             }
-                        }
-                    } else {
-                        items(state.events.sortedByDescending { it.eventDate }) { event ->
-                            LoanEventItem(event, fmt)
+
+                            AnimatedVisibility(visible = isAuditVisible) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    if (state.events.isEmpty()) {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                        ) {
+                                            Text(
+                                                "No historical changes recorded. Use the icons above to log ROI changes or prepayments.",
+                                                modifier = Modifier.padding(16.dp),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    } else {
+                                        state.events.sortedByDescending { it.eventDate }.forEach { event ->
+                                            LoanEventItem(event, fmt)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -387,46 +492,9 @@ fun LoanEventItem(event: LoanEventEntity, fmt: NumberFormat) {
 }
 
 @Composable
-fun StatBox(label: String, value: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = color)
-        }
-    }
-}
-
-@Composable
-fun LegendItem(label: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-        Spacer(Modifier.width(8.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-private fun DonutChart(values: List<Double>, modifier: Modifier = Modifier) {
-    val total = values.sum().takeIf { it > 0 } ?: 1.0
-    val colors = listOf(Color(0xFF7B5CFA), Color(0xFFFF5733))
-    Canvas(modifier = modifier) {
-        var start = -90f
-        val stroke = Stroke(width = 20.dp.toPx())
-        values.forEachIndexed { i, v ->
-            val sweep = (v / total * 360f).toFloat()
-            drawArc(
-                color = colors[i % colors.size],
-                startAngle = start,
-                sweepAngle = sweep,
-                useCenter = false,
-                style = stroke,
-                size = Size(size.width, size.height)
-            )
-            start += sweep
-        }
+fun CompactStatItem(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Black)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

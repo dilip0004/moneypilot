@@ -8,6 +8,7 @@ import kotlin.math.max
 
 data class LoanSnapshot(
     val outstandingPrincipal: Double,
+    val originalPrincipal: Double,
     val totalPrincipalPaid: Double,
     val totalInterestPaid: Double,
     val currentInterestRate: Double,
@@ -17,7 +18,8 @@ data class LoanSnapshot(
     val originalEndDate: LocalDate,
     val interestSavedApprox: Double,
     val tenureSavedMonths: Int,
-    val monthsRemaining: Int
+    val monthsRemaining: Int,
+    val repaymentDay: Int
 )
 
 data class MonthlyPoint(
@@ -56,16 +58,18 @@ object LoanCalculator {
 
         val snapshot = LoanSnapshot(
             outstandingPrincipal = remainingBalance,
+            originalPrincipal = loan.totalAmount,
             totalPrincipalPaid = timeline.filter { !it.date.isAfter(asOf) }.sumOf { it.principalPaid },
             totalInterestPaid = timeline.filter { !it.date.isAfter(asOf) }.sumOf { it.interestPaid },
             currentInterestRate = currentRate,
             currentEmi = currentEmi,
-            nextDueDate = nextDueDate(loan.startDate, asOf),
+            nextDueDate = nextDueDate(loan.repaymentDayOfMonth, asOf),
             expectedEndDate = endDate,
             originalEndDate = originalEndDate,
             interestSavedApprox = interestSaved,
             tenureSavedMonths = tenureSaved,
-            monthsRemaining = ChronoUnit.MONTHS.between(asOf, endDate).toInt().coerceAtLeast(0)
+            monthsRemaining = ChronoUnit.MONTHS.between(asOf, endDate).toInt().coerceAtLeast(0),
+            repaymentDay = loan.repaymentDayOfMonth
         )
 
         return snapshot to timeline
@@ -144,10 +148,12 @@ object LoanCalculator {
         return totalInterest to date
     }
 
-    private fun nextDueDate(start: LocalDate, asOf: LocalDate): LocalDate {
-        val day = start.dayOfMonth
-        var due = asOf.withDayOfMonth(minOf(day, asOf.lengthOfMonth()))
-        if (!due.isAfter(asOf)) due = due.plusMonths(1).withDayOfMonth(minOf(day, due.plusMonths(1).lengthOfMonth()))
+    private fun nextDueDate(repaymentDay: Int, asOf: LocalDate): LocalDate {
+        var due = asOf.withDayOfMonth(minOf(repaymentDay, asOf.lengthOfMonth()))
+        if (!due.isAfter(asOf)) {
+            val nextMonth = asOf.plusMonths(1)
+            due = nextMonth.withDayOfMonth(minOf(repaymentDay, nextMonth.lengthOfMonth()))
+        }
         return due
     }
 }
