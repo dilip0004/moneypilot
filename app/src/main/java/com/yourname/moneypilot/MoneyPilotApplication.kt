@@ -43,10 +43,10 @@ class MoneyPilotApplication : Application(), Configuration.Provider {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelId = "daily_summary_channel"
-            val name = "Daily Financial Summary"
-            val descriptionText = "Evening summary of your daily transactions"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channelId = "money_pilot_notifications"
+            val name = "MoneyPilot Alerts"
+            val descriptionText = "Financial summaries, budget alerts, and reminders"
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(channelId, name, importance).apply {
                 description = descriptionText
             }

@@ -7,6 +7,7 @@ import android.content.Intent
 import com.yourname.moneypilot.data.local.preferences.UserPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
+import android.os.Build
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
@@ -53,19 +54,32 @@ class NotificationScheduler @Inject constructor(
 
         // Set exact alarm that works even in Doze mode
         try {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
-            Timber.d("Daily Summary precision alarm scheduled for $executionTime")
-        } catch (e: SecurityException) {
-            Timber.e(e, "Failed to schedule exact alarm. Falling back to non-exact.")
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerAtMillis,
-                pendingIntent
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                    Timber.d("Daily Summary precision alarm scheduled for $executionTime")
+                } else {
+                    Timber.w("Cannot schedule exact alarms. Falling back to non-exact.")
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                }
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+                Timber.d("Daily Summary precision alarm scheduled for $executionTime")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to schedule alarm.")
         }
     }
 }

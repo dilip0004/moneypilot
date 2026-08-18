@@ -1,5 +1,10 @@
 package com.yourname.moneypilot.ui.features.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -9,7 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import timber.log.Timber
 import androidx.hilt.navigation.compose.hiltViewModel
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -20,8 +29,23 @@ fun NotificationsScreen(
     onPopBackStack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val preferences by viewModel.userPreferences.collectAsState()
     var showTimePicker by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        Timber.d("Notifications: Permission granted: $isGranted")
+    }
+
+    fun checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
     
     // Formatter for UI display (12h with AM/PM)
     val uiFormatter = DateTimeFormatter.ofPattern("hh:mm a")
@@ -86,7 +110,10 @@ fun NotificationsScreen(
                 }
                 Switch(
                     checked = preferences?.dailySummaryEnabled ?: true,
-                    onCheckedChange = { viewModel.updateDailySummaryEnabled(it) }
+                    onCheckedChange = { 
+                        viewModel.updateDailySummaryEnabled(it)
+                        if (it) checkAndRequestNotificationPermission()
+                    }
                 )
             }
 
@@ -116,7 +143,7 @@ fun NotificationsScreen(
                         Text(
                             text = displayTime,
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -164,13 +191,31 @@ fun NotificationsScreen(
             Text("Alerts & Reminders", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Budget Alerts", modifier = Modifier.weight(1f))
-                Switch(checked = true, onCheckedChange = {})
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Budget Alerts", style = MaterialTheme.typography.bodyLarge)
+                    Text("Notify when spending reaches 90% of budget", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = preferences?.budgetAlertsEnabled ?: true,
+                    onCheckedChange = { 
+                        viewModel.updateBudgetAlertsEnabled(it)
+                        if (it) checkAndRequestNotificationPermission()
+                    }
+                )
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Goal Progress", modifier = Modifier.weight(1f))
-                Switch(checked = true, onCheckedChange = {})
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Goal Progress", style = MaterialTheme.typography.bodyLarge)
+                    Text("Weekly updates on your savings goals", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(
+                    checked = preferences?.goalProgressEnabled ?: true,
+                    onCheckedChange = { 
+                        viewModel.updateGoalProgressEnabled(it)
+                        if (it) checkAndRequestNotificationPermission()
+                    }
+                )
             }
         }
     }

@@ -1,6 +1,5 @@
 package com.yourname.moneypilot.worker
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
@@ -67,18 +66,7 @@ class DailySummaryWorker @AssistedInject constructor(
 
     private fun sendCombinedNotification(spent: Double, earned: Double, urgentBillCount: Int) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "money_pilot_alerts"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "Financial Alerts",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Combined Daily Summary and Bill Reminders"
-            }
-            notificationManager.createNotificationChannel(channel)
-        }
+        val channelId = "money_pilot_notifications"
 
         val summaryText = "Spent: ₹${String.format("%.0f", spent)} | Earned: ₹${String.format("%.0f", earned)}"
         val billAlertText = if (urgentBillCount > 0) "\n⚠️ $urgentBillCount Big Bills due soon!" else ""

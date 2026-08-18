@@ -38,7 +38,9 @@ data class UserPreferences(
     val lastAutoReserveMonth: String = "",
     val showSpendingInsights: Boolean = false,
     val showBurnRateAlerts: Boolean = false,
-    val showCategoryAlerts: Boolean = false
+    val showCategoryAlerts: Boolean = false,
+    val budgetAlertsEnabled: Boolean = true,
+    val goalProgressEnabled: Boolean = true
 )
 
 @Singleton
@@ -66,6 +68,8 @@ class UserPreferencesRepository @Inject constructor(
         val SHOW_SPENDING_INSIGHTS = booleanPreferencesKey("show_spending_insights")
         val SHOW_BURN_RATE_ALERTS = booleanPreferencesKey("show_burn_rate_alerts")
         val SHOW_CATEGORY_ALERTS = booleanPreferencesKey("show_category_alerts")
+        val BUDGET_ALERTS_ENABLED = booleanPreferencesKey("budget_alerts_enabled")
+        val GOAL_PROGRESS_ENABLED = booleanPreferencesKey("goal_progress_enabled")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -99,13 +103,16 @@ class UserPreferencesRepository @Inject constructor(
             val spendingInsights = preferences[PreferencesKeys.SHOW_SPENDING_INSIGHTS] ?: false
             val burnRateAlerts = preferences[PreferencesKeys.SHOW_BURN_RATE_ALERTS] ?: false
             val categoryAlerts = preferences[PreferencesKeys.SHOW_CATEGORY_ALERTS] ?: false
+            val budgetAlerts = preferences[PreferencesKeys.BUDGET_ALERTS_ENABLED] ?: true
+            val goalProgress = preferences[PreferencesKeys.GOAL_PROGRESS_ENABLED] ?: true
 
             UserPreferences(
                 currency, theme, primaryColor, kbBgColor, kbBoxColor, 
                 useDynamicColor, useBiometrics, threshold, summaryEnabled, 
                 summaryTime, useTrueBlack, fontFamily, privacyMode, includeGoals,
                 lastRollover, lastDist, lastReserve,
-                spendingInsights, burnRateAlerts, categoryAlerts
+                spendingInsights, burnRateAlerts, categoryAlerts,
+                budgetAlerts, goalProgress
             )
         }
 
@@ -175,5 +182,13 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun updateShowCategoryAlerts(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.SHOW_CATEGORY_ALERTS] = enabled }
+    }
+
+    suspend fun updateBudgetAlertsEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.BUDGET_ALERTS_ENABLED] = enabled }
+    }
+
+    suspend fun updateGoalProgressEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.GOAL_PROGRESS_ENABLED] = enabled }
     }
 }

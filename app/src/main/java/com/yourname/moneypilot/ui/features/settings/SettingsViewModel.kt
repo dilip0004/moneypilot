@@ -104,4 +104,16 @@ class SettingsViewModel @Inject constructor(
             preferencesRepository.updateShowCategoryAlerts(enabled)
         }
     }
+
+    fun updateBudgetAlertsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateBudgetAlertsEnabled(enabled)
+        }
+    }
+
+    fun updateGoalProgressEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.updateGoalProgressEnabled(enabled)
+        }
+    }
 }
