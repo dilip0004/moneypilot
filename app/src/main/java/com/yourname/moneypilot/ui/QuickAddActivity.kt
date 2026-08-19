@@ -10,6 +10,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.yourname.moneypilot.ui.features.transactions.TransferScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionScreen
 import com.yourname.moneypilot.ui.features.transactions.AddEditTransactionViewModel
 import com.yourname.moneypilot.ui.theme.MoneyPilotTheme
@@ -32,7 +37,9 @@ class QuickAddActivity : ComponentActivity() {
 
 @Composable
 fun QuickAddWrapper(onFinish: () -> Unit) {
+    var showTransfer by remember { mutableStateOf(false) }
     val viewModel: AddEditTransactionViewModel = hiltViewModel()
+    
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
             if (event is AddEditTransactionViewModel.UiEvent.SaveTransaction) {
@@ -40,8 +47,15 @@ fun QuickAddWrapper(onFinish: () -> Unit) {
             }
         }
     }
-    AddEditTransactionScreen(
-        onPopBackStack = onFinish,
-        onNavigateToTransfer = { /* No transfer needed in quick add */ }
-    )
+
+    if (showTransfer) {
+        TransferScreen(onPopBackStack = { 
+            if (viewModel.state.value.typeInferred) onFinish() else showTransfer = false 
+        })
+    } else {
+        AddEditTransactionScreen(
+            onPopBackStack = onFinish,
+            onNavigateToTransfer = { showTransfer = true }
+        )
+    }
 }

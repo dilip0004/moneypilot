@@ -83,16 +83,20 @@ fun AddEditTransactionScreen(
         initialMinute = state.date.minute
     )
 
-    // Skip intent selection if editing or if intent was already inferred (e.g. from SMS)
-    LaunchedEffect(state.isEditing, state.reviewMode) {
-        if (state.isEditing || state.reviewMode) {
-            selectedIntent = when {
-                state.isRefund -> QuickRecordIntent.REFUND
-                state.loanId != null -> QuickRecordIntent.LOAN
-                state.goalId != null -> QuickRecordIntent.GOAL
-                state.investmentId != null -> QuickRecordIntent.INVESTMENT
-                state.type == TransactionType.Income -> QuickRecordIntent.INCOME
-                else -> QuickRecordIntent.EXPENSE
+    // Skip intent selection if editing or if intent was already inferred (e.g. from SMS or Widget)
+    LaunchedEffect(state.isEditing, state.reviewMode, state.typeInferred) {
+        if (state.isEditing || state.reviewMode || state.typeInferred) {
+            if (state.type == TransactionType.Transfer) {
+                onNavigateToTransfer()
+            } else {
+                selectedIntent = when {
+                    state.isRefund -> QuickRecordIntent.REFUND
+                    state.loanId != null -> QuickRecordIntent.LOAN
+                    state.goalId != null -> QuickRecordIntent.GOAL
+                    state.investmentId != null -> QuickRecordIntent.INVESTMENT
+                    state.type == TransactionType.Income -> QuickRecordIntent.INCOME
+                    else -> QuickRecordIntent.EXPENSE
+                }
             }
         }
     }

@@ -36,7 +36,8 @@ data class AddEditTransactionState(
     val investments: List<InvestmentEntity> = emptyList(),
     val availableTags: List<TagEntity> = emptyList(),
     val selectedTagIds: Set<Long> = emptySet(),
-    val isEditing: Boolean = false
+    val isEditing: Boolean = false,
+    val typeInferred: Boolean = false
 )
 
 sealed class AddEditTransactionEvent {
@@ -120,7 +121,16 @@ class AddEditTransactionViewModel @Inject constructor(
                     transaction.categoryId?.let { loadSubcategories(it) }
                 }
             } else {
-                _typeFlow.value = TransactionType.Expense
+                val initialTypeStr = savedStateHandle.get<String>("type")
+                val initialType = if (initialTypeStr != null) {
+                    try { TransactionType.valueOf(initialTypeStr) } catch (_: Exception) { TransactionType.Expense }
+                } else {
+                    TransactionType.Expense
+                }
+                
+                _typeFlow.value = initialType
+                _state.update { it.copy(type = initialType, typeInferred = initialTypeStr != null) }
+                
                 if (fromSms) {
                     _state.update { it.copy(reviewMode = true) }
                 }

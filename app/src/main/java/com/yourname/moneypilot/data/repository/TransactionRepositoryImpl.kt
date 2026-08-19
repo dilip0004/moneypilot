@@ -3,11 +3,17 @@ package com.yourname.moneypilot.data.repository
 import androidx.room.Transaction
 import com.yourname.moneypilot.data.local.database.dao.*
 import com.yourname.moneypilot.data.local.database.entities.*
+import com.yourname.moneypilot.widget.QuickAddWidget
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.LocalTime
 import javax.inject.Inject
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 class TransactionRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao,
@@ -16,7 +22,8 @@ class TransactionRepositoryImpl @Inject constructor(
     private val loanDao: LoanDao,
     private val investmentDao: InvestmentDao,
     private val budgetDao: BudgetDao,
-    private val tagDao: TagDao
+    private val tagDao: TagDao,
+    @ApplicationContext private val context: Context
 ) : TransactionRepository {
 
     override fun getAllTransactionsWithDetails(): Flow<List<TransactionWithDetails>> =
@@ -56,6 +63,7 @@ class TransactionRepositoryImpl @Inject constructor(
         }
         
         applyFinancialImpact(transaction, 1.0)
+        refreshWidget()
     }
 
     @Transaction
@@ -67,6 +75,7 @@ class TransactionRepositoryImpl @Inject constructor(
         transactionDao.insert(transaction)
         walletDao.updateBalance(fromId, -transaction.amount)
         walletDao.updateBalance(toId, transaction.amount)
+        refreshWidget()
     }
 
     @Transaction
@@ -98,6 +107,7 @@ class TransactionRepositoryImpl @Inject constructor(
         } else {
             applyFinancialImpact(transaction, 1.0)
         }
+        refreshWidget()
     }
 
     @Transaction
@@ -111,6 +121,7 @@ class TransactionRepositoryImpl @Inject constructor(
             applyFinancialImpact(transaction, -1.0)
         }
         transactionDao.delete(transaction)
+        refreshWidget()
     }
 
     override fun getTagsForTransaction(transactionId: String): Flow<List<TagEntity>> =
@@ -224,4 +235,14 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getTotalSumByType(type: TransactionType, startDate: LocalDateTime, endDate: LocalDateTime): Double? =
         transactionDao.getTotalSumByType(type, startDate, endDate)
+
+    private fun refreshWidget() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                QuickAddWidget.update(context)
+            } catch (_: Exception) {
+                // Ignore widget update errors
+            }
+        }
+    }
 }
