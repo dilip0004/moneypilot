@@ -166,11 +166,22 @@ class AddEditInvestmentViewModel @Inject constructor(
                 val avgPrice = s.averagePrice.toDoubleOrNull() ?: 0.0
                 val currentPrice = s.currentPrice.toDoubleOrNull() ?: avgPrice
                 
+                // MAPPING FIX: Standardize quantity/price for all types (Fixes ₹0 bug)
+                val (qtyValue, avgPriceValue, currentPriceValue) = when (s.type) {
+                    "STOCKS", "CRYPTO", "GOLD" -> Triple(qty, avgPrice, currentPrice)
+                    "REAL_ESTATE" -> Triple(1.0, s.purchaseValue.toDoubleOrNull() ?: 0.0, s.currentValuation.toDoubleOrNull() ?: s.purchaseValue.toDoubleOrNull() ?: 0.0)
+                    "FD" -> Triple(s.principal.toDoubleOrNull() ?: 0.0, 1.0, 1.0)
+                    "RD" -> Triple(s.currentBalance.toDoubleOrNull() ?: 0.0, 1.0, 1.0)
+                    "PPF" -> Triple(s.currentBalance.toDoubleOrNull() ?: 0.0, 1.0, 1.0)
+                    "SIP" -> Triple(0.0, 1.0, 1.0) // SIP usually starts with 0 balance
+                    else -> Triple(qty, avgPrice, currentPrice)
+                }
+
                 val investedAmount = when (s.type) {
                     "STOCKS", "CRYPTO", "GOLD" -> qty * avgPrice
                     "FD" -> s.principal.toDoubleOrNull() ?: 0.0
                     "RD" -> s.monthlyInstallment.toDoubleOrNull() ?: 0.0
-                    "PPF" -> 0.0 // PPF often starts with 0 or a first contribution
+                    "PPF" -> 0.0 // Handled via initial balance usually
                     "SIP" -> s.sipAmount.toDoubleOrNull() ?: 0.0
                     "REAL_ESTATE" -> s.purchaseValue.toDoubleOrNull() ?: 0.0
                     else -> 0.0
@@ -241,9 +252,9 @@ class AddEditInvestmentViewModel @Inject constructor(
                     name = s.name,
                     type = s.type,
                     symbol = s.symbol,
-                    quantity = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.quantity ?: 0.0 else qty,
-                    averagePrice = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.averagePrice ?: 0.0 else avgPrice,
-                    currentPrice = currentPrice,
+                    quantity = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.quantity ?: qtyValue else qtyValue,
+                    averagePrice = if (s.isEditMode) investmentRepository.getInvestmentById(currentInvestmentId!!)?.averagePrice ?: avgPriceValue else avgPriceValue,
+                    currentPrice = currentPriceValue,
                     currency = s.currency,
                     startDate = s.startDate,
                     extraData = extraJson,

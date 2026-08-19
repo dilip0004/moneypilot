@@ -1,26 +1,19 @@
 package com.yourname.moneypilot.ui.features.settings
 
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,8 +24,22 @@ fun SettingsScreen(
     onNavigateToNotifications: () -> Unit,
     onNavigateToBackup: () -> Unit,
     onNavigateToDiagnostics: () -> Unit,
-    onNavigateToWebApp: () -> Unit
+    onNavigateToWebApp: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+    mainViewModel: MainViewModel = hiltViewModel()
 ) {
+    val preferences by viewModel.userPreferences.collectAsState()
+    var showReserveWalletDialog by remember { mutableStateOf(false) }
+
+    if (showReserveWalletDialog) {
+        AlertDialog(
+            onDismissRequest = { showReserveWalletDialog = false },
+            title = { Text("Default Reserve Account") },
+            text = { Text("Configure the account where you set aside money for planned expenses.") },
+            confirmButton = { TextButton(onClick = { showReserveWalletDialog = false }) { Text("Close") } }
+        )
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
@@ -66,6 +73,15 @@ fun SettingsScreen(
                 subtitle = "Reminders and budget alerts",
                 icon = Icons.Default.Notifications,
                 onClick = onNavigateToNotifications
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SettingsHeader("Financial Planning")
+            SettingsItem(
+                title = "Reserve Account",
+                subtitle = "Default account for planned expense savings",
+                icon = Icons.Default.Savings,
+                onClick = { showReserveWalletDialog = true }
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))

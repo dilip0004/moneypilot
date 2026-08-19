@@ -361,8 +361,9 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
                         navController.navigate(route)
                     },
                     onAddInvestment = { navController.navigate("add_investment") }, 
-                    onAddBigBill = { navController.navigate("add_big_bill") }, 
-                    onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") }
+                    onAddPlannedExpense = { navController.navigate("add_big_bill") }, 
+                    onEditBigBill = { navController.navigate("add_big_bill?bigBillId=$it") },
+                    onInvestmentClick = { navController.navigate("investment_details/$it") }
                 ) 
             }
             composable(Screen.Settings.route) { SettingsScreen(onNavigateToCategories = { navController.navigate("categories") }, onNavigateToAppearance = { navController.navigate("appearance") }, onNavigateToSecurity = { navController.navigate("security") }, onNavigateToNotifications = { navController.navigate("notifications") }, onNavigateToBackup = { navController.navigate("backup") }, onNavigateToDiagnostics = { navController.navigate("diagnostics") }, onNavigateToWebApp = { navController.navigate("webapp_access") } ) }
@@ -384,7 +385,13 @@ fun MainScreen(intent: Intent?, mainViewModel: MainViewModel) {
             composable("add_transaction?date={date}&transactionId={transactionId}", arguments = listOf(navArgument("date") { type = NavType.StringType; nullable = true; defaultValue = null }, navArgument("transactionId") { type = NavType.StringType; nullable = true; defaultValue = null })) { AddEditTransactionScreen(onPopBackStack = { navController.popBackStack() }, onNavigateToTransfer = { navController.navigate("transfer") }) }
             composable("add_goal?goalId={goalId}", arguments = listOf(navArgument("goalId") { type = NavType.LongType; defaultValue = -1L })) { AddEditGoalScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_investment?investmentId={investmentId}", arguments = listOf(navArgument("investmentId") { type = NavType.LongType; defaultValue = -1L })) { AddEditInvestmentScreen(onPopBackStack = { navController.popBackStack() }) }
-            composable("add_big_bill?bigBillId={bigBillId}", arguments = listOf(navArgument("bigBillId") { type = NavType.LongType; defaultValue = -1L })) { AddEditBigBillScreen(onPopBackStack = { navController.popBackStack() }) }
+            composable("investment_details/{investmentId}", arguments = listOf(navArgument("investmentId") { type = NavType.LongType })) {
+                InvestmentDetailsScreen(
+                    onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate("add_investment?investmentId=$it") }
+                )
+            }
+            composable("add_big_bill?bigBillId={bigBillId}", arguments = listOf(navArgument("bigBillId") { type = NavType.LongType; defaultValue = -1L })) { AddEditPlannedExpenseScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("add_loan?loanId={loanId}", arguments = listOf(navArgument("loanId") { type = NavType.LongType; defaultValue = -1L })) { AddEditLoanScreen(onPopBackStack = { navController.popBackStack() }) }
             composable("transfer") { TransferScreen(onPopBackStack = { navController.popBackStack() }) }
             composable(

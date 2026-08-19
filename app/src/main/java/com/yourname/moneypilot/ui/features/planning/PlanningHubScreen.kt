@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import com.yourname.moneypilot.ui.features.planning.PlannedExpensesScreen
 import com.yourname.moneypilot.ui.features.budgets.BudgetsScreen
 import com.yourname.moneypilot.ui.features.distribution.DistributionScreen
 import com.yourname.moneypilot.ui.features.goals.GoalsScreen
@@ -25,12 +26,13 @@ fun PlanningHubScreen(
     onAddBudget: (String?) -> Unit,
     onEditBudget: (Long, String?) -> Unit,
     onAddInvestment: () -> Unit,
-    onAddBigBill: () -> Unit,
+    onInvestmentClick: (Long) -> Unit,
+    onAddPlannedExpense: () -> Unit,
     onEditBigBill: (Long) -> Unit
 ) {
     // Persist selected tab across navigation
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Goals", "Budgets", "Investments", "Big Bills", "Forecast", "Simulate", "Distribution")
+    val tabs = listOf("Goals", "Budgets", "Investments", "Planned Expenses", "Forecast", "Simulate", "Distribution")
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -90,11 +92,12 @@ fun PlanningHubScreen(
                     onEditBudget = onEditBudget
                 )
                 2 -> InvestmentsScreen(
-                    onAddInvestment = onAddInvestment
+                    onAddInvestment = onAddInvestment,
+                    onInvestmentClick = onInvestmentClick
                 )
-                3 -> BigBillsScreen(
-                    onAddBigBill = onAddBigBill,
-                    onEditBigBill = onEditBigBill
+                3 -> PlannedExpensesScreen(
+                    onAddPlannedExpense = onAddPlannedExpense,
+                    onEditPlannedExpense = onEditBigBill
                 )
                 4 -> ForecastScreen()
                 5 -> WhatIfSimulationScreen()

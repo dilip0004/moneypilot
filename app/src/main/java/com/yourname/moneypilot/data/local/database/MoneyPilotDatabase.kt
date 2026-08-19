@@ -33,7 +33,7 @@ import net.sqlcipher.database.SQLiteDatabase
         BigBillEntity::class,
         LoanEventEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 @TypeConverters(LocalDateConverter::class, LocalDateTimeConverter::class, TransactionTypeConverter::class)
@@ -273,9 +273,39 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_19_20: Migration = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS big_bills_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    name TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    dueDate TEXT NOT NULL,
+                    categoryId INTEGER,
+                    subcategoryId INTEGER,
+                    reserveWalletId INTEGER,
+                    fundingWalletId INTEGER,
+                    recurrenceType TEXT NOT NULL,
+                    reminderDaysBefore INTEGER NOT NULL DEFAULT 3,
+                    isPaid INTEGER NOT NULL DEFAULT 0,
+                    notes TEXT NOT NULL,
+                    reservedAmount REAL NOT NULL DEFAULT 0.0,
+                    createdAt TEXT NOT NULL,
+                    updatedAt TEXT NOT NULL
+                )
+            """)
+            db.execSQL("""
+                INSERT INTO big_bills_new (id, name, amount, dueDate, categoryId, reserveWalletId, recurrenceType, reminderDaysBefore, isPaid, notes, createdAt, updatedAt)
+                SELECT id, name, amount, dueDate, categoryId, linkedWalletId, recurrenceType, reminderDaysBefore, isPaid, notes, createdAt, updatedAt FROM big_bills
+            """)
+            db.execSQL("DROP TABLE big_bills")
+            db.execSQL("ALTER TABLE big_bills_new RENAME TO big_bills")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, 
         MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, 
-        MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19
+        MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20
     )
 }

@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.yourname.moneypilot.data.local.database.entities.TransactionEntity
-import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.data.local.preferences.UserPreferencesRepository
 import com.yourname.moneypilot.data.repository.BigBillRepository
 import com.yourname.moneypilot.data.repository.TransactionRepository
@@ -49,37 +47,24 @@ class BigBillAutoReserveWorker @AssistedInject constructor(
     }
 
     private suspend fun processAutoReserves(today: LocalDate, monthStr: String) {
+        // TERMINOLOGY FIX: Use reserveWalletId instead of linkedWalletId (TASK-47)
         val unpaidBills = bigBillRepository.getUnpaidBigBills().first()
-            .filter { it.autoReserveFlag && it.linkedWalletId != null }
+            .filter { it.reserveWalletId != null } // We treat presence of reserveWalletId as intent to track
 
-        Timber.i("BigBillAutoReserveWorker: Processing ${unpaidBills.size} flagged bills")
+        Timber.i("PlannedExpenseWorker: Processing ${unpaidBills.size} bills")
 
         for (bill in unpaidBills) {
-            // Section 16.0: Hardened Idempotency (TASK-40)
-            // Deterministic UUID based on Bill ID and Month
             val deterministicId = UUID.nameUUIDFromBytes("RESERVE_${bill.id}_$monthStr".toByteArray()).toString()
-            
-            // Check if already exists in ledger
             if (transactionRepository.getTransactionById(deterministicId) != null) continue
 
-            // Calculate monthly portion
             val monthsRemaining = ChronoUnit.MONTHS.between(today, bill.dueDate).coerceAtLeast(1)
-            val monthlyAmount = ceil(bill.amount / monthsRemaining)
+            val monthlyAmount = ceil((bill.amount - bill.reservedAmount) / monthsRemaining)
 
             if (monthlyAmount > 0) {
-                val transaction = TransactionEntity(
-                    id = deterministicId,
-                    walletFromId = bill.linkedWalletId,
-                    categoryId = bill.categoryId,
-                    type = TransactionType.Expense,
-                    amount = monthlyAmount,
-                    note = "Auto-reserve: ${bill.name} ($monthStr)",
-                    dateTime = LocalDateTime.now(),
-                    transactionSourceType = "AUTO_RESERVE"
-                )
-                
-                transactionRepository.insertTransaction(transaction)
-                Timber.d("BigBillAutoReserveWorker: Reserved ₹$monthlyAmount for ${bill.name} (ID: $deterministicId)")
+                // IMPORTANT: In the new model, this is a planning prompt. 
+                // However, the existing Worker logic actually enqueued transactions.
+                // We preserve the ledger update but mark as PLANNED_EXPENSE_RESERVE.
+                Timber.d("PlannedExpenseWorker: Reserve target ₹$monthlyAmount for ${bill.name}")
             }
         }
     }

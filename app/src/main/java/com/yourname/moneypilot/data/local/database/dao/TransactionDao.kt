@@ -160,6 +160,12 @@ interface TransactionDao {
         endDate: LocalDateTime
     ): Double?
 
+    @Query("SELECT * FROM transactions WHERE investment_id = :investmentId AND soft_deleted = 0 ORDER BY dateTime DESC")
+    fun getTransactionsForInvestment(investmentId: Long): Flow<List<TransactionWithDetails>>
+
+    @Query("SELECT * FROM transactions WHERE investment_id IS NOT NULL AND soft_deleted = 0 ORDER BY dateTime DESC LIMIT :limit")
+    fun getRecentInvestmentTransactions(limit: Int): Flow<List<TransactionWithDetails>>
+
     @Query("SELECT COUNT(*) FROM transactions WHERE soft_deleted = 0")
     suspend fun getTransactionCount(): Int
 }

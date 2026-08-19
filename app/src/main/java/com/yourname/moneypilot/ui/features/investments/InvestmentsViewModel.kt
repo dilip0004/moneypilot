@@ -1,6 +1,7 @@
 package com.yourname.moneypilot.ui.features.investments
 
 import androidx.lifecycle.viewModelScope
+import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.*
 import com.yourname.moneypilot.data.repository.InvestmentRepository
 import com.yourname.moneypilot.data.repository.TransactionRepository
@@ -10,6 +11,8 @@ import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
 import java.time.LocalDateTime
 import java.util.UUID
 import javax.inject.Inject
@@ -17,6 +20,7 @@ import javax.inject.Inject
 data class InvestmentState(
     val investments: List<InvestmentEntity> = emptyList(),
     val wallets: List<WalletEntity> = emptyList(),
+    val recentActivity: List<TransactionWithDetails> = emptyList(),
     val totalValue: Double = 0.0,
     val totalInvested: Double = 0.0,
     val totalGain: Double = 0.0,
@@ -39,34 +43,23 @@ class InvestmentsViewModel @Inject constructor(
             _uiState.value = ScreenState.Loading
             combine(
                 investmentRepository.getAllInvestments(),
-                walletRepository.getAllWallets()
-            ) { investments, wallets ->
+                walletRepository.getAllWallets(),
+                transactionRepository.getRecentInvestmentTransactions(10)
+            ) { investments, wallets, activity ->
                 var totalValue = 0.0
                 var totalInvested = 0.0
 
                 investments.forEach { inv ->
-                    when (inv.type) {
-                        "STOCKS", "CRYPTO", "GOLD" -> {
-                            totalValue += inv.quantity * inv.currentPrice
-                            totalInvested += inv.quantity * inv.averagePrice
-                        }
-                        "FD", "RD", "PPF" -> {
-                            totalValue += inv.currentPrice
-                            totalInvested += inv.averagePrice
-                        }
-                        "REAL_ESTATE" -> {
-                            totalValue += inv.currentPrice
-                            totalInvested += inv.averagePrice
-                        }
-                        "SIP" -> {
-                            totalValue += inv.currentPrice
-                            totalInvested += inv.averagePrice
-                        }
-                        else -> {
-                            totalValue += inv.quantity * inv.currentPrice
-                            totalInvested += inv.quantity * inv.averagePrice
-                        }
-                    }
+                    // Fallback for legacy records (TASK-INVESTMENT-FIX)
+                    val effectiveQty = if (inv.quantity == 0.0 && inv.type != "SIP") {
+                        try {
+                            val extra = inv.extraData?.let { Json.decodeFromString<InvestmentExtraData>(it) }
+                            extra?.currentBalance ?: extra?.purchaseValue ?: 0.0
+                        } catch (e: Exception) { 0.0 }
+                    } else inv.quantity
+
+                    totalValue += effectiveQty * inv.currentPrice
+                    totalInvested += effectiveQty * inv.averagePrice
                 }
 
                 val totalGain = totalValue - totalInvested
@@ -75,13 +68,18 @@ class InvestmentsViewModel @Inject constructor(
                 InvestmentState(
                     investments = investments,
                     wallets = wallets,
+                    recentActivity = activity,
                     totalValue = totalValue,
                     totalInvested = totalInvested,
                     totalGain = totalGain,
                     gainPercentage = gainPct
                 )
             }.collectLatest { state ->
-                _uiState.value = ScreenState.Success(state)
+                if (state.investments.isEmpty() && state.recentActivity.isEmpty()) {
+                    _uiState.value = ScreenState.Empty
+                } else {
+                    _uiState.value = ScreenState.Success(state)
+                }
             }
         }
     }

@@ -32,6 +32,9 @@ interface TransactionRepository {
     fun getAllTags(): Flow<List<TagEntity>>
     suspend fun insertTag(tag: TagEntity): Long
     
+    fun getTransactionsForInvestment(investmentId: Long): Flow<List<TransactionWithDetails>>
+    fun getRecentInvestmentTransactions(limit: Int): Flow<List<TransactionWithDetails>>
+
     suspend fun getCategoryExpenseSum(categoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double
     suspend fun getSubcategoryExpenseSum(subcategoryId: Long, startDate: LocalDateTime, endDate: LocalDateTime): Double
     suspend fun getTotalSumByType(type: TransactionType, startDate: LocalDateTime, endDate: LocalDateTime): Double?

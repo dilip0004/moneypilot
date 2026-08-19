@@ -1,8 +1,10 @@
 package com.yourname.moneypilot.ui.features.investments
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
@@ -30,6 +32,7 @@ import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 @Composable
 fun InvestmentsScreen(
     onAddInvestment: () -> Unit,
+    onInvestmentClick: (Long) -> Unit,
     viewModel: InvestmentsViewModel = hiltViewModel(),
     mainViewModel: MainViewModel = hiltViewModel()
 ) {
@@ -40,16 +43,22 @@ fun InvestmentsScreen(
     var showBuyDialog by remember { mutableStateOf<InvestmentEntity?>(null) }
     var showSellDialog by remember { mutableStateOf<InvestmentEntity?>(null) }
 
-    // Buy Dialog
+    val wallets = (uiState as? ScreenState.Success)?.data?.wallets ?: emptyList()
+
+    // Buy Dialog (Refined to use dynamic labeling)
     if (showBuyDialog != null) {
-        val wallets = (uiState as? ScreenState.Success)?.data?.wallets ?: emptyList()
+        val investment = showBuyDialog!!
+        val actionLabel = when(investment.type) {
+            "STOCKS", "CRYPTO" -> "Buy More"
+            else -> "Add Contribution"
+        }
         InvestmentActionDialog(
-            title = "Buy more ${showBuyDialog!!.name}",
-            confirmLabel = "Buy",
+            title = "$actionLabel - ${investment.name}",
+            confirmLabel = if(investment.type == "STOCKS" || investment.type == "CRYPTO") "Buy" else "Add",
             wallets = wallets,
             onDismiss = { showBuyDialog = null },
             onConfirm = { amount, walletId ->
-                viewModel.buyAsset(showBuyDialog!!.id, amount, walletId)
+                viewModel.buyAsset(investment.id, amount, walletId)
                 showBuyDialog = null
             }
         )
@@ -72,9 +81,15 @@ fun InvestmentsScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        floatingActionButtonPosition = FabPosition.End,
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddInvestment) {
+            FloatingActionButton(
+                onClick = onAddInvestment,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .padding(bottom = 16.dp) // Extra spacing from bottom nav
+                    .testTag("investment_add_fab")
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Investment")
             }
         }
@@ -89,7 +104,8 @@ fun InvestmentsScreen(
                         data = state.data, 
                         isPrivacyMode = isPrivacyMode,
                         onBuy = { showBuyDialog = it },
-                        onSell = { showSellDialog = it }
+                        onSell = { showSellDialog = it },
+                        onInvestmentClick = onInvestmentClick
                     )
                 }
                 is ScreenState.Empty -> {
@@ -108,23 +124,37 @@ fun InvestmentList(
     data: InvestmentState, 
     isPrivacyMode: Boolean,
     onBuy: (InvestmentEntity) -> Unit,
-    onSell: (InvestmentEntity) -> Unit
+    onSell: (InvestmentEntity) -> Unit,
+    onInvestmentClick: (Long) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+        contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
     ) {
         item {
-            PortfolioHeroCard(data.totalValue, data.totalGain, data.gainPercentage, isPrivacyMode)
+            PortfolioHeroCard(data, isPrivacyMode)
         }
         
-        item {
-            Text("Your Holdings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (data.investments.isNotEmpty()) {
+            item {
+                Text("Your Holdings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+
+            items(data.investments, key = { it.id }) { investment ->
+                InvestmentItem(investment, isPrivacyMode, onBuy, onSell, onInvestmentClick)
+            }
         }
 
-        items(data.investments) { investment ->
-            InvestmentItem(investment, isPrivacyMode, onBuy, onSell)
+        if (data.recentActivity.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Investment Activity", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+
+            items(data.recentActivity) { activity ->
+                InvestmentActivityItem(activity, isPrivacyMode)
+            }
         }
     }
 }
@@ -134,23 +164,29 @@ fun InvestmentItem(
     investment: InvestmentEntity, 
     isPrivacyMode: Boolean,
     onBuy: (InvestmentEntity) -> Unit,
-    onSell: (InvestmentEntity) -> Unit
+    onSell: (InvestmentEntity) -> Unit,
+    onInvestmentClick: (Long) -> Unit
 ) {
     val financeColors = LocalFinanceColors.current
-    val totalHoldings = when (investment.type) {
-        "STOCKS", "CRYPTO", "GOLD" -> investment.quantity * investment.currentPrice
-        else -> investment.currentPrice
-    }
-    val totalInvested = when (investment.type) {
-        "STOCKS", "CRYPTO", "GOLD" -> investment.quantity * investment.averagePrice
-        else -> investment.averagePrice
-    }
+    
+    // Fallback for legacy records
+    val effectiveQty = if (investment.quantity == 0.0 && investment.type != "SIP") {
+        try {
+            val extra = investment.extraData?.let { kotlinx.serialization.json.Json.decodeFromString<InvestmentExtraData>(it) }
+            extra?.currentBalance ?: extra?.purchaseValue ?: 0.0
+        } catch (e: Exception) { 0.0 }
+    } else investment.quantity
+
+    val totalHoldings = effectiveQty * investment.currentPrice
+    val totalInvested = effectiveQty * investment.averagePrice
     val totalGain = totalHoldings - totalInvested
     val isProfit = totalGain >= 0
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp), // Slightly more compact
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onInvestmentClick(investment.id) },
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
@@ -305,43 +341,102 @@ fun InvestmentActionDialog(
 }
 
 @Composable
-fun PortfolioHeroCard(totalValue: Double, gain: Double, gainPct: Double, isPrivacyMode: Boolean) {
+fun PortfolioHeroCard(data: InvestmentState, isPrivacyMode: Boolean) {
     val financeColors = LocalFinanceColors.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Total Portfolio Value", style = MaterialTheme.typography.labelMedium)
+            Text("Total Portfolio Value", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Text(
-                text = if(isPrivacyMode) "••••" else "₹ ${String.format("%.0f", totalValue)}",
+                text = if(isPrivacyMode) "••••" else "₹ ${String.format("%.0f", data.totalValue)}",
                 style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.Black
             )
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val isProfit = gain >= 0
-                Icon(
-                    imageVector = if (isProfit) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
-                    contentDescription = null,
-                    tint = if (isProfit) financeColors.income else financeColors.expense,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                val gainText = if(isPrivacyMode) "••••" else "${if (isProfit) "+" else ""}₹${gain.toInt()} (${String.format("%.1f", gainPct)}%)"
-                Text(
-                    text = gainText,
-                    color = if (isProfit) financeColors.income else financeColors.expense,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Invested", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        if(isPrivacyMode) "••••" else "₹ ${String.format("%.0f", data.totalInvested)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                VerticalDivider(modifier = Modifier.height(32.dp))
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val isProfit = data.totalGain >= 0
+                    Text("Total Gain", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = if(isPrivacyMode) "••••" else "${if (isProfit) "+" else ""}₹${data.totalGain.toInt()}",
+                        color = if (isProfit) financeColors.income else financeColors.expense,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+fun InvestmentActivityItem(activity: com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails, isPrivacyMode: Boolean) {
+    val tx = activity.transaction
+    val financeColors = LocalFinanceColors.current
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                val icon = when(tx.transactionSourceType) {
+                    "INVESTMENT_BUY" -> Icons.Default.Add
+                    "INVESTMENT_SELL" -> Icons.Default.Remove
+                    else -> Icons.Default.Payment
+                }
+                Icon(icon, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = activity.investment?.name ?: "Investment",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = tx.dateTime.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        
+        Text(
+            text = if(isPrivacyMode) "••••" else "₹ ${tx.amount.toInt()}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Black,
+            color = if (tx.type == com.yourname.moneypilot.data.local.database.entities.TransactionType.Income) financeColors.income else financeColors.expense
+        )
     }
 }

@@ -122,6 +122,12 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun insertTag(tag: TagEntity): Long =
         tagDao.insertTag(tag)
 
+    override fun getTransactionsForInvestment(investmentId: Long): Flow<List<TransactionWithDetails>> =
+        transactionDao.getTransactionsForInvestment(investmentId)
+
+    override fun getRecentInvestmentTransactions(limit: Int): Flow<List<TransactionWithDetails>> =
+        transactionDao.getRecentInvestmentTransactions(limit)
+
     private suspend fun applyFinancialImpact(tx: TransactionEntity, multiplier: Double) {
         val amount = tx.amount * multiplier
         

@@ -40,7 +40,8 @@ data class UserPreferences(
     val showBurnRateAlerts: Boolean = false,
     val showCategoryAlerts: Boolean = false,
     val budgetAlertsEnabled: Boolean = true,
-    val goalProgressEnabled: Boolean = true
+    val goalProgressEnabled: Boolean = true,
+    val globalReserveWalletId: Long? = null
 )
 
 @Singleton
@@ -70,6 +71,7 @@ class UserPreferencesRepository @Inject constructor(
         val SHOW_CATEGORY_ALERTS = booleanPreferencesKey("show_category_alerts")
         val BUDGET_ALERTS_ENABLED = booleanPreferencesKey("budget_alerts_enabled")
         val GOAL_PROGRESS_ENABLED = booleanPreferencesKey("goal_progress_enabled")
+        val GLOBAL_RESERVE_WALLET_ID = longPreferencesKey("global_reserve_wallet_id")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -105,6 +107,7 @@ class UserPreferencesRepository @Inject constructor(
             val categoryAlerts = preferences[PreferencesKeys.SHOW_CATEGORY_ALERTS] ?: false
             val budgetAlerts = preferences[PreferencesKeys.BUDGET_ALERTS_ENABLED] ?: true
             val goalProgress = preferences[PreferencesKeys.GOAL_PROGRESS_ENABLED] ?: true
+            val globalReserveId = preferences[PreferencesKeys.GLOBAL_RESERVE_WALLET_ID]
 
             UserPreferences(
                 currency, theme, primaryColor, kbBgColor, kbBoxColor, 
@@ -112,7 +115,7 @@ class UserPreferencesRepository @Inject constructor(
                 summaryTime, useTrueBlack, fontFamily, privacyMode, includeGoals,
                 lastRollover, lastDist, lastReserve,
                 spendingInsights, burnRateAlerts, categoryAlerts,
-                budgetAlerts, goalProgress
+                budgetAlerts, goalProgress, globalReserveId
             )
         }
 
@@ -190,5 +193,12 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun updateGoalProgressEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.GOAL_PROGRESS_ENABLED] = enabled }
+    }
+
+    suspend fun updateGlobalReserveWalletId(id: Long?) {
+        context.dataStore.edit { 
+            if (id == null) it.remove(PreferencesKeys.GLOBAL_RESERVE_WALLET_ID)
+            else it[PreferencesKeys.GLOBAL_RESERVE_WALLET_ID] = id 
+        }
     }
 }

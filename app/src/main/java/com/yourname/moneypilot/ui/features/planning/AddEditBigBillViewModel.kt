@@ -18,15 +18,15 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 
 data class AddEditBigBillState(
+    val id: Long = 0L,
     val name: String = "",
     val amount: String = "",
     val dueDate: LocalDate = LocalDate.now(),
     val notes: String = "",
     val isPaid: Boolean = false,
     val categoryId: Long? = null,
-    val linkedWalletId: Long? = null,
+    val reserveWalletId: Long? = null,
     val recurrenceType: BillRecurrence = BillRecurrence.ONCE,
-    val autoReserveFlag: Boolean = false,
     val reminderDaysBefore: String = "3",
     val wallets: List<WalletEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList()
@@ -35,15 +35,12 @@ data class AddEditBigBillState(
 sealed class AddEditBigBillEvent {
     data class EnteredName(val value: String) : AddEditBigBillEvent()
     data class EnteredAmount(val value: String) : AddEditBigBillEvent()
-    data class DateChanged(val value: LocalDate) : AddEditBigBillEvent()
+    data class DueDateChanged(val value: LocalDate) : AddEditBigBillEvent()
     data class EnteredNotes(val value: String) : AddEditBigBillEvent()
-    data class StatusChanged(val value: Boolean) : AddEditBigBillEvent()
     data class CategoryChanged(val value: Long?) : AddEditBigBillEvent()
-    data class WalletChanged(val value: Long?) : AddEditBigBillEvent()
+    data class ReserveWalletChanged(val value: Long?) : AddEditBigBillEvent()
     data class RecurrenceChanged(val value: BillRecurrence) : AddEditBigBillEvent()
-    data class AutoReserveChanged(val value: Boolean) : AddEditBigBillEvent()
-    data class ReminderDaysChanged(val value: String) : AddEditBigBillEvent()
-    object SaveBigBill : AddEditBigBillEvent()
+    object SaveBill : AddEditBigBillEvent()
 }
 
 @HiltViewModel
@@ -57,33 +54,22 @@ class AddEditBigBillViewModel @Inject constructor(
     private val _state = MutableStateFlow(AddEditBigBillState())
     val state: StateFlow<AddEditBigBillState> = _state.asStateFlow()
 
-    private var currentBigBillId: Long? = null
-
-    private val _eventFlow = MutableSharedFlow<UiEvent>()
-    val eventFlow = _eventFlow.asSharedFlow()
-
-    sealed class UiEvent {
-        object SaveBigBill : UiEvent()
-        data class ShowSnackbar(val message: String) : UiEvent()
-    }
-
     init {
         loadData()
         val id = savedStateHandle.get<Long>("bigBillId")
         if (id != null && id != -1L) {
             viewModelScope.launch {
                 bigBillRepository.getBigBillById(id)?.also { bill ->
-                    currentBigBillId = bill.id
                     _state.update { it.copy(
+                        id = bill.id,
                         name = bill.name,
                         amount = bill.amount.toString(),
                         dueDate = bill.dueDate,
                         notes = bill.notes,
                         isPaid = bill.isPaid,
                         categoryId = bill.categoryId,
-                        linkedWalletId = bill.linkedWalletId,
+                        reserveWalletId = bill.reserveWalletId,
                         recurrenceType = bill.recurrenceType,
-                        autoReserveFlag = bill.autoReserveFlag,
                         reminderDaysBefore = bill.reminderDaysBefore.toString()
                     ) }
                 }
@@ -105,19 +91,16 @@ class AddEditBigBillViewModel @Inject constructor(
         when (event) {
             is AddEditBigBillEvent.EnteredName -> _state.update { it.copy(name = event.value) }
             is AddEditBigBillEvent.EnteredAmount -> _state.update { it.copy(amount = event.value) }
-            is AddEditBigBillEvent.DateChanged -> _state.update { it.copy(dueDate = event.value) }
+            is AddEditBigBillEvent.DueDateChanged -> _state.update { it.copy(dueDate = event.value) }
             is AddEditBigBillEvent.EnteredNotes -> _state.update { it.copy(notes = event.value) }
-            is AddEditBigBillEvent.StatusChanged -> _state.update { it.copy(isPaid = event.value) }
             is AddEditBigBillEvent.CategoryChanged -> _state.update { it.copy(categoryId = event.value) }
-            is AddEditBigBillEvent.WalletChanged -> _state.update { it.copy(linkedWalletId = event.value) }
+            is AddEditBigBillEvent.ReserveWalletChanged -> _state.update { it.copy(reserveWalletId = event.value) }
             is AddEditBigBillEvent.RecurrenceChanged -> _state.update { it.copy(recurrenceType = event.value) }
-            is AddEditBigBillEvent.AutoReserveChanged -> _state.update { it.copy(autoReserveFlag = event.value) }
-            is AddEditBigBillEvent.ReminderDaysChanged -> _state.update { it.copy(reminderDaysBefore = event.value) }
-            is AddEditBigBillEvent.SaveBigBill -> saveBigBill()
+            is AddEditBigBillEvent.SaveBill -> saveBill()
         }
     }
 
-    private fun saveBigBill() {
+    private fun saveBill() {
         viewModelScope.launch {
             try {
                 val currentState = _state.value
@@ -135,24 +118,31 @@ class AddEditBigBillViewModel @Inject constructor(
 
                 bigBillRepository.insertBigBill(
                     BigBillEntity(
-                        id = currentBigBillId ?: 0L,
+                        id = currentState.id,
                         name = currentState.name,
                         amount = amountValue,
                         dueDate = currentState.dueDate,
                         categoryId = currentState.categoryId,
-                        linkedWalletId = currentState.linkedWalletId,
+                        reserveWalletId = currentState.reserveWalletId,
                         recurrenceType = currentState.recurrenceType,
-                        autoReserveFlag = currentState.autoReserveFlag,
                         reminderDaysBefore = reminderDays,
                         isPaid = currentState.isPaid,
                         notes = currentState.notes,
                         updatedAt = LocalDateTime.now()
                     )
                 )
-                _eventFlow.emit(UiEvent.SaveBigBill)
+                _eventFlow.emit(UiEvent.SaveBill)
             } catch (e: Exception) {
-                _eventFlow.emit(UiEvent.ShowSnackbar("Could not save big bill: ${e.message}"))
+                _eventFlow.emit(UiEvent.ShowSnackbar("Could not save planned expense: ${e.message}"))
             }
         }
+    }
+
+    private val _eventFlow = MutableSharedFlow<UiEvent>()
+    val eventFlow = _eventFlow.asSharedFlow()
+
+    sealed class UiEvent {
+        object SaveBill : UiEvent()
+        data class ShowSnackbar(val message: String) : UiEvent()
     }
 }

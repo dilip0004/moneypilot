@@ -7,9 +7,11 @@ import com.yourname.moneypilot.data.repository.TransactionRepository
 import com.yourname.moneypilot.ui.common.BaseViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.yourname.moneypilot.data.repository.WalletRepository
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import java.time.LocalDate  // ADDED
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.UUID
@@ -19,34 +21,44 @@ import kotlin.math.ceil
 data class BigBillsState(
     val unpaidBills: List<BigBillEntity> = emptyList(),
     val paidBills: List<BigBillEntity> = emptyList(),
+    val wallets: List<WalletEntity> = emptyList(),
     val totalPendingAmount: Double = 0.0
 )
 
 @HiltViewModel
 class BigBillsViewModel @Inject constructor(
     private val bigBillRepository: BigBillRepository,
+    private val walletRepository: WalletRepository,
     private val transactionRepository: TransactionRepository
 ) : BaseViewModel<BigBillsState>() {
 
     init {
-        loadBigBills()
+        loadData()
     }
 
-    private fun loadBigBills() {
+    private fun loadData() {
         viewModelScope.launch {
             _uiState.value = ScreenState.Loading
-            bigBillRepository.getAllBigBills().collectLatest { allBills ->
+            combine(
+                bigBillRepository.getAllBigBills(),
+                walletRepository.getAllWallets()
+            ) { allBills, wallets ->
                 val unpaid = allBills.filter { !it.isPaid }
                 val paid = allBills.filter { it.isPaid }
                 val pendingAmount = unpaid.sumOf { it.amount }
 
-                _uiState.value = ScreenState.Success(
-                    BigBillsState(
-                        unpaidBills = unpaid,
-                        paidBills = paid,
-                        totalPendingAmount = pendingAmount
-                    )
+                BigBillsState(
+                    unpaidBills = unpaid,
+                    paidBills = paid,
+                    wallets = wallets,
+                    totalPendingAmount = pendingAmount
                 )
+            }.collectLatest { state ->
+                if (state.unpaidBills.isEmpty() && state.paidBills.isEmpty()) {
+                    _uiState.value = ScreenState.Empty
+                } else {
+                    _uiState.value = ScreenState.Success(state)
+                }
             }
         }
     }
@@ -56,7 +68,7 @@ class BigBillsViewModel @Inject constructor(
             try {
                 bigBillRepository.updateBigBill(bill.copy(isPaid = true, updatedAt = LocalDateTime.now()))
 
-                bill.linkedWalletId?.let { walletId ->
+                bill.reserveWalletId?.let { walletId ->
                     transactionRepository.insertTransaction(
                         TransactionEntity(
                             id = UUID.randomUUID().toString(),
@@ -64,9 +76,9 @@ class BigBillsViewModel @Inject constructor(
                             categoryId = bill.categoryId,
                             type = TransactionType.Expense,
                             amount = bill.amount,
-                            note = "Settled Big Bill: ${bill.name}",
+                            note = "Paid Planned Expense: ${bill.name}",
                             dateTime = LocalDateTime.now(),
-                            transactionSourceType = "BIG_BILL_SETTLEMENT"
+                            transactionSourceType = "PLANNED_EXPENSE_SETTLEMENT"
                         )
                     )
                 }
@@ -75,6 +87,7 @@ class BigBillsViewModel @Inject constructor(
                     val nextDueDate = when (bill.recurrenceType) {
                         BillRecurrence.MONTHLY -> bill.dueDate.plusMonths(1)
                         BillRecurrence.QUARTERLY -> bill.dueDate.plusMonths(3)
+                        BillRecurrence.HALF_YEARLY -> bill.dueDate.plusMonths(6)
                         BillRecurrence.ANNUALLY -> bill.dueDate.plusYears(1)
                         else -> bill.dueDate
                     }
@@ -84,7 +97,7 @@ class BigBillsViewModel @Inject constructor(
                             amount = bill.amount,
                             dueDate = nextDueDate,
                             categoryId = bill.categoryId,
-                            linkedWalletId = bill.linkedWalletId,
+                            reserveWalletId = bill.reserveWalletId,
                             recurrenceType = bill.recurrenceType,
                             isPaid = false,
                             notes = bill.notes
@@ -101,23 +114,27 @@ class BigBillsViewModel @Inject constructor(
         }
     }
 
-    fun createMonthlyTransferForBill(bill: BigBillEntity) {
+    fun recordReserveTransfer(bill: BigBillEntity, sourceWalletId: Long, amount: Double) {
         viewModelScope.launch {
-            if (bill.linkedWalletId == null) return@launch
-            val monthsRemaining = ChronoUnit.MONTHS.between(LocalDate.now(), bill.dueDate).coerceAtLeast(1)
-            val monthlyAmount = ceil(bill.amount / monthsRemaining)
-
+            val targetWalletId = bill.reserveWalletId ?: return@launch
+            
             val transaction = TransactionEntity(
                 id = UUID.randomUUID().toString(),
-                walletFromId = bill.linkedWalletId,
-                categoryId = bill.categoryId,
-                type = TransactionType.Expense,
-                amount = monthlyAmount,
-                note = "Auto-reserve for ${bill.name}",
+                walletFromId = sourceWalletId,
+                walletToId = targetWalletId,
+                type = TransactionType.Transfer,
+                amount = amount,
+                note = "Reserve for ${bill.name}",
                 dateTime = LocalDateTime.now(),
-                transactionSourceType = "AUTO_RESERVE"
+                transactionSourceType = "PLANNED_EXPENSE_RESERVE"
             )
-            transactionRepository.insertTransaction(transaction)
+            transactionRepository.createTransfer(transaction)
+            
+            // Update local reserved amount tracking
+            bigBillRepository.updateBigBill(bill.copy(
+                reservedAmount = bill.reservedAmount + amount,
+                updatedAt = LocalDateTime.now()
+            ))
         }
     }
 }
