@@ -88,7 +88,12 @@ class BudgetsViewModel @Inject constructor(
     }
 
     fun onDateChange(newDate: LocalDate) {
-        _state.update { it.copy(selectedDate = newDate) }
+        _state.update { it.copy(
+            selectedDate = newDate,
+            totalBudget = 0.0,
+            totalSpent = 0.0,
+            budgets = emptyList()
+        ) }
     }
 
     private fun loadAdvisories() {

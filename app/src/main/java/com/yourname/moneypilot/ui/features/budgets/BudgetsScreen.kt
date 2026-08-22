@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,43 +48,44 @@ fun BudgetsScreen(
     viewModel: BudgetsViewModel = hiltViewModel(),
     mainViewModel: MainViewModel = hiltViewModel()
 ) {
+    val budgetsState by viewModel.state.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val preferences by mainViewModel.userPreferences.collectAsState()
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
     val currencySymbol = rememberCurrencySymbol()
     
-    val budgetsState by viewModel.state.collectAsState()
-    val state = (uiState as? ScreenState.Success)?.data
     val selectedMonthStr = budgetsState.selectedDate.toString()
+    
+    val lazyListState = rememberLazyListState()
+    val isScrolling = lazyListState.isScrollInProgress
+    val fabExpanded by remember { derivedStateOf { !isScrolling } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Month Navigator
-            state?.let { s ->
-                BudgetMonthNavigator(
-                    selectedDate = s.selectedDate,
-                    onDateChange = { viewModel.onDateChange(it) }
-                )
-                
-                // Budget Overview
-                BudgetsOverviewCard(
-                    totalBudget = s.totalBudget,
-                    totalSpent = s.totalSpent,
-                    currencySymbol = currencySymbol,
-                    isPrivacyMode = isPrivacyMode
-                )
-            }
+            // Month Navigator & Summary (Stay visible during loading)
+            BudgetMonthNavigator(
+                selectedDate = budgetsState.selectedDate,
+                onDateChange = { viewModel.onDateChange(it) }
+            )
+            
+            BudgetsOverviewCard(
+                totalBudget = budgetsState.totalBudget,
+                totalSpent = budgetsState.totalSpent,
+                currencySymbol = currencySymbol,
+                isPrivacyMode = isPrivacyMode
+            )
 
             when (val currentUiState = uiState) {
                 is ScreenState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
                     }
                 }
                 is ScreenState.Success -> {
                     val data = currentUiState.data
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        state = lazyListState,
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(top = 4.dp, bottom = 88.dp)
                     ) {
@@ -92,43 +94,46 @@ fun BudgetsScreen(
                             items(data.advisories) { advisory ->
                                 BudgetAdvisoryCard(advisory, isPrivacyMode)
                             }
+                            item { Spacer(modifier = Modifier.height(4.dp)) }
                         }
 
                         items(data.budgets, key = { it.budget.id }) { budgetDetails ->
-                            // PERFORMANCE FIX: Removed staggering animations that cause jank during scroll
-                            CompactBudgetItem(
+                            BudgetListItem(
                                 budgetDetails = budgetDetails, 
                                 isPrivacyMode = isPrivacyMode, 
                                 currencySymbol = currencySymbol,
                                 onClick = { 
-                                    onEditBudget(budgetDetails.budget.id, data.selectedDate.toString()) 
+                                    onEditBudget(budgetDetails.budget.id, budgetsState.selectedDate.toString()) 
                                 }
                             )
                         }
                     }
                 }
                 is ScreenState.Error -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text(text = "Error: ${currentUiState.message}", color = MaterialTheme.colorScheme.error)
                     }
                 }
                 is ScreenState.Empty -> {
-                    BudgetsEmptyState(onAddBudget = { onAddBudget(selectedMonthStr) })
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        BudgetsEmptyState(onAddBudget = { onAddBudget(selectedMonthStr) })
+                    }
                 }
             }
         }
 
-        FloatingActionButton(
+        ExtendedFloatingActionButton(
+            expanded = fabExpanded,
             onClick = { onAddBudget(selectedMonthStr) },
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            text = { Text("Add Budget") },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
                 .padding(bottom = 8.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Budget", modifier = Modifier.size(28.dp))
-        }
+        )
     }
 }
 
@@ -137,21 +142,37 @@ fun BudgetMonthNavigator(selectedDate: LocalDate, onDateChange: (LocalDate) -> U
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.Center,
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = { onDateChange(selectedDate.minusMonths(1)) }) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Prev Month")
+        IconButton(
+            onClick = { onDateChange(selectedDate.minusMonths(1)) },
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription = "Prev Month",
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
+        
         Text(
             text = "${selectedDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${selectedDate.year}",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Black,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            color = MaterialTheme.colorScheme.onSurface
         )
-        IconButton(onClick = { onDateChange(selectedDate.plusMonths(1)) }) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next Month")
+        
+        IconButton(
+            onClick = { onDateChange(selectedDate.plusMonths(1)) },
+            modifier = Modifier.size(32.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Next Month",
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -159,31 +180,38 @@ fun BudgetMonthNavigator(selectedDate: LocalDate, onDateChange: (LocalDate) -> U
 @Composable
 fun BudgetsOverviewCard(totalBudget: Double, totalSpent: Double, currencySymbol: String, isPrivacyMode: Boolean) {
     val usage = if (totalBudget > 0) (totalSpent / totalBudget).toFloat() else 0f
+    val remaining = (totalBudget - totalSpent).coerceAtLeast(0.0)
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column {
-                    Text("Total Budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                    Text(
-                        if(isPrivacyMode) "••••" else totalBudget.formatCompact(currencySymbol),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Total Spent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("Total Spent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         if(isPrivacyMode) "••••" else totalSpent.formatCompact(currencySymbol),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Black,
                         color = if (totalSpent > totalBudget) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("of ${if(isPrivacyMode) "••••" else totalBudget.formatCompact(currencySymbol)} budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = if(isPrivacyMode) "••••" else remaining.formatCompact(currencySymbol) + " left",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -192,26 +220,17 @@ fun BudgetsOverviewCard(totalBudget: Double, totalSpent: Double, currencySymbol:
             
             LinearProgressIndicator(
                 progress = { usage.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
                 color = if (usage >= 1f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 strokeCap = StrokeCap.Round
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "${(usage * 100).toInt()}% Used",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (usage >= 1f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.End)
             )
         }
     }
 }
 
 @Composable
-fun CompactBudgetItem(
+fun BudgetListItem(
     budgetDetails: BudgetWithDetails, 
     isPrivacyMode: Boolean, 
     currencySymbol: String,
@@ -233,35 +252,35 @@ fun CompactBudgetItem(
         else -> MaterialTheme.colorScheme.primary
     }
     
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp), // Sharper premium look
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
     ) {
-        Column(modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(32.dp),
-                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(36.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = statusColor.copy(alpha = 0.1f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(text = category.icon, fontSize = 16.sp)
+                        Text(text = category.icon, fontSize = 18.sp)
                     }
                 }
                 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = category.name, 
-                        style = MaterialTheme.typography.bodyMedium, 
+                        style = MaterialTheme.typography.bodyLarge, 
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -270,44 +289,29 @@ fun CompactBudgetItem(
                         Text(
                             text = subcategory.name,
                             style = MaterialTheme.typography.labelSmall,
-                            fontSize = 8.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
                 }
                 
-                Text(
-                    text = "${(usage * 100).toInt()}%",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = statusColor,
-                    fontWeight = FontWeight.Black
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                val displaySpent = if(isPrivacyMode) "••••" else budget.spentAmount.formatCompact(currencySymbol)
-                val displayLimit = if(isPrivacyMode) "••••" else budget.amount.formatCompact(currencySymbol)
-                
-                Text(
-                    text = "$displaySpent / $displayLimit",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black
-                )
-                
-                if (budget.isRecurring) {
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Recurring",
+                        text = "${(usage * 100).toInt()}%",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = statusColor,
+                        fontWeight = FontWeight.Black
+                    )
+                    val displaySpent = if(isPrivacyMode) "••••" else budget.spentAmount.formatCompact(currencySymbol)
+                    val displayLimit = if(isPrivacyMode) "••••" else budget.amount.formatCompact(currencySymbol)
+                    Text(
+                        text = "$displaySpent / $displayLimit",
                         style = MaterialTheme.typography.labelSmall,
-                        fontSize = 8.sp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
+            
+            Spacer(modifier = Modifier.height(8.dp))
 
             LinearProgressIndicator(
                 progress = { usage.coerceIn(0f, 1f) },
@@ -365,9 +369,9 @@ fun BudgetsEmptyState(onAddBudget: () -> Unit) {
 fun BudgetAdvisoryCard(advisory: BudgetAdvisory, isPrivacyMode: Boolean) {
     val colors = LocalFinanceColors.current
     val cardColor = when(advisory.type) {
-        AdvisoryType.OPTIMIZE -> Color(0xFF00A36C).copy(alpha = 0.1f)
-        AdvisoryType.INCREASE -> colors.warning.copy(alpha = 0.1f)
-        AdvisoryType.CAUTION -> colors.expense.copy(alpha = 0.1f)
+        AdvisoryType.OPTIMIZE -> Color(0xFF00A36C).copy(alpha = 0.08f)
+        AdvisoryType.INCREASE -> colors.warning.copy(alpha = 0.08f)
+        AdvisoryType.CAUTION -> colors.expense.copy(alpha = 0.08f)
     }
     val iconColor = when(advisory.type) {
         AdvisoryType.OPTIMIZE -> Color(0xFF00A36C)
@@ -375,21 +379,37 @@ fun BudgetAdvisoryCard(advisory: BudgetAdvisory, isPrivacyMode: Boolean) {
         AdvisoryType.CAUTION -> colors.expense
     }
 
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        border = androidx.compose.foundation.BorderStroke(1.dp, iconColor.copy(alpha = 0.3f)),
-        shape = RoundedCornerShape(16.dp)
+        color = cardColor,
+        shape = RoundedCornerShape(12.dp),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, iconColor.copy(alpha = 0.2f))
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.AutoAwesome, null, tint = iconColor, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
+        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoAwesome, null, tint = iconColor, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(advisory.categoryName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Text(advisory.reason, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                val suggestion = if(isPrivacyMode) "••••" else "₹${advisory.suggestedLimit.toInt()}"
-                Text("Suggested limit: $suggestion", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = iconColor)
+                Text(
+                    text = advisory.categoryName, 
+                    style = MaterialTheme.typography.labelMedium, 
+                    fontWeight = FontWeight.Bold,
+                    color = iconColor
+                )
+                Text(
+                    text = advisory.reason, 
+                    style = MaterialTheme.typography.bodySmall, 
+                    maxLines = 1, 
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
             }
+            val suggestion = if(isPrivacyMode) "••••" else "₹${advisory.suggestedLimit.toInt()}"
+            Text(
+                text = "Target: $suggestion", 
+                style = MaterialTheme.typography.labelSmall, 
+                fontWeight = FontWeight.Black, 
+                color = iconColor
+            )
         }
     }
 }
