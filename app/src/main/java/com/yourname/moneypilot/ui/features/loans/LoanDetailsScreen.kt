@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.LoanEventEntity
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
+import com.yourname.moneypilot.ui.components.*
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -79,8 +80,9 @@ fun LoanDetailsScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
                 title = { Text(state.loan?.name ?: "Loan Details") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -117,79 +119,26 @@ fun LoanDetailsScreen(
                 ) {
                     // 1. Top Card: Outstanding Principal & Core Stats
                     item {
-                        Card(
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                        ) {
-                            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    "Outstanding Principal", 
-                                    style = MaterialTheme.typography.labelMedium, 
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    fmt.format(snapshot.outstandingPrincipal), 
-                                    style = MaterialTheme.typography.headlineMedium, 
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = (-0.5).sp
-                                )
-                                
-                                val progress = if (snapshot.originalPrincipal > 0) 
-                                    ((snapshot.originalPrincipal - snapshot.outstandingPrincipal) / snapshot.originalPrincipal).toFloat().coerceIn(0f, 1f)
-                                    else 0f
-                                
-                                Spacer(Modifier.height(12.dp))
-                                
-                                LinearProgressIndicator(
-                                    progress = { progress },
-                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    strokeCap = StrokeCap.Round
-                                )
-                                
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        "Paid: ${fmt.format(snapshot.originalPrincipal - snapshot.outstandingPrincipal)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        "Original: ${fmt.format(snapshot.originalPrincipal)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                Spacer(Modifier.height(20.dp))
-
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                    CompactStatItem("${snapshot.currentInterestRate}%", "Interest", Modifier.weight(1f))
-                                    VerticalDivider(Modifier.height(32.dp).padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                                    CompactStatItem(fmt.format(snapshot.currentEmi), "Monthly EMI", Modifier.weight(1.5f))
-                                    VerticalDivider(Modifier.height(32.dp).padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                                    
-                                    val years = snapshot.monthsRemaining / 12
-                                    val months = snapshot.monthsRemaining % 12
-                                    val tenureStr = if (years > 0) "${years}Y ${months}M" else "${months}M"
-                                    CompactStatItem(tenureStr, "Remaining", Modifier.weight(1f))
-                                }
+                        FinancialSummarySurface(
+                            title = "Outstanding Principal",
+                            primaryValue = fmt.format(snapshot.outstandingPrincipal),
+                            progress = if (snapshot.originalPrincipal > 0) 
+                                ((snapshot.originalPrincipal - snapshot.outstandingPrincipal) / snapshot.originalPrincipal).toFloat().coerceIn(0f, 1f)
+                                else 0f,
+                            secondaryInfo = {
+                                SummaryStat("Original", fmt.format(snapshot.originalPrincipal))
+                                SummaryStat("Interest", "${snapshot.currentInterestRate}%")
+                                SummaryStat("EMI", fmt.format(snapshot.currentEmi), color = MaterialTheme.colorScheme.primary)
                             }
-                        }
+                        )
                     }
 
                     // 2. Next EMI Info
                     item {
-                        Card(
+                        GlassSurface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.1f)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f))
+                            opacity = GlassLevel.Medium
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -197,48 +146,49 @@ fun LoanDetailsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column {
-                                    Text("Next EMI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
+                                    Text("Next EMI", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f), fontWeight = FontWeight.Bold)
                                     Text(
                                         "${snapshot.nextDueDate.format(dateFmt)} · ${fmt.format(snapshot.currentEmi)}",
                                         style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.ExtraBold
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
                                     )
                                 }
-                                Icon(Icons.Default.Verified, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(24.dp))
+                                Icon(Icons.Default.Verified, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                             }
                         }
                     }
 
                     // 3. Repayment Timeline
                     item {
-                        Card(
+                        GlassSurface(
                             shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                            opacity = GlassLevel.High
                         ) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Repayment", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
+                                Text("Repayment Status", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = Color.White)
                                 
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column {
-                                        Text("${snapshot.monthsRemaining} months remaining", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                        Text("Started ${loan.startDate.format(monthYearFmt)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${snapshot.monthsRemaining} months remaining", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text("Started ${loan.startDate.format(monthYearFmt)}", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(snapshot.expectedEndDate.format(monthYearFmt), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                        Text("Expected completion", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Target completion", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
                                     }
                                 }
 
-                                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                                HorizontalDivider(thickness = 0.5.dp, color = Color.White.copy(alpha = 0.1f))
 
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column {
-                                        Text("Principal Paid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text(fmt.format(snapshot.totalPrincipalPaid), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                        Text("Principal Paid", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                                        Text(fmt.format(snapshot.totalPrincipalPaid), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
-                                        Text("Interest Paid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text(fmt.format(snapshot.totalInterestPaid), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                                        Text("Interest Paid", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                                        Text(fmt.format(snapshot.totalInterestPaid), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 }
                             }
@@ -247,10 +197,10 @@ fun LoanDetailsScreen(
 
                     // 4. Interest Saved
                     item {
-                        Card(
+                        GlassSurface(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF00A36C).copy(alpha = 0.08f)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00A36C).copy(alpha = 0.2f)),
+                            tint = if(snapshot.interestSavedApprox > 0) Color(0xFF00A36C) else Color.Black,
+                            opacity = GlassLevel.Medium,
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Column(Modifier.padding(16.dp)) {
@@ -264,12 +214,12 @@ fun LoanDetailsScreen(
                                     if (snapshot.interestSavedApprox > 0) fmt.format(snapshot.interestSavedApprox) else "₹0",
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Black,
-                                    color = Color(0xFF00A36C)
+                                    color = if (snapshot.interestSavedApprox > 0) Color(0xFF00C853) else Color.White
                                 )
                                 val savedMsg = if (snapshot.tenureSavedMonths > 0) 
                                     "Saved ${snapshot.tenureSavedMonths} months of tenure" 
-                                    else "Make a prepayment to save interest"
-                                Text(savedMsg, style = MaterialTheme.typography.labelSmall, color = Color(0xFF00A36C).copy(alpha = 0.7f))
+                                    else "Prepay to reduce interest"
+                                Text(savedMsg, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
                             }
                         }
                     }

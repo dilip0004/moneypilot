@@ -1,29 +1,25 @@
 package com.yourname.moneypilot.ui.features.backup
 
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.ui.features.settings.SettingsItem
+import com.yourname.moneypilot.ui.components.*
 import kotlinx.coroutines.flow.collectLatest
-import java.io.File
-import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,9 +33,7 @@ fun BackupScreen(
 
     var showIntegrityDialog by remember { mutableStateOf<BackupViewModel.UiEvent.ShowIntegrityWarning?>(null) }
     var pendingJsonContent by remember { mutableStateOf<String?>(null) }
-    var pendingFileName by remember { mutableStateOf<String?>(null) }
 
-    // Launcher for Saving JSON (Export)
     val saveFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
         onResult = { uri ->
@@ -47,17 +41,13 @@ fun BackupScreen(
                 pendingJsonContent?.let { content ->
                     try {
                         context.contentResolver.openOutputStream(targetUri)?.use { it.write(content.toByteArray()) }
-                    } catch (e: Exception) {
-                        // handled via UI or logging
-                    }
+                    } catch (e: Exception) { }
                 }
             }
             pendingJsonContent = null
-            pendingFileName = null
         }
     )
 
-    // Launcher for Reading JSON (Import/Restore)
     val openFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri ->
@@ -69,7 +59,6 @@ fun BackupScreen(
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
                 is BackupViewModel.UiEvent.FileReady -> {
-                    // Using hardcoded authority to match AndroidManifest.xml configuration
                     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", event.file)
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = event.mimeType
@@ -80,7 +69,6 @@ fun BackupScreen(
                 }
                 is BackupViewModel.UiEvent.SaveJson -> {
                     pendingJsonContent = event.jsonContent
-                    pendingFileName = event.fileName
                     saveFileLauncher.launch(event.fileName)
                 }
                 is BackupViewModel.UiEvent.ShowIntegrityWarning -> {
@@ -96,9 +84,9 @@ fun BackupScreen(
     if (showIntegrityDialog != null) {
         AlertDialog(
             onDismissRequest = { showIntegrityDialog = null },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            icon = { Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Integrity Mismatch Detected") },
-            text = { Text("Your ledger has ${showIntegrityDialog!!.mismatchCount} inconsistencies (wallet balances don't match transaction history). Export anyway?") },
+            text = { Text("Your ledger has ${showIntegrityDialog!!.mismatchCount} inconsistencies. Export anyway?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -106,28 +94,22 @@ fun BackupScreen(
                         showIntegrityDialog = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Export Regardless")
-                }
+                ) { Text("Export") }
             },
-            dismissButton = {
-                TextButton(onClick = { showIntegrityDialog = null }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = { TextButton(onClick = { showIntegrityDialog = null }) { Text("Cancel") } }
         )
     }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text("Data Management") },
-                modifier = Modifier.statusBarsPadding(),
+            GlassTopBar(
+                title = { Text("Data Management", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                     }
                 }
             )
@@ -137,61 +119,52 @@ fun BackupScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 32.dp)
         ) {
-            Text(
-                "Import Tools",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(16.dp)
-            )
-            SettingsItem(
-                title = "Bank Statement Import",
-                subtitle = "Import transactions from bank CSV files",
-                icon = Icons.Default.AccountBalance,
-                onClick = onNavigateToImport
-            )
+            SettingsHeader("Import Tools")
+            SettingsGroupSurface {
+                SettingsItemRow(
+                    title = "Bank Statement Import",
+                    subtitle = "Import transactions from bank CSV files",
+                    icon = Icons.Default.AccountBalance,
+                    onClick = onNavigateToImport
+                )
+            }
             
-            HorizontalDivider()
+            SettingsHeader("Export & Backup")
+            SettingsGroupSurface {
+                SettingsItemRow(
+                    title = "Export to CSV",
+                    subtitle = "Save ledger as a comma-separated file",
+                    icon = Icons.Default.FileDownload,
+                    onClick = { viewModel.exportToCSV() }
+                )
+                SettingsDivider()
+                SettingsItemRow(
+                    title = "Export to Excel",
+                    subtitle = "Professional ledger format (.xml/xlsx)",
+                    icon = Icons.Default.Description,
+                    onClick = { viewModel.exportToExcel() }
+                )
+                SettingsDivider()
+                SettingsItemRow(
+                    title = "Create JSON Backup",
+                    subtitle = "Full database snapshot for safe keeping",
+                    icon = Icons.Default.CloudDownload,
+                    onClick = { viewModel.exportToJson() }
+                )
+            }
             
-            Text(
-                "Export & Backup",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(16.dp)
-            )
-            SettingsItem(
-                title = "Export to CSV",
-                subtitle = "Save ledger as a comma-separated file",
-                icon = Icons.Default.FileDownload,
-                onClick = { viewModel.exportToCSV() }
-            )
-            SettingsItem(
-                title = "Export to Excel",
-                subtitle = "Professional ledger format (.xml/xlsx)",
-                icon = Icons.Default.Description,
-                onClick = { viewModel.exportToExcel() }
-            )
-            SettingsItem(
-                title = "Create JSON Backup",
-                subtitle = "Full database snapshot for safe keeping",
-                icon = Icons.Default.CloudDownload,
-                onClick = { viewModel.exportToJson() }
-            )
-            
-            HorizontalDivider()
-            
-            Text(
-                "Recovery",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(16.dp)
-            )
-            SettingsItem(
-                title = "Restore from JSON",
-                subtitle = "Rebuild database from a backup file",
-                icon = Icons.Default.Restore,
-                onClick = { openFileLauncher.launch(arrayOf("application/json")) }
-            )
+            SettingsHeader("Recovery")
+            SettingsGroupSurface {
+                SettingsItemRow(
+                    title = "Restore from JSON",
+                    subtitle = "Rebuild database from a backup file",
+                    icon = Icons.Default.Restore,
+                    onClick = { openFileLauncher.launch(arrayOf("application/json")) }
+                )
+            }
         }
     }
 }

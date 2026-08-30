@@ -41,7 +41,9 @@ data class UserPreferences(
     val showCategoryAlerts: Boolean = false,
     val budgetAlertsEnabled: Boolean = true,
     val goalProgressEnabled: Boolean = true,
-    val globalReserveWalletId: Long? = null
+    val globalReserveWalletId: Long? = null,
+    val appBackground: String = "DEFAULT", // DEFAULT, NONE, CUSTOM
+    val customBackgroundUri: String? = null
 )
 
 @Singleton
@@ -72,6 +74,8 @@ class UserPreferencesRepository @Inject constructor(
         val BUDGET_ALERTS_ENABLED = booleanPreferencesKey("budget_alerts_enabled")
         val GOAL_PROGRESS_ENABLED = booleanPreferencesKey("goal_progress_enabled")
         val GLOBAL_RESERVE_WALLET_ID = longPreferencesKey("global_reserve_wallet_id")
+        val APP_BACKGROUND = stringPreferencesKey("app_background")
+        val CUSTOM_BACKGROUND_URI = stringPreferencesKey("custom_background_uri")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data
@@ -108,6 +112,8 @@ class UserPreferencesRepository @Inject constructor(
             val budgetAlerts = preferences[PreferencesKeys.BUDGET_ALERTS_ENABLED] ?: true
             val goalProgress = preferences[PreferencesKeys.GOAL_PROGRESS_ENABLED] ?: true
             val globalReserveId = preferences[PreferencesKeys.GLOBAL_RESERVE_WALLET_ID]
+            val appBackground = preferences[PreferencesKeys.APP_BACKGROUND] ?: "DEFAULT"
+            val customBackgroundUri = preferences[PreferencesKeys.CUSTOM_BACKGROUND_URI]
 
             UserPreferences(
                 currency, theme, primaryColor, kbBgColor, kbBoxColor, 
@@ -115,7 +121,8 @@ class UserPreferencesRepository @Inject constructor(
                 summaryTime, useTrueBlack, fontFamily, privacyMode, includeGoals,
                 lastRollover, lastDist, lastReserve,
                 spendingInsights, burnRateAlerts, categoryAlerts,
-                budgetAlerts, goalProgress, globalReserveId
+                budgetAlerts, goalProgress, globalReserveId, appBackground,
+                customBackgroundUri
             )
         }
 
@@ -199,6 +206,17 @@ class UserPreferencesRepository @Inject constructor(
         context.dataStore.edit { 
             if (id == null) it.remove(PreferencesKeys.GLOBAL_RESERVE_WALLET_ID)
             else it[PreferencesKeys.GLOBAL_RESERVE_WALLET_ID] = id 
+        }
+    }
+
+    suspend fun updateAppBackground(background: String) {
+        context.dataStore.edit { it[PreferencesKeys.APP_BACKGROUND] = background }
+    }
+
+    suspend fun updateCustomBackgroundUri(uri: String?) {
+        context.dataStore.edit { 
+            if (uri == null) it.remove(PreferencesKeys.CUSTOM_BACKGROUND_URI)
+            else it[PreferencesKeys.CUSTOM_BACKGROUND_URI] = uri 
         }
     }
 }

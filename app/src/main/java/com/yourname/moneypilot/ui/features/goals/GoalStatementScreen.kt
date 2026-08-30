@@ -13,6 +13,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.MainViewModel
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.common.CompactTransactionItem
 import com.yourname.moneypilot.ui.common.ScreenState
 
@@ -28,9 +31,10 @@ fun GoalStatementScreen(
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             val title = (uiState as? ScreenState.Success)?.data?.goal?.name ?: "Goal Ledger"
-            TopAppBar(
+            GlassTopBar(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
@@ -59,25 +63,21 @@ fun GoalStatementScreen(
                         }
                         
                         item {
-                            Text(
-                                text = "Transaction History",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
+                            SectionHeader("Transaction History")
                         }
 
                         if (data.transactions.isEmpty()) {
                             item {
                                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                                    Text("No transactions yet", style = MaterialTheme.typography.bodyMedium)
+                                    Text("No transactions yet", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.6f))
                                 }
                             }
                         } else {
-                            items(data.transactions) { tx ->
-                                Card(
+                            items(data.transactions, key = { it.transaction.id }) { tx ->
+                                GlassSurface(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = MaterialTheme.shapes.medium
+                                    shape = RoundedCornerShape(12.dp),
+                                    opacity = GlassLevel.High
                                 ) {
                                     Box(Modifier.padding(12.dp)) {
                                         CompactTransactionItem(tx, isPrivacyMode = isPrivacyMode)
@@ -100,34 +100,14 @@ fun GoalStatementScreen(
 
 @Composable
 fun GoalSummaryHeader(goal: com.yourname.moneypilot.data.local.database.entities.GoalEntity, isPrivacyMode: Boolean) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(goal.icon, style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.width(12.dp))
-                Text(goal.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-            
-            val progress = if(goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp),
-                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
-            
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("Saved", style = MaterialTheme.typography.labelSmall)
-                    Text(if(isPrivacyMode) "••••" else "₹${goal.currentAmount}", fontWeight = FontWeight.Bold)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Target", style = MaterialTheme.typography.labelSmall)
-                    Text(if(isPrivacyMode) "••••" else "₹${goal.targetAmount}", fontWeight = FontWeight.Bold)
-                }
-            }
+    FinancialSummarySurface(
+        title = "Savings Progress",
+        primaryValue = if(isPrivacyMode) "••••" else "₹${goal.currentAmount}",
+        progress = if(goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f,
+        secondaryInfo = {
+            SummaryStat(label = "Target", value = if(isPrivacyMode) "••••" else "₹${goal.targetAmount}")
+            val rawProgress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount).toFloat() else 0f
+            SummaryStat(label = "Progress", value = "${(rawProgress * 100).toInt()}%")
         }
-    }
+    )
 }

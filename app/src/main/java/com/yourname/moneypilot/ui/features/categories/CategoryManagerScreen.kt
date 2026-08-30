@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.CategoryEntity
 import com.yourname.moneypilot.data.local.database.entities.SubcategoryEntity
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.common.ScreenState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,10 +64,10 @@ fun CategoryManagerScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text("Categories & Subcategories") },
-                modifier = Modifier.statusBarsPadding(),
+            GlassTopBar(
+                title = { Text("Categories") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

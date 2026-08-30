@@ -1,17 +1,21 @@
 package com.yourname.moneypilot.ui.features.transactions
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.Color
+import com.yourname.moneypilot.ui.components.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.yourname.moneypilot.ui.features.transactions.components.glassTextFieldColors
 import com.yourname.moneypilot.ui.components.AppDateTimePickerField
 import kotlinx.coroutines.flow.collectLatest
 
@@ -37,9 +41,10 @@ fun TransferScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
+            GlassTopBar(
                 title = { Text("Fund Transfer") },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {
@@ -75,7 +80,9 @@ fun TransferScreen(
                     readOnly = true,
                     label = { Text("From Wallet") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fromWalletExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = glassTextFieldColors()
                 )
                 ExposedDropdownMenu(
                     expanded = fromWalletExpanded,
@@ -96,7 +103,8 @@ fun TransferScreen(
             Icon(
                 imageVector = Icons.Default.CompareArrows,
                 contentDescription = "Transfer Icon",
-                modifier = Modifier.align(Alignment.CenterHorizontally).size(32.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally).size(32.dp),
+                tint = Color.White
             )
 
             // To Wallet Dropdown
@@ -110,7 +118,9 @@ fun TransferScreen(
                     readOnly = true,
                     label = { Text("To Wallet") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = toWalletExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = glassTextFieldColors()
                 )
                 ExposedDropdownMenu(
                     expanded = toWalletExpanded,
@@ -133,14 +143,18 @@ fun TransferScreen(
                 onValueChange = { viewModel.onEvent(TransferEvent.EnteredAmount(it)) },
                 label = { Text("Amount") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp),
+                colors = glassTextFieldColors()
             )
 
             OutlinedTextField(
                 value = state.description,
                 onValueChange = { viewModel.onEvent(TransferEvent.EnteredDescription(it)) },
                 label = { Text("Description (Optional)") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = glassTextFieldColors()
             )
 
             Button(

@@ -15,8 +15,12 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferencesRepository: UserPreferencesRepository,
+    private val walletRepository: com.yourname.moneypilot.data.repository.WalletRepository,
     private val notificationScheduler: NotificationScheduler
 ) : ViewModel() {
+
+    val wallets = walletRepository.getAllWallets()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val userPreferences = preferencesRepository.userPreferencesFlow
         .stateIn(
@@ -114,6 +118,24 @@ class SettingsViewModel @Inject constructor(
     fun updateGoalProgressEnabled(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateGoalProgressEnabled(enabled)
+        }
+    }
+
+    fun updateAppBackground(background: String) {
+        viewModelScope.launch {
+            preferencesRepository.updateAppBackground(background)
+        }
+    }
+
+    fun updateCustomBackgroundUri(uri: String?) {
+        viewModelScope.launch {
+            preferencesRepository.updateCustomBackgroundUri(uri)
+        }
+    }
+
+    fun updateGlobalReserveWalletId(id: Long?) {
+        viewModelScope.launch {
+            preferencesRepository.updateGlobalReserveWalletId(id)
         }
     }
 }

@@ -2,14 +2,10 @@ package com.yourname.moneypilot.ui.features.transactions.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import com.yourname.moneypilot.ui.theme.motion.MotionConstants
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -20,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -27,6 +24,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yourname.moneypilot.data.local.database.entities.*
+import com.yourname.moneypilot.ui.theme.motion.MotionConstants
+import androidx.compose.animation.core.*
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -46,18 +45,14 @@ fun TransactionIntentCard(
         label = "intent_card_scale"
     )
 
-    OutlinedCard(
+    Surface(
         onClick = onClick,
         modifier = modifier
             .aspectRatio(1f)
             .graphicsLayer(scaleX = scale, scaleY = scale),
-        interactionSource = interactionSource,
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = color.copy(alpha = 0.05f),
-            contentColor = color
-        ),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(color.copy(alpha = 0.2f)))
+        shape = RoundedCornerShape(24.dp),
+        color = color.copy(alpha = 0.15f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.3f))
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -67,14 +62,15 @@ fun TransactionIntentCard(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(36.dp),
+                tint = color
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                fontWeight = FontWeight.Black,
+                color = Color.White
             )
         }
     }
@@ -88,14 +84,15 @@ fun TransactionDateTimeField(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val color = if (!isConfirmed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val surfaceColor = if (!isConfirmed) Color.Red.copy(alpha = 0.2f) else Color.Black.copy(alpha = 0.3f)
+    val borderColor = if (!isConfirmed) Color.Red else Color.White.copy(alpha = 0.1f)
     
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = color,
-        border = if (!isConfirmed) BorderStroke(2.dp, MaterialTheme.colorScheme.error) else null
+        shape = RoundedCornerShape(12.dp),
+        color = surfaceColor,
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -104,28 +101,31 @@ fun TransactionDateTimeField(
             Icon(
                 imageVector = Icons.Default.CalendarMonth, 
                 contentDescription = null, 
-                tint = if (!isConfirmed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                tint = if (!isConfirmed) Color.Red else Color.White.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Date & Time ${if(!isConfirmed) "(Confirm Required)" else ""}", 
+                    text = "Date & Time ${if(!isConfirmed) "(Action Required)" else ""}", 
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (!isConfirmed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (!isConfirmed) Color.Red else Color.White.copy(alpha = 0.5f),
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = dateTime.format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy - HH:mm")),
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White
                 )
             }
             if (!isConfirmed) {
                 Button(
                     onClick = onConfirm,
                     contentPadding = PaddingValues(horizontal = 12.dp),
-                    modifier = Modifier.height(32.dp)
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Confirm", fontSize = 12.sp)
+                    Text("Confirm", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -156,7 +156,8 @@ fun WalletDropdownSelector(
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium
+            shape = RoundedCornerShape(12.dp),
+            colors = glassTextFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -198,8 +199,9 @@ fun CategoryDropdownSelector(
             label = { Text("Category") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            isError = selectedCategoryId == null
+            shape = RoundedCornerShape(12.dp),
+            isError = selectedCategoryId == null,
+            colors = glassTextFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -244,11 +246,13 @@ fun AmountField(
             modifier = Modifier.fillMaxWidth(),
             readOnly = true,
             prefix = { Text("$currencySymbol ") },
-            shape = MaterialTheme.shapes.medium,
+            shape = RoundedCornerShape(12.dp),
             textStyle = LocalTextStyle.current.copy(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black
-            )
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White
+            ),
+            colors = glassTextFieldColors()
         )
         Box(
             modifier = Modifier
@@ -281,7 +285,8 @@ fun SubcategoryDropdownSelector(
             label = { Text("Subcategory (Optional)") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium
+            shape = RoundedCornerShape(12.dp),
+            colors = glassTextFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -317,7 +322,8 @@ fun DescriptionField(
             imeAction = ImeAction.Done,
             capitalization = KeyboardCapitalization.Sentences
         ),
-        shape = MaterialTheme.shapes.medium
+        shape = RoundedCornerShape(12.dp),
+        colors = glassTextFieldColors()
     )
 }
 
@@ -342,10 +348,11 @@ fun GoalDropdownSelector(
             onValueChange = {},
             readOnly = true,
             label = { Text("Savings Goal") },
-            leadingIcon = { Icon(Icons.Default.Flag, null) },
+            leadingIcon = { Icon(Icons.Default.Flag, null, tint = Color.White.copy(alpha = 0.6f)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium
+            shape = RoundedCornerShape(12.dp),
+            colors = glassTextFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -386,10 +393,11 @@ fun LoanDropdownSelector(
             onValueChange = {},
             readOnly = true,
             label = { Text("Liability / Loan") },
-            leadingIcon = { Icon(Icons.Default.CreditScore, null) },
+            leadingIcon = { Icon(Icons.Default.CreditScore, null, tint = Color.White.copy(alpha = 0.6f)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium
+            shape = RoundedCornerShape(12.dp),
+            colors = glassTextFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -430,10 +438,11 @@ fun InvestmentDropdownSelector(
             onValueChange = {},
             readOnly = true,
             label = { Text("Asset / Investment") },
-            leadingIcon = { Icon(Icons.AutoMirrored.Filled.TrendingUp, null) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = Color.White.copy(alpha = 0.6f)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium
+            shape = RoundedCornerShape(12.dp),
+            colors = glassTextFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -452,3 +461,16 @@ fun InvestmentDropdownSelector(
         }
     }
 }
+
+@Composable
+fun glassTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    unfocusedContainerColor = Color.Black.copy(alpha = 0.25f),
+    focusedContainerColor = Color.Black.copy(alpha = 0.4f),
+    unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedTextColor = Color.White,
+    focusedTextColor = Color.White,
+    unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+    focusedLabelColor = Color.White,
+    cursorColor = Color.White
+)

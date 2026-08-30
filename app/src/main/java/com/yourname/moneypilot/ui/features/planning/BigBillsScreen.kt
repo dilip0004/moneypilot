@@ -1,5 +1,7 @@
 package com.yourname.moneypilot.ui.features.planning
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.BigBillEntity
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -56,39 +59,42 @@ fun PlannedExpensesScreen(
         )
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAddPlannedExpense,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.testTag("planned_expense_add_fab")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Planned Expense")
-            }
-        }
-    ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             when (val state = uiState) {
-                is ScreenState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                is ScreenState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
                 is ScreenState.Success -> {
                     PlannedExpenseList(
                         state.data,
                         isPrivacyMode = isPrivacyMode,
                         onMarkPaid = { viewModel.markAsPaid(it) },
-                        onDelete = { viewModel.deleteBill(it) },
                         onEdit = onEditPlannedExpense,
                         onRecordReserve = { showReserveDialog = it }
                     )
                 }
                 is ScreenState.Empty -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No planned expenses yet.", modifier = Modifier.testTag("planned_expenses_empty_state"))
-                    }
+                    EmptyState(
+                        icon = Icons.Default.Savings,
+                        title = "No planned expenses",
+                        subtitle = "Plan for future committed costs like insurance or fees.",
+                        action = {
+                            Button(onClick = onAddPlannedExpense) { Text("Add Expense") }
+                        }
+                    )
                 }
                 else -> {}
             }
         }
+
+        MoneyPilotFAB(
+            onClick = onAddPlannedExpense,
+            icon = Icons.Default.Add,
+            label = "Plan Expense",
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .padding(bottom = 8.dp)
+        )
     }
 }
 
@@ -97,101 +103,53 @@ fun PlannedExpenseList(
     data: BigBillsState,
     isPrivacyMode: Boolean,
     onMarkPaid: (BigBillEntity) -> Unit,
-    onDelete: (BigBillEntity) -> Unit,
     onEdit: (Long) -> Unit,
     onRecordReserve: (BigBillEntity) -> Unit
 ) {
+    val financeColors = LocalFinanceColors.current
+    val totalReserved = data.unpaidBills.sumOf { it.reservedAmount }
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).testTag("planned_expenses_list"),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
     ) {
         item {
-            PlannedExpensesSummaryCard(data, isPrivacyMode)
+            FinancialSummarySurface(
+                title = "Planned Commitment",
+                primaryValue = if(isPrivacyMode) "••••" else "₹ ${data.totalPendingAmount.toInt()}",
+                progress = if(data.totalPendingAmount > 0) (totalReserved / data.totalPendingAmount).toFloat() else 0f,
+                secondaryInfo = {
+                    SummaryItem(label = "Reserved", value = if(isPrivacyMode) "••••" else "₹ ${totalReserved.toInt()}", color = financeColors.income)
+                    val needed = (data.totalPendingAmount - totalReserved).coerceAtLeast(0.0)
+                    SummaryItem(label = "Still Needed", value = if(isPrivacyMode) "••••" else "₹ ${needed.toInt()}", color = financeColors.expense)
+                }
+            )
         }
 
         if (data.unpaidBills.isNotEmpty()) {
-            item {
-                Text("Upcoming Expenses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            item { SectionHeader("Upcoming") }
+            items(data.unpaidBills, key = { it.id }) { bill ->
+                PlannedExpenseListItem(bill, isPrivacyMode, onMarkPaid, onRecordReserve, onEdit)
             }
-                    items(data.unpaidBills, key = { it.id }) { bill ->
-                        PlannedExpenseItem(
-                            bill = bill,
-                            isPrivacyMode = isPrivacyMode,
-                            onMarkPaid = onMarkPaid,
-                            onDelete = onDelete,
-                            onEdit = onEdit,
-                            onRecordReserve = onRecordReserve
-                        )
-                    }
         }
 
         if (data.paidBills.isNotEmpty()) {
-            item {
-                Text("Paid / Completed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-                    items(data.paidBills, key = { it.id }) { bill ->
-                        PlannedExpenseItem(
-                            bill = bill,
-                            isPrivacyMode = isPrivacyMode,
-                            onMarkPaid = onMarkPaid,
-                            onDelete = onDelete,
-                            onEdit = onEdit,
-                            onRecordReserve = onRecordReserve
-                        )
-                    }
-        }
-    }
-}
-
-@Composable
-fun PlannedExpensesSummaryCard(data: BigBillsState, isPrivacyMode: Boolean) {
-    val financeColors = LocalFinanceColors.current
-    
-    Card(
-        modifier = Modifier.fillMaxWidth().testTag("planned_expenses_summary"),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text("Planned Expenses", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Column {
-                    Text("Total Upcoming", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        if(isPrivacyMode) "••••" else "₹ ${data.totalPendingAmount}",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    val needed = (data.totalPendingAmount - data.unpaidBills.sumOf { it.reservedAmount }).coerceAtLeast(0.0)
-                    Text("Still Needed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        if(isPrivacyMode) "••••" else "₹ $needed",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = financeColors.expense
-                    )
-                }
+            item { SectionHeader("Settled") }
+            items(data.paidBills, key = { it.id }) { bill ->
+                PlannedExpenseListItem(bill, isPrivacyMode, onMarkPaid, onRecordReserve, onEdit)
             }
         }
     }
 }
 
 @Composable
-fun PlannedExpenseItem(
+fun PlannedExpenseListItem(
     bill: BigBillEntity,
     isPrivacyMode: Boolean,
     onMarkPaid: (BigBillEntity) -> Unit,
-    onDelete: (BigBillEntity) -> Unit,
-    onEdit: (Long) -> Unit,
-    onRecordReserve: (BigBillEntity) -> Unit
+    onRecordReserve: (BigBillEntity) -> Unit,
+    onEdit: (Long) -> Unit
 ) {
     val financeColors = LocalFinanceColors.current
     val progress = if (bill.amount > 0) (bill.reservedAmount / bill.amount).toFloat().coerceIn(0f, 1f) else 0f
@@ -199,86 +157,63 @@ fun PlannedExpenseItem(
     val monthsRemaining = ChronoUnit.MONTHS.between(LocalDate.now(), bill.dueDate).coerceAtLeast(1)
     val monthlyTarget = ceil((bill.amount - bill.reservedAmount) / monthsRemaining).coerceAtLeast(0.0)
 
-    Card(
+    GlassSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onEdit(bill.id) }
-            .testTag("planned_expense_card_${bill.id}"),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .clickable { onEdit(bill.id) },
+        shape = RoundedCornerShape(12.dp),
+        opacity = GlassLevel.High
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(text = bill.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.White)
                     Text(
-                        text = bill.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Due: ${bill.dueDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
+                        text = "Due ${bill.dueDate.format(DateTimeFormatter.ofPattern("dd MMM"))} • ${bill.recurrenceType}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color.White.copy(alpha = 0.65f)
                     )
                 }
                 Text(
-                    text = if(isPrivacyMode) "••••" else "₹ ${bill.amount}",
+                    text = if(isPrivacyMode) "••••" else "₹ ${bill.amount.toInt()}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
-                    color = if (bill.isPaid) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
+                    color = Color.White
                 )
             }
 
             if (!bill.isPaid) {
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        "Reserved: ${if(isPrivacyMode) "••••" else "₹ ${bill.reservedAmount}"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                
+                Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(
                     progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).padding(vertical = 4.dp).clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                    color = if(progress >= 0.9f) financeColors.income else MaterialTheme.colorScheme.primary,
+                    trackColor = Color.White.copy(alpha = 0.1f),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
                 )
                 
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (monthlyTarget > 0) "Next: ₹${monthlyTarget.toInt()}/mo" else "Funded",
+                        text = if (monthlyTarget > 0) "Save ₹${monthlyTarget.toInt()}/mo" else "Fully Funded",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     
-                    Row {
-                        TextButton(onClick = { onRecordReserve(bill) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                            Text("Record Reserve", fontSize = 11.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(
+                            onClick = { onRecordReserve(bill) },
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp)
+                        ) {
+                            Text("Record Reserve", fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
                         }
-                        IconButton(onClick = { onMarkPaid(bill) }) {
+                        IconButton(onClick = { onMarkPaid(bill) }, modifier = Modifier.size(32.dp)) {
                             Icon(Icons.Default.CheckCircle, null, tint = financeColors.income, modifier = Modifier.size(20.dp))
-                        }
-                        IconButton(onClick = { onDelete(bill) }) {
-                            Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -301,30 +236,31 @@ fun RecordReserveDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Record Reserve Transfer") },
+        title = { Text("Record Reserve Transfer", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Transfer money from your spending account to your reserve account: ${bill.name}")
+                Text("Deduct from spending account and move to reserve: ${bill.name}", style = MaterialTheme.typography.bodySmall)
                 
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
-                    label = { Text("Amount to Reserve") },
+                    label = { Text("Amount") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
-                    prefix = { Text("₹ ") }
+                    prefix = { Text("₹ ") },
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = it }
                 ) {
-                    val walletName = wallets.find { it.id == selectedWalletId }?.name ?: "Select Source Wallet"
+                    val walletName = wallets.find { it.id == selectedWalletId }?.name ?: "Select Wallet"
                     OutlinedTextField(
                         value = walletName,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("From Wallet") },
+                        label = { Text("Source Wallet") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -347,7 +283,7 @@ fun RecordReserveDialog(
             Button(
                 enabled = amount.toDoubleOrNull() != null && selectedWalletId != null,
                 onClick = { onConfirm(selectedWalletId!!, amount.toDouble()) }
-            ) { Text("Confirm Transfer") }
+            ) { Text("Confirm") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )

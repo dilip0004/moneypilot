@@ -18,7 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.yourname.moneypilot.ui.components.AppDatePickerField
+import com.yourname.moneypilot.ui.components.*
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,9 +45,11 @@ fun AddEditInvestmentScreen(
     val assetTypes = listOf("STOCKS", "CRYPTO", "GOLD", "FD", "RD", "PPF", "SIP", "REAL_ESTATE")
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
+            GlassTopBar(
                 title = { Text("Log ${state.type.replace("_", " ")}", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onPopBackStack) {

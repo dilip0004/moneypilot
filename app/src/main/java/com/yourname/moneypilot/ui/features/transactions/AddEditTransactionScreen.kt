@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.components.CalculatorKeyboard
 import com.yourname.moneypilot.ui.features.transactions.components.*
 import com.yourname.moneypilot.util.rememberCurrencySymbol
@@ -144,9 +145,10 @@ fun AddEditTransactionScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
+            GlassTopBar(
                 title = { 
                     Text(
                         text = if (state.isEditing) "Edit Record" else "Quick Record",
@@ -269,13 +271,13 @@ fun IntentSelector(onIntentSelected: (QuickRecordIntent) -> Unit) {
             "What do you want to record?",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = Color.White
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             "Choose a type to continue",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = Color.White.copy(alpha = 0.7f)
         )
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -331,14 +333,15 @@ fun DynamicFormContainer(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (state.reviewMode) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                modifier = Modifier.fillMaxWidth()
+            GlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                opacity = GlassLevel.High,
+                tint = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Message, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
-                    Text("Parsed from SMS. Please review and accept.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Text("Parsed from SMS. Please review and accept.", style = MaterialTheme.typography.bodySmall, color = Color.White, modifier = Modifier.weight(1f))
                     TextButton(onClick = { onEvent(AddEditTransactionEvent.AcceptSmsReview) }) { Text("Accept") }
                 }
             }
@@ -363,15 +366,11 @@ fun DynamicFormContainer(
             ) {
                 state.availableTags.forEach { tag ->
                     val isSelected = state.selectedTagIds.contains(tag.id)
-                    FilterChip(
+                    GlassChip(
                         selected = isSelected,
                         onClick = { onEvent(AddEditTransactionEvent.ToggleTag(tag.id)) },
-                        label = { Text(tag.name, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(tag.color).copy(alpha = 0.3f),
-                            selectedLabelColor = Color(tag.color)
-                        ),
-                        leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) } } else null
+                        label = tag.name,
+                        icon = if (isSelected) Icons.Default.Check else null
                     )
                 }
             }

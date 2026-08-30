@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.InvestmentEntity
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.format.DateTimeFormatter
 
@@ -32,8 +33,9 @@ fun InvestmentDetailsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
                 title = { Text("Holding Details") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -68,7 +70,7 @@ fun InvestmentDetailsScreen(
                         }
 
                         item {
-                            Text("Holding Parameters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            SectionHeader("Holding Parameters")
                         }
 
                         item {
@@ -77,7 +79,7 @@ fun InvestmentDetailsScreen(
 
                         if (data.history.isNotEmpty()) {
                             item {
-                                Text("Contribution History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                SectionHeader("Contribution History")
                             }
                             items(data.history) { activity ->
                                 // Reuse item from main screen
@@ -99,47 +101,26 @@ fun InvestmentHeader(inv: InvestmentEntity, invested: Double, current: Double) {
     val gain = current - invested
     val isProfit = gain >= 0
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))
-    ) {
-        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(inv.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Text(
-                "₹ ${String.format("%.0f", current)}",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Black
+    FinancialSummarySurface(
+        title = inv.name,
+        primaryValue = "₹ ${String.format("%.0f", current)}",
+        secondaryInfo = {
+            SummaryStat(label = "Invested", value = "₹ ${String.format("%.0f", invested)}")
+            SummaryStat(
+                label = "Gain/Loss", 
+                value = "${if (isProfit) "+" else ""}₹ ${gain.toInt()}",
+                color = if (isProfit) financeColors.income else financeColors.expense
             )
-            
-            Spacer(Modifier.height(16.dp))
-            
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Invested", style = MaterialTheme.typography.labelSmall)
-                    Text("₹ ${String.format("%.0f", invested)}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                }
-                VerticalDivider(Modifier.height(32.dp))
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Gain/Loss", style = MaterialTheme.typography.labelSmall)
-                    Text(
-                        "${if (isProfit) "+" else ""}₹ ${gain.toInt()}",
-                        color = if (isProfit) financeColors.income else financeColors.expense,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
         }
-    }
+    )
 }
 
 @Composable
 fun ParametersCard(inv: InvestmentEntity) {
-    Card(
+    GlassSurface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+        opacity = GlassLevel.High
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ParameterRow("Asset Type", inv.type)
@@ -163,7 +144,7 @@ fun ParametersCard(inv: InvestmentEntity) {
 @Composable
 fun ParameterRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.White)
     }
 }

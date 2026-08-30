@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
@@ -20,11 +21,14 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.MainViewModel
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
+import com.yourname.moneypilot.util.formatCompact
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +40,7 @@ fun WalletStatementScreen(
     val state by viewModel.state.collectAsState()
     val preferences by mainViewModel.userPreferences.collectAsState()
     val isPrivacyMode = preferences?.isPrivacyModeEnabled ?: false
+    val currencySymbol = preferences?.currency ?: "₹"
     
     var showDateRangePicker by remember { mutableStateOf(false) }
 
@@ -71,15 +76,16 @@ fun WalletStatementScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
+            GlassTopBar(
                 title = { 
                     Column {
-                        Text(state.wallet?.name ?: "Statement", style = MaterialTheme.typography.titleMedium)
+                        Text(state.wallet?.name ?: "Statement", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
                             "${state.startDate.format(DateTimeFormatter.ofPattern("dd MMM"))} - ${state.endDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy"))}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.White.copy(alpha = 0.6f)
                         )
                     }
                 },
@@ -98,7 +104,7 @@ fun WalletStatementScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             // Header Stats Area
-            StatementSummary(state, isPrivacyMode)
+            StatementSummary(state, isPrivacyMode, currencySymbol)
 
             // Table Header
             StatementTableHeader()
@@ -106,18 +112,19 @@ fun WalletStatementScreen(
             // Ledger Body
             if (state.isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(state.transactions) { txDetails ->
-                        LedgerRow(txDetails, state.wallet?.id ?: -1L, isPrivacyMode)
+                    items(state.transactions, key = { it.transaction.id }) { txDetails ->
+                        LedgerRow(txDetails, state.wallet?.id ?: -1L, isPrivacyMode, currencySymbol)
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 16.dp),
                             thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
                         )
                     }
+                    item { Spacer(Modifier.height(32.dp)) }
                 }
             }
         }
@@ -125,7 +132,7 @@ fun WalletStatementScreen(
 }
 
 @Composable
-fun StatementSummary(state: WalletStatementState, isPrivacyMode: Boolean) {
+fun StatementSummary(state: WalletStatementState, isPrivacyMode: Boolean, currencySymbol: String) {
     val financeColors = LocalFinanceColors.current
     val walletId = state.wallet?.id ?: -1L
     
@@ -137,28 +144,18 @@ fun StatementSummary(state: WalletStatementState, isPrivacyMode: Boolean) {
         it.transaction.type == TransactionType.Expense || (it.transaction.type == TransactionType.Transfer && it.transaction.walletFromId == walletId)
     }.sumOf { it.transaction.amount }
 
-    Card(
-        modifier = Modifier.padding(16.dp).fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            SummaryColumn("Opening", if(isPrivacyMode) "••••" else "₹${state.openingBalance}")
-            SummaryColumn("Inflow", if(isPrivacyMode) "••••" else "+₹$totalInflow", color = financeColors.income)
-            SummaryColumn("Outflow", if(isPrivacyMode) "••••" else "-₹$totalOutflow", color = financeColors.expense)
-            SummaryColumn("Closing", if(isPrivacyMode) "••••" else "₹${state.openingBalance + totalInflow - totalOutflow}")
-        }
-    }
-}
+    val closing = state.openingBalance + totalInflow - totalOutflow
 
-@Composable
-fun SummaryColumn(label: String, value: String, color: Color = MaterialTheme.colorScheme.onSurface) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = color)
-    }
+    FinancialSummarySurface(
+        title = "Ledger Summary",
+        primaryValue = if(isPrivacyMode) "••••" else currencySymbol + closing.toInt(),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        secondaryInfo = {
+            SummaryItem(label = "Opening", value = if(isPrivacyMode) "••••" else state.openingBalance.formatCompact(currencySymbol), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SummaryItem(label = "Inflow", value = if(isPrivacyMode) "••••" else "+" + totalInflow.formatCompact(currencySymbol), color = financeColors.income)
+            SummaryItem(label = "Outflow", value = if(isPrivacyMode) "••••" else "−" + totalOutflow.formatCompact(currencySymbol), color = financeColors.expense)
+        }
+    )
 }
 
 @Composable
@@ -166,14 +163,14 @@ fun StatementTableHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
             .padding(vertical = 8.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("Date", modifier = Modifier.weight(0.15f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        Text("Description", modifier = Modifier.weight(0.45f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        Text("Type", modifier = Modifier.weight(0.15f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        Text("Amount", modifier = Modifier.weight(0.25f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
+        Text("DATE", modifier = Modifier.weight(0.18f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("DESCRIPTION", modifier = Modifier.weight(0.42f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("TYPE", modifier = Modifier.weight(0.15f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("AMOUNT", modifier = Modifier.weight(0.25f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, textAlign = TextAlign.End, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -181,18 +178,18 @@ fun StatementTableHeader() {
 fun LedgerRow(
     txDetails: com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails, 
     currentWalletId: Long,
-    isPrivacyMode: Boolean
+    isPrivacyMode: Boolean,
+    currencySymbol: String
 ) {
     val tx = txDetails.transaction
     val financeColors = LocalFinanceColors.current
     
-    // Determine if it's a Credit (CR), Debit (DR), or Transfer (TR) relative to THIS wallet
     val (typeLabel, amountColor, sign) = when (tx.type) {
         TransactionType.Income -> Triple("CR", financeColors.income, "+")
-        TransactionType.Expense -> Triple("DR", financeColors.expense, "-")
+        TransactionType.Expense -> Triple("DR", financeColors.expense, "−")
         TransactionType.Transfer -> {
             if (tx.walletToId == currentWalletId) Triple("TR", financeColors.income, "+")
-            else Triple("TR", financeColors.expense, "-")
+            else Triple("TR", financeColors.expense, "−")
         }
     }
 
@@ -203,15 +200,21 @@ fun LedgerRow(
         // Date
         Text(
             text = tx.dateTime.format(DateTimeFormatter.ofPattern("dd MMM")),
-            modifier = Modifier.weight(0.15f),
+            modifier = Modifier.weight(0.18f),
             style = MaterialTheme.typography.bodySmall,
-            fontSize = 11.sp
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
         )
 
         // Description / Category
-        Column(modifier = Modifier.weight(0.45f)) {
+        Column(modifier = Modifier.weight(0.42f)) {
+            val title = when {
+                txDetails.goal != null -> "🎯 ${txDetails.goal.name}"
+                txDetails.category != null -> txDetails.category.name
+                else -> "Transfer"
+            }
             Text(
-                text = txDetails.category?.name ?: "Transfer",
+                text = title,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
@@ -230,22 +233,30 @@ fun LedgerRow(
         }
 
         // Type (CR/DR/TR)
-        Text(
-            text = typeLabel,
+        Surface(
             modifier = Modifier.weight(0.15f),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold,
-            textAlign = TextAlign.Center,
-            color = amountColor.copy(alpha = 0.8f)
-        )
+            color = amountColor.copy(alpha = 0.1f),
+            shape = RoundedCornerShape(4.dp)
+        ) {
+            Text(
+                text = typeLabel,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+                color = amountColor,
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+        }
 
         // Amount
-        val displayAmount = if(isPrivacyMode) "••••" else "$sign₹${tx.amount}"
+        val displayAmount = if(isPrivacyMode) "••••" 
+        else "$sign$currencySymbol${if(tx.amount % 1.0 == 0.0) tx.amount.toInt() else String.format(Locale.getDefault(), "%.2f", tx.amount)}"
+        
         Text(
             text = displayAmount,
             modifier = Modifier.weight(0.25f),
             style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Black,
             textAlign = TextAlign.End,
             color = amountColor
         )

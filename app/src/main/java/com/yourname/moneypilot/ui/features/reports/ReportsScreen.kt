@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
-import com.yourname.moneypilot.ui.components.AppDateNavigator
-import com.yourname.moneypilot.ui.components.MoneyPilotSegmentedControl
+import com.yourname.moneypilot.ui.components.*
+import com.yourname.moneypilot.ui.components.SummaryItem
 import com.yourname.moneypilot.ui.theme.IncomeGreen
 import com.yourname.moneypilot.ui.theme.ExpenseRed
 import com.yourname.moneypilot.ui.theme.motion.MotionConstants
@@ -67,39 +67,16 @@ fun ReportsScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.Transparent,
         topBar = {
-            Surface(tonalElevation = 4.dp, shadowElevation = 4.dp) {
-                Column(
-                    modifier = Modifier
-                        .statusBarsPadding()
-                        .padding(bottom = 8.dp)
-                ) {
-                    // Spec 1: Period Selector
-                    MoneyPilotSegmentedControl(
-                        options = TimeRange.entries,
-                        selectedOption = reportState.timeRange,
-                        onOptionSelected = { viewModel.onTimeRangeChange(it) },
-                        labelExtractor = { it.name.lowercase().replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.ROOT) else char.toString() } },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                        iconExtractor = { Icons.Default.CalendarToday }
-                    )
-
-                    // Spec 2: Report Type Selector
-                    MoneyPilotSegmentedControl(
-                        options = ReportType.entries,
-                        selectedOption = reportState.reportType,
-                        onOptionSelected = { viewModel.onReportTypeChange(it) },
-                        labelExtractor = { 
-                            when(it) {
-                                ReportType.EXPENSE -> "Expense"
-                                ReportType.INCOME -> "Income"
-                                ReportType.CASH_FLOW -> "Cash Flow"
-                            }
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+            GlassTopBar(
+                title = { Text("Spending Analysis", fontWeight = FontWeight.Black) },
+                actions = {
+                    IconButton(onClick = { /* Filter logic */ }) {
+                        Icon(Icons.Default.FilterList, null)
+                    }
                 }
-            }
+            )
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -114,6 +91,33 @@ fun ReportsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp)
                     ) {
+                        item {
+                            // Period Selector
+                            MoneyPilotSegmentedControl(
+                                options = TimeRange.entries,
+                                selectedOption = reportState.timeRange,
+                                onOptionSelected = { viewModel.onTimeRangeChange(it) },
+                                labelExtractor = { it.name.lowercase().replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.ROOT) else char.toString() } },
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                iconExtractor = { Icons.Default.CalendarToday }
+                            )
+
+                            // Report Type Selector
+                            MoneyPilotSegmentedControl(
+                                options = ReportType.entries,
+                                selectedOption = reportState.reportType,
+                                onOptionSelected = { viewModel.onReportTypeChange(it) },
+                                labelExtractor = { 
+                                    when(it) {
+                                        ReportType.EXPENSE -> "Expense"
+                                        ReportType.INCOME -> "Income"
+                                        ReportType.CASH_FLOW -> "Cash Flow"
+                                    }
+                                },
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+
                         item {
                             val label = when (data.timeRange) {
                                 TimeRange.WEEKLY -> {
@@ -146,40 +150,19 @@ fun ReportsScreen(
                         }
 
                         item {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                KPICard(
-                                    label = "Savings Rate",
-                                    value = if(isPrivacyMode) "••%" else "${(data.keyAnalytics.savingsRate?.times(100))?.toInt() ?: 0}%",
-                                    subLabel = if(data.keyAnalytics.savingsRate == null) "No Income" else "Saved",
-                                    icon = Icons.Default.AutoGraph,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                KPICard(
-                                    label = "Daily Avg",
-                                    value = if(isPrivacyMode) "••••" else data.keyAnalytics.dailyAverage?.formatCurrency(currencySymbol) ?: "₹0",
-                                    subLabel = "per day",
-                                    icon = Icons.Default.Speed,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                KPICard(
-                                    label = "Entries",
-                                    value = "${data.keyAnalytics.transactionCount}",
-                                    subLabel = "Transactions",
-                                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-
-                        item {
-                            TotalAmountCard(
-                                type = data.reportType,
-                                amount = data.totalAmount,
-                                currencySymbol = currencySymbol,
-                                isPrivacyMode = isPrivacyMode
+                            FinancialSummarySurface(
+                                title = when(data.reportType) {
+                                    ReportType.EXPENSE -> "Total Expenses"
+                                    ReportType.INCOME -> "Total Income"
+                                    ReportType.CASH_FLOW -> "Net Cash Flow"
+                                },
+                                primaryValue = if(isPrivacyMode) "••••" else data.totalAmount.formatCurrency(currencySymbol),
+                                progress = if(data.reportType == ReportType.EXPENSE && data.totalAmount > 0) 
+                                    (data.totalAmount / (data.totalAmount + 1000)).toFloat() else null, // Placeholder logic
+                                secondaryInfo = {
+                                    SummaryItem(label = "Daily Avg", value = if(isPrivacyMode) "••••" else data.keyAnalytics.dailyAverage?.formatCurrency(currencySymbol) ?: "₹0", color = MaterialTheme.colorScheme.primary)
+                                    SummaryItem(label = "Savings Rate", value = if(isPrivacyMode) "••%" else "${((data.keyAnalytics.savingsRate ?: 0f) * 100).toInt()}%", color = Color(0xFF00A36C))
+                                }
                             )
                         }
 
@@ -224,10 +207,24 @@ fun ReportsScreen(
                                 data.categoryBreakdown,
                                 key = { rank -> "${rank.name}_${rank.subcategoryId}_${rank.categoryId}" }
                             ) { rank ->
-                                SpendingBreakdownItem(
-                                    rank = rank,
-                                    color = CHART_COLORS[data.categoryBreakdown.indexOf(rank) % CHART_COLORS.size],
-                                    isPrivacyMode = isPrivacyMode
+                                MoneyPilotListItem(
+                                    icon = rank.icon,
+                                    title = rank.name,
+                                    subtitle = rank.subcategoryName,
+                                    statusColor = CHART_COLORS[data.categoryBreakdown.indexOf(rank) % CHART_COLORS.size],
+                                    onClick = { /* Filter by category */ },
+                                    trailingContent = {
+                                        Text(
+                                            text = if(isPrivacyMode) "••••" else rank.formattedAmount, 
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                        Text(
+                                            text = rank.formattedPercentage,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 )
                             }
                         }

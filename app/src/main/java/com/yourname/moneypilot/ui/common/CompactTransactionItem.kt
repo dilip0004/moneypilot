@@ -1,8 +1,9 @@
 package com.yourname.moneypilot.ui.common
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -13,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import com.yourname.moneypilot.data.local.database.dao.TransactionWithDetails
 import com.yourname.moneypilot.data.local.database.entities.TransactionType
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
+import androidx.compose.foundation.shape.RoundedCornerShape
 import java.util.Locale
 import java.time.format.DateTimeFormatter
 
@@ -41,6 +43,9 @@ fun CompactTransactionItem(
     }
 
     val categoryName = when {
+        txWithDetails.goal != null -> "🎯 ${txWithDetails.goal.name}"
+        txWithDetails.loan != null -> "🏦 ${txWithDetails.loan.name}"
+        txWithDetails.investment != null -> "📈 ${txWithDetails.investment.name}"
         txWithDetails.category != null && txWithDetails.subcategory != null ->
             "${txWithDetails.category.name} > ${txWithDetails.subcategory.name}"
         txWithDetails.category != null ->
@@ -48,55 +53,98 @@ fun CompactTransactionItem(
         else -> null
     }
 
+    val icon = when {
+        txWithDetails.goal != null -> txWithDetails.goal.icon
+        txWithDetails.category != null -> txWithDetails.category.icon
+        else -> "❓"
+    }
+
     val title = when {
-        !tx.note.isNullOrBlank() && categoryName == null -> tx.note!!
+        !tx.note.isNullOrBlank() && (txWithDetails.category == null && txWithDetails.goal == null) -> tx.note!!
         categoryName != null -> categoryName
         else -> "Uncategorized"
     }
 
-    val displayTitle = if (semanticLabel.isNotBlank()) "$title ($semanticLabel)" else title
+    val displayTitle = title
 
-    Column(modifier = Modifier.padding(vertical = 2.dp, horizontal = 0.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 0.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon / Category Surface
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = Color.White.copy(alpha = 0.1f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text = displayTitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = icon,
+                    fontSize = 20.sp
                 )
             }
+        }
 
-            val isRefund = tx.note?.contains("Refund", ignoreCase = true) == true
-            val (sign, color) = when {
-                tx.type == TransactionType.Income || isRefund -> "+" to financeColors.income
-                tx.type == TransactionType.Expense -> "-" to financeColors.expense
-                tx.type == TransactionType.Transfer -> "" to MaterialTheme.colorScheme.onSurfaceVariant
-                else -> "" to MaterialTheme.colorScheme.onSurface
-            }
+        Spacer(modifier = Modifier.width(12.dp))
 
-            val displayAmount = if (isPrivacyMode) "••••" 
-            else "${sign}₹${if(tx.amount % 1.0 == 0.0) tx.amount.toInt() else String.format(Locale.getDefault(), "%.2f", tx.amount)}"
-
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                displayAmount,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Black,
-                color = color
+                text = displayTitle,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = Color.White
+            )
+            
+            val walletName = txWithDetails.walletFrom?.name ?: txWithDetails.walletTo?.name ?: "Unknown"
+            val timeStr = tx.dateTime.toLocalTime().format(DateTimeFormatter.ofPattern(timePattern))
+            val subName = txWithDetails.subcategory?.name
+            val metadata = buildString {
+                append(walletName)
+                if (subName != null) append(" • $subName")
+                append(" • $timeStr")
+            }
+            
+            Text(
+                text = metadata,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.65f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 
-        val timeStr = tx.dateTime.toLocalTime().format(DateTimeFormatter.ofPattern(timePattern))
-        val desc = tx.note?.trim() ?: ""
-        val secondLine = if (desc.isNotEmpty() && title != desc) "$timeStr • $desc" else timeStr
+        val isRefund = tx.isRefund
+        val (sign, color) = when {
+            tx.type == TransactionType.Income || isRefund -> "+" to financeColors.income
+            tx.type == TransactionType.Expense -> "−" to financeColors.expense
+            tx.type == TransactionType.Transfer -> "" to Color.White.copy(alpha = 0.7f)
+            else -> "" to Color.White
+        }
 
-        Text(
-            text = secondLine,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        val displayAmount = if (isPrivacyMode) "••••" 
+        else "${sign}₹${if(tx.amount % 1.0 == 0.0) tx.amount.toInt() else String.format(Locale.getDefault(), "%.2f", tx.amount)}"
+
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = displayAmount,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Black,
+                color = color,
+                textAlign = TextAlign.End
+            )
+            if (semanticLabel.isNotBlank() && semanticLabel != "Spent" && semanticLabel != "Received") {
+                Text(
+                    text = semanticLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color.copy(alpha = 0.8f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }

@@ -19,7 +19,7 @@ fun ExpenseForm(
     currencySymbol: String,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TransactionDateTimeField(
             dateTime = state.date,
             isConfirmed = state.isDateConfirmed,
@@ -68,7 +68,7 @@ fun IncomeForm(
     currencySymbol: String,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TransactionDateTimeField(
             dateTime = state.date,
             isConfirmed = state.isDateConfirmed,
@@ -110,7 +110,7 @@ fun GoalForm(
     currencySymbol: String,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TransactionDateTimeField(
             dateTime = state.date,
             isConfirmed = state.isDateConfirmed,
@@ -152,7 +152,7 @@ fun LoanForm(
     currencySymbol: String,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TransactionDateTimeField(
             dateTime = state.date,
             isConfirmed = state.isDateConfirmed,
@@ -205,7 +205,7 @@ fun InvestmentForm(
     currencySymbol: String,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TransactionDateTimeField(
             dateTime = state.date,
             isConfirmed = state.isDateConfirmed,
@@ -246,7 +246,7 @@ fun RefundForm(
     currencySymbol: String,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TransactionDateTimeField(
             dateTime = state.date,
             isConfirmed = state.isDateConfirmed,

@@ -10,8 +10,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.yourname.moneypilot.ui.components.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -74,28 +78,22 @@ fun TransactionsScreen(
         }
     }
 
+    val lazyListState = rememberLazyListState()
+    val fabExpanded by remember { derivedStateOf { !lazyListState.isScrollInProgress } }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (showSearchBar) {
-                val primary = MaterialTheme.colorScheme.primary
-                val gradient = Brush.linearGradient(
-                    colors = listOf(primary, primary.copy(alpha = 0.8f))
-                )
-                
-                FloatingActionButton(
+                MoneyPilotFAB(
                     onClick = onAddTransaction,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier
-                        .testTag("transactions_fab_add")
-                        .padding(bottom = 12.dp)
-                        .background(gradient, CircleShape)
-                        .size(56.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Transaction", modifier = Modifier.size(28.dp))
-                }
+                    icon = Icons.Default.Add,
+                    label = "Add Record",
+                    expanded = fabExpanded,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
             }
         }
     ) { innerPadding ->
@@ -131,9 +129,14 @@ fun TransactionsScreen(
                                 shape = RoundedCornerShape(12.dp),
                                 textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                    unfocusedBorderColor = Color.Transparent
+                                    unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                                    focusedContainerColor = Color.Black.copy(alpha = 0.5f),
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                                    focusedLabelColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedTextColor = Color.White
                                 )
                             )
                             ExposedDropdownMenu(
@@ -165,9 +168,12 @@ fun TransactionsScreen(
                         singleLine = true,
                         textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                            unfocusedBorderColor = Color.Transparent
+                            unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                            focusedContainerColor = Color.Black.copy(alpha = 0.5f),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.1f),
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedTextColor = Color.White,
+                            focusedTextColor = Color.White
                         )
                     )
                 }
@@ -186,7 +192,8 @@ fun TransactionsScreen(
                             onEdit = onEditTransaction,
                             onDelete = { viewModel.deleteTransaction(it) },
                             currencySymbol = currencySymbol,
-                            isPrivacyMode = isPrivacyMode
+                            isPrivacyMode = isPrivacyMode,
+                            lazyListState = lazyListState
                         )
                     }
                     is ScreenState.Error -> {
@@ -210,47 +217,54 @@ fun TransactionHistoryContent(
     onEdit: (String) -> Unit,
     onDelete: (TransactionEntity) -> Unit,
     currencySymbol: String,
-    isPrivacyMode: Boolean
+    isPrivacyMode: Boolean,
+    lazyListState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState()
 ) {
     val financeColors = LocalFinanceColors.current
 
     LazyColumn(
+        state = lazyListState,
         modifier = Modifier
             .fillMaxSize()
             .testTag("tx_daily_list"),
-        verticalArrangement = Arrangement.spacedBy(4.dp), // Tighter vertical spacing
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 120.dp) // Proper bottom padding
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 120.dp)
     ) {
         state.groupedTransactions.forEach { grouped ->
-            // Spec 8: Root cause fix for glitch - stable keys and remove AnimatedVisibility inside list
-            item(key = "header_${grouped.date}") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItemPlacement()
-                        .padding(top = 16.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            stickyHeader(key = "header_${grouped.date}") {
+                GlassSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    opacity = GlassLevel.Low,
+                    blur = 0.dp, // Performance: no blur on scrollable sticky headers
+                    shape = RoundedCornerShape(0.dp),
+                    borderAlpha = 0.1f
                 ) {
-                    Text(
-                        text = grouped.dateLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Black
-                    )
-                    
-                    val amount = grouped.dailyTotal
-                    val isNegative = amount < 0
-                    val absAmount = Math.abs(amount)
-                    val displayTotal = if (isPrivacyMode) "••••" 
-                    else "${if(isNegative) "−" else ""}$currencySymbol${if(absAmount % 1.0 == 0.0) absAmount.toInt() else String.format("%.2f", absAmount)}"
-                    
-                    Text(
-                        text = displayTotal,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (amount >= 0) financeColors.income else financeColors.expense
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = grouped.dateLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Black
+                        )
+                        
+                        val amount = grouped.dailyTotal
+                        val isNegative = amount < 0
+                        val absAmount = Math.abs(amount)
+                        val displayTotal = if (isPrivacyMode) "••••" 
+                        else "${if(isNegative) "−" else ""}$currencySymbol${if(absAmount % 1.0 == 0.0) absAmount.toInt() else String.format("%.2f", absAmount)}"
+                        
+                        Text(
+                            text = displayTotal,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (amount >= 0) financeColors.income else financeColors.expense
+                        )
+                    }
                 }
             }
             
@@ -258,13 +272,11 @@ fun TransactionHistoryContent(
                 items = grouped.transactions,
                 key = { it.transaction.id }
             ) { transactionWithDetails ->
-                // Spec 8: Removed LaunchedEffect delay and AnimatedVisibility which caused visual jumps during scroll
                 TransactionListItemWithMenu(
                     transactionWithDetails = transactionWithDetails,
                     onEdit = { onEdit(transactionWithDetails.transaction.id) },
                     onDelete = { onDelete(transactionWithDetails.transaction) },
-                    isPrivacyMode = isPrivacyMode,
-                    modifier = Modifier.animateItemPlacement()
+                    isPrivacyMode = isPrivacyMode
                 )
             }
         }
@@ -281,11 +293,10 @@ fun TransactionListItemWithMenu(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier) {
-        Surface(
+    Box(modifier = modifier.padding(vertical = 2.dp)) {
+        GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp)) // Subtle rounding for group items
                 .testTag("tx_item_${transactionWithDetails.transaction.id}")
                 .pointerInput(Unit) {
                     detectTapGestures(
@@ -293,9 +304,12 @@ fun TransactionListItemWithMenu(
                         onTap = { onEdit() }
                     )
                 },
-            color = Color.Transparent // Keep it lightweight
+            opacity = GlassLevel.High,
+            shape = RoundedCornerShape(12.dp)
         ) {
-            CompactTransactionItem(transactionWithDetails, isPrivacyMode = isPrivacyMode)
+            Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                CompactTransactionItem(transactionWithDetails, isPrivacyMode = isPrivacyMode)
+            }
         }
 
         DropdownMenu(

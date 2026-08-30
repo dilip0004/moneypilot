@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yourname.moneypilot.ui.common.CompactTransactionItem
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 import java.time.LocalDate
 import java.time.YearMonth
@@ -55,9 +56,10 @@ fun CalendarScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Card(
+            GlassSurface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                opacity = GlassLevel.High
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     CalendarGrid(
@@ -76,7 +78,7 @@ fun CalendarScreen(
                 text = calendarState.selectedDate.format(DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy")),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary
+                color = Color.White
             )
         }
 
@@ -85,12 +87,16 @@ fun CalendarScreen(
             val income = selSummary?.totalIncome ?: 0.0
             val expense = selSummary?.totalExpense ?: 0.0
             val total = income - expense
-            TotalsRow(income = income, expense = expense, total = total, isPrivacyMode = isPrivacyMode)
-            HorizontalDivider(
-                modifier = Modifier.padding(top = 8.dp),
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
+            
+            GlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                opacity = GlassLevel.Medium,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    TotalsRow(income = income, expense = expense, total = total, isPrivacyMode = isPrivacyMode)
+                }
+            }
         }
 
         if (calendarState.selectedDateTransactions.isEmpty()) {
@@ -99,14 +105,15 @@ fun CalendarScreen(
                     modifier = Modifier.fillMaxWidth().height(100.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No records for this day", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("No records for this day", color = Color.White.copy(alpha = 0.6f))
                 }
             }
         } else {
-            items(calendarState.selectedDateTransactions) { transactionWithDetails ->
-                Card(
+            items(calendarState.selectedDateTransactions, key = { it.transaction.id }) { transactionWithDetails ->
+                GlassSurface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    opacity = GlassLevel.High
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         CompactTransactionItem(

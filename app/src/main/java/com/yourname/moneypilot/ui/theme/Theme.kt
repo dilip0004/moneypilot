@@ -34,17 +34,23 @@ fun MoneyPilotTheme(
         )
         darkTheme -> darkColorScheme(
             primary = accentColor,
+            secondary = accentColor.copy(alpha = 0.8f),
+            tertiary = Color(0xFF00C853),
             error = financeColors.expense,
-            background = Color(0xFF1C1C1E),
-            surface = Color(0xFF1C1C1E),
+            background = Color(0xFF0D1117),
+            surface = Color(0xFF161B22),
             onBackground = Color(0xFFE6E1E5),
-            onSurface = Color(0xFFE6E1E5)
+            onSurface = Color.White,
+            surfaceVariant = Color(0xFF21262D),
+            onSurfaceVariant = Color(0xFF8E8E93)
         )
         else -> lightColorScheme(
             primary = accentColor,
+            secondary = accentColor.copy(alpha = 0.8f),
+            tertiary = Color(0xFF00C853),
             error = financeColors.expense,
             onPrimary = Color.White,
-            background = Color.White,
+            background = Color(0xFFF0F2F5),
             surface = Color.White,
             onBackground = Color(0xFF1C1C1E),
             onSurface = Color(0xFF1C1C1E),

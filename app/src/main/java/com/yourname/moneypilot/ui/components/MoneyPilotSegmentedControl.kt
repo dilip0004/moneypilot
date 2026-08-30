@@ -20,7 +20,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -42,44 +41,33 @@ fun <T> MoneyPilotSegmentedControl(
     val selectedIndex = options.indexOf(selectedOption)
     val primary = MaterialTheme.colorScheme.primary
     
-    // Spec 4 & 12: Accent-derived luminous gradient (Polished intensity)
-    val selectedGradient = remember(primary) {
-        Brush.linearGradient(
-            colors = listOf(
-                primary,
-                primary.copy(alpha = 0.85f),
-                primary.copy(alpha = 0.7f)
-            )
-        )
-    }
-
+    // Glass aesthetic for the container
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f))
-            .border(0.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
     ) {
         val maxWidth = this.maxWidth
         val itemWidth = maxWidth / options.size
         
-        // Spec 13: Smooth selection animation
         val indicatorOffset by animateDpAsState(
             targetValue = itemWidth * selectedIndex,
             animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
             label = "indicator_offset"
         )
 
-        // Spec 2: Luminous gradient background for selected option
+        // Glass pill for selection
         Box(
             modifier = Modifier
                 .offset(x = indicatorOffset)
                 .width(itemWidth)
                 .fillMaxHeight()
-                .padding(3.dp)
-                .background(selectedGradient, RoundedCornerShape(10.dp))
-                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                .padding(4.dp)
+                .background(primary.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                .border(0.5.dp, primary.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
         )
 
         // Labels
@@ -106,14 +94,14 @@ fun <T> MoneyPilotSegmentedControl(
                                 imageVector = icon ?: Icons.Default.Check,
                                 contentDescription = null,
                                 modifier = Modifier.size(12.dp).padding(end = 4.dp),
-                                tint = Color.White
+                                tint = Color.White // Active icon should be white
                             )
                         }
                         Text(
                             text = labelExtractor(option),
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
                             maxLines = 1
                         )
                     }

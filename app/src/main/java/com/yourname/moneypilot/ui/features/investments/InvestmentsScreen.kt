@@ -26,6 +26,7 @@ import com.yourname.moneypilot.data.local.database.entities.InvestmentEntity
 import com.yourname.moneypilot.data.local.database.entities.WalletEntity
 import com.yourname.moneypilot.ui.MainViewModel
 import com.yourname.moneypilot.ui.common.ScreenState
+import com.yourname.moneypilot.ui.components.*
 import com.yourname.moneypilot.ui.theme.LocalFinanceColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,17 +82,16 @@ fun InvestmentsScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
         floatingActionButton = {
-            FloatingActionButton(
+            MoneyPilotFAB(
                 onClick = onAddInvestment,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                icon = Icons.Default.Add,
+                label = "New Investment",
                 modifier = Modifier
-                    .padding(bottom = 16.dp) // Extra spacing from bottom nav
+                    .padding(bottom = 12.dp)
                     .testTag("investment_add_fab")
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Investment")
-            }
+            )
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
